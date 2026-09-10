@@ -1,0 +1,10 @@
+{
+  "name": "project-patchwork",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "텍스트 UI 기반 커맨드 턴제 로그라이트",
+  "scripts": {
+    "validate": "node tools/validate.mjs"
+  }
+}
