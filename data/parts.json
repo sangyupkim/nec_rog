@@ -9,20 +9,20 @@
     "skills": [], "passive": "start_spd_rank_1", "drop_from": ["m_bonehound"] },
   { "id": "part_head_fungal_cap", "name_template": "{mod}{owner} 균모", "owner": "곰팡이 시체의",
     "slot": "head", "rarity": "common", "integrity": 6,
-    "stats": { "hp": 6, "atk": 0, "def": 2, "eva": 0, "spd": 0, "focus": 3 },
+    "stats": { "hp": 24, "atk": 0, "def": 2, "eva": 0, "spd": 0, "focus": 3 },
     "skills": ["sk_spore_burst"], "passive": null, "drop_from": ["m_fungal"] },
 
   { "id": "part_body_fungal_ribcage", "name_template": "{mod}{owner} 흉곽", "owner": "곰팡이 시체의",
     "slot": "body", "rarity": "common", "integrity": 8, "def_element": "부패",
-    "stats": { "hp": 34, "atk": 0, "def": 9, "eva": 0, "spd": -2, "focus": 0 },
+    "stats": { "hp": 260, "atk": 0, "def": 9, "eva": 0, "spd": -2, "focus": 0 },
     "skills": ["sk_iron_wall"], "passive": null, "drop_from": ["m_fungal"] },
   { "id": "part_body_goblin_torso", "name_template": "{mod}{owner} 몸통", "owner": "고블린의",
     "slot": "body", "rarity": "common", "integrity": 6, "def_element": "참격",
-    "stats": { "hp": 26, "atk": 1, "def": 5, "eva": 2, "spd": 1, "focus": 0 },
+    "stats": { "hp": 210, "atk": 1, "def": 5, "eva": 2, "spd": 1, "focus": 0 },
     "skills": ["sk_brace"], "passive": null, "drop_from": ["m_goblin"] },
   { "id": "part_body_ogre_hide", "name_template": "{mod}{owner} 가죽", "owner": "오우거의",
     "slot": "body", "rarity": "rare", "integrity": 7, "def_element": "타격",
-    "stats": { "hp": 48, "atk": 3, "def": 12, "eva": -4, "spd": -4, "focus": 0 },
+    "stats": { "hp": 340, "atk": 3, "def": 12, "eva": -4, "spd": -4, "focus": 0 },
     "skills": ["sk_iron_wall", "sk_regenerate"], "passive": null, "drop_from": ["m_ogre"] },
 
   { "id": "part_arm_goblin_claw", "name_template": "{mod}{owner} 발톱팔", "owner": "고블린의",
@@ -39,7 +39,7 @@
     "skills": ["sk_bone_spear"], "passive": null, "drop_from": ["m_bonehound"] },
   { "id": "part_arm_fungal_limb", "name_template": "{mod}{owner} 팔", "owner": "곰팡이 시체의",
     "slot": "arm", "rarity": "common", "integrity": 7,
-    "stats": { "hp": 4, "atk": 4, "def": 2, "eva": 0, "spd": 0, "focus": 1 },
+    "stats": { "hp": 16, "atk": 4, "def": 2, "eva": 0, "spd": 0, "focus": 1 },
     "skills": ["sk_spore_burst", "sk_regenerate"], "passive": null, "drop_from": ["m_fungal"] },
 
   { "id": "part_leg_goblin_hop", "name_template": "{mod}{owner} 다리", "owner": "고블린의",
@@ -52,6 +52,6 @@
     "skills": ["sk_pounce", "sk_hamstring"], "passive": null, "drop_from": ["m_bonehound"] },
   { "id": "part_leg_ogre_stump", "name_template": "{mod}{owner} 다리", "owner": "오우거의",
     "slot": "leg", "rarity": "rare", "integrity": 6,
-    "stats": { "hp": 10, "atk": 2, "def": 4, "eva": -3, "spd": 2, "focus": 0 },
+    "stats": { "hp": 40, "atk": 2, "def": 4, "eva": -3, "spd": 2, "focus": 0 },
     "skills": ["sk_brace"], "passive": null, "drop_from": ["m_ogre"] }
 ]
