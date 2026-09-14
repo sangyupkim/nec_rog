@@ -1,0 +1,14 @@
+[
+  { "id": "sm_skeleton", "name": "해골 병사", "hp": 30, "duration": 3, "taunt": 40,
+    "action": { "op": "attack", "power": 30, "element": "참격" },
+    "text": "해골 병사가 녹슨 검을 베어든다." },
+  { "id": "sm_crow", "name": "시체 까마귀", "hp": 14, "duration": 2, "taunt": 25,
+    "action": { "op": "attack", "power": 12, "element": "참격", "rank": { "stat": "eva", "delta": -1 } },
+    "text": "까마귀가 적의 눈을 노리고 달려든다." },
+  { "id": "sm_shield", "name": "뼈 방패", "hp": 45, "duration": 2, "taunt": 100,
+    "action": { "op": "guard" },
+    "text": "뼈 방패가 골렘 앞을 가로막는다." },
+  { "id": "sm_plague", "name": "역병 시체", "hp": 1, "duration": 1, "taunt": 0,
+    "action": { "op": "burst", "status": { "id": "중독", "stacks": 6 } },
+    "text": "역병 시체가 부풀어 오르다 터진다." }
+]

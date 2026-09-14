@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Project Patchwork</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%92%80%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#0F1009; --panel:#171A11; --panel-2:#1E2217; --sunken:#0A0B06;
+  --ink:#E8E4D5; --ink-soft:#C3BEAA; --muted:#8B866E;
+  --line:#2C3124; --line-soft:#222618;
+  --accent:#A6C46C; --accent-dim:#6E8A42; --accent-bg:#1E2616;
+  --danger:#D4825A; --danger-bg:#2B1A12;
+  --gold:#D6B65C;
+  --el-참격:#C9CDD4; --el-타격:#C79A6B; --el-화염:#E0794A; --el-냉기:#7FB6D8;
+  --el-독:#9FBF5A; --el-부패:#8A9B57; --el-신성:#E6D99B;
+  --display:"Gowun Batang","Nanum Myeongjo",Georgia,serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--body);font-weight:350;font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ── 전체 틀 ─────────────────────────────── */
+#app{
+  height:100dvh;display:grid;
+  grid-template-rows:auto 1fr;
+  max-width:1400px;margin:0 auto;
+}
+#topbar{
+  display:flex;flex-wrap:wrap;gap:.3rem 1.1rem;align-items:baseline;
+  padding:.55rem clamp(10px,2vw,18px);
+  border-bottom:1px solid var(--line);background:var(--panel);
+  font-family:var(--mono);font-size:.76rem;color:var(--muted);
+}
+#topbar .where{color:var(--accent);letter-spacing:.06em}
+#topbar .sp{flex:1}
+#topbar b{color:var(--ink-soft);font-weight:500}
+
+#panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}
+
+/* 세로 비율이면 위아래로 쌓는다 (§12.2) */
+@media (max-aspect-ratio:4/5){
+  #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) minmax(0,1fr)}
+  #left{max-height:40dvh;border-right:0;border-bottom:1px solid var(--line)}
+}
+
+#left{
+  border-right:1px solid var(--line);overflow-y:auto;
+  padding:clamp(10px,2vw,18px);background:var(--panel);
+}
+#right{display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0}
+#log{
+  overflow-y:auto;padding:clamp(10px,2vw,18px);
+  display:flex;flex-direction:column;gap:.24rem;
+}
+#choices{
+  border-top:1px solid var(--line);background:var(--panel);
+  padding:clamp(8px,1.6vw,14px);
+  display:flex;flex-wrap:wrap;gap:.45rem;align-content:flex-start;
+  max-height:46dvh;overflow-y:auto;
+}
+
+/* ── 로그 ────────────────────────────────── */
+.line{animation:fade .28s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.line{animation:none}}
+.line.golem{color:var(--ink)}
+.line.enemy{color:var(--ink-soft)}
+.line.good{color:var(--accent)}
+.line.bad{color:var(--danger)}
+.line.necro{color:var(--gold)}
+.line.dim{color:var(--muted)}
+.line.narrate{color:var(--ink-soft);font-family:var(--display);font-size:1.02rem;margin:.4rem 0}
+.line.head{
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);margin-top:1rem;padding-top:.5rem;border-top:1px solid var(--line-soft);
+}
+.line::before{content:"› ";color:var(--muted)}
+.line.narrate::before,.line.head::before{content:""}
+
+/* ── 선택지 버튼 ─────────────────────────── */
+.btn{
+  border:1px solid var(--line);background:var(--panel-2);
+  padding:.42rem .7rem;border-radius:2px;
+  display:flex;align-items:baseline;gap:.5rem;
+  transition:border-color .12s,background .12s;
+}
+.btn:hover:not(:disabled){border-color:var(--accent-dim);background:var(--accent-bg)}
+.btn:disabled{opacity:.36;cursor:not-allowed}
+.btn .k{font-family:var(--mono);font-size:.7rem;color:var(--accent);min-width:.9em}
+.btn .nm{font-weight:400}
+.btn .meta{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-left:auto;padding-left:.5rem}
+.btn.wide{width:100%}
+.btn.ghost{background:none;border-color:var(--line-soft);color:var(--muted)}
+.btn.ghost:hover:not(:disabled){color:var(--ink);border-color:var(--line)}
+.btn.primary{border-color:var(--accent-dim);background:var(--accent-bg)}
+.btn.danger:hover:not(:disabled){border-color:var(--danger);background:var(--danger-bg)}
+.eff-up{color:var(--accent);font-family:var(--mono)}
+.eff-down{color:var(--danger);font-family:var(--mono)}
+
+/* ── 왼쪽 패널 공통 ──────────────────────── */
+.pt{
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 .5rem;
+}
+.unit{margin-bottom:1.1rem}
+.unit h3{
+  font-family:var(--display);font-size:1.08rem;font-weight:700;margin:0 0 .25rem;
+  display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;
+}
+.tag{
+  font-family:var(--mono);font-size:.66rem;padding:.06rem .34rem;
+  border:1px solid currentColor;border-radius:2px;opacity:.85;
+}
+.bar{height:9px;background:var(--sunken);border:1px solid var(--line);position:relative;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent-dim);transition:width .3s}
+.bar.foe i{background:var(--danger)}
+.bar.small{height:6px}
+.hpnum{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:.2rem}
+.chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem}
+.chip{
+  font-family:var(--mono);font-size:.68rem;padding:.08rem .38rem;
+  border:1px solid var(--line);border-radius:2px;color:var(--ink-soft);background:var(--sunken);
+}
+.chip.warn{color:var(--danger);border-color:var(--danger)}
+.chip.good{color:var(--accent);border-color:var(--accent-dim)}
+
+.rows{display:grid;gap:.3rem}
+.row{
+  display:grid;grid-template-columns:2.7rem 1fr auto;gap:.6rem;align-items:baseline;
+  padding:.3rem 0;border-bottom:1px solid var(--line-soft);
+}
+.row .lb{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.row .vl{min-width:0;overflow-wrap:anywhere}
+.row .rt{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
+.row .rt.warn{color:var(--danger)}
+.empty{color:var(--muted);font-style:italic}
+
+.statgrid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(5.2rem,1fr));gap:.3rem .8rem;
+  margin-top:.7rem;font-family:var(--mono);font-size:.76rem;
+}
+.statgrid span{color:var(--muted)}
+.statgrid b{color:var(--ink);font-weight:500}
+
+/* ── 미니맵 ──────────────────────────────── */
+.map{display:grid;gap:3px;justify-content:center;margin:.4rem 0 .8rem}
+.cell{
+  width:2.2rem;height:2.2rem;display:grid;place-items:center;
+  border:1px solid transparent;font-size:.95rem;border-radius:2px;
+}
+.cell.room{background:var(--sunken);border-color:var(--line)}
+.cell.seen{color:var(--muted);background:transparent;border-style:dashed}
+.cell.done{color:var(--muted)}
+.cell.here{border-color:var(--accent);background:var(--accent-bg);box-shadow:0 0 0 1px var(--accent-dim)}
+.legend{font-family:var(--mono);font-size:.7rem;color:var(--muted);display:grid;gap:.15rem}
+
+/* ── 마을 ────────────────────────────────── */
+.town{display:grid;gap:.5rem}
+.bldg{
+  border:1px solid var(--line);background:var(--sunken);
+  padding:.6rem .75rem;border-radius:2px;
+}
+.bldg .n{font-family:var(--display);font-weight:700;font-size:1rem}
+.bldg .s{font-family:var(--mono);font-size:.72rem;color:var(--accent-dim);margin-top:.1rem}
+
+hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
+.note{font-size:.82rem;color:var(--muted);margin-top:.5rem}
+#left::-webkit-scrollbar,#log::-webkit-scrollbar,#choices::-webkit-scrollbar{width:8px}
+#left::-webkit-scrollbar-thumb,#log::-webkit-scrollbar-thumb,#choices::-webkit-scrollbar-thumb{
+  background:var(--line);border-radius:4px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="topbar"></div>
+  <div id="panes">
+    <aside id="left"></aside>
+    <main id="right">
+      <div id="log"></div>
+      <div id="choices"></div>
+    </main>
+  </div>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

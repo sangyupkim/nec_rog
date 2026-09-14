@@ -1,0 +1,488 @@
+/** 커맨드 턴제 전투 엔진. DOM에 의존하지 않으므로 콘솔 시뮬레이션에도 쓸 수 있다. */
+import {
+  DB, damage, elemMul, rankMul, addStatus, hasStatus,
+  assembleGolem, skillElement, partSkills,
+} from './core.js';
+
+const WILL_START = 3, WILL_MAX = 10, WILL_GAIN = 1;
+
+export class Combat {
+  constructor(save, monster, rng) {
+    this.save = save;
+    this.rng = rng;
+    this.mon = monster;
+    this.log = [];
+    this.turn = 0;
+    this.over = false;
+    this.result = null;
+    this.usedNecro = false;
+    this.summonCount = 0;
+
+    const g = assembleGolem(save);
+    this.g = g;
+    this.golem = {
+      name: '누더기 골렘',
+      hp: save.run?.golemHp ?? g.stats.hp,
+      maxHp: g.stats.hp,
+      stats: g.stats,
+      defElement: g.defElement,
+      ranks: { atk: 0, def: 0, spd: 0, eva: 0 },
+      statuses: {},
+    };
+    this.golem.hp = Math.min(this.golem.hp, this.golem.maxHp);
+
+    // 스킬 충전량
+    this.charges = {};
+    for (const sid of g.active) {
+      const s = DB.skillsBy[sid];
+      if (s.charges !== null) this.charges[sid] = s.charges;
+    }
+    this.rechargeClock = {};
+
+    this.will = WILL_START;
+    this.necroCd = {};
+    this.summon = null;
+    this.usedParts = new Set();
+
+    // 이 전투에서 파츠를 실제로 사용했는지 추적 (§3.3 내구도)
+    this.skillOwner = {};
+    for (const { part } of g.worn) {
+      for (const sid of partSkills(part)) this.skillOwner[sid] ??= part.uid;
+    }
+
+    this.say(`${this.mon.name}이(가) 어둠 속에서 모습을 드러낸다.`);
+  }
+
+  say(text, cls = '') { this.log.push({ text, cls }); }
+
+  /* ── 플레이어가 고를 수 있는 것들 ─────────────────── */
+  golemSkills() {
+    return this.g.active.map((sid) => {
+      const s = DB.skillsBy[sid];
+      const el = skillElement(this.save, sid);
+      const left = s.charges === null ? null : (this.charges[sid] ?? 0);
+      return {
+        id: sid, name: s.name, element: el, power: s.power,
+        charges: s.charges, left,
+        usable: s.charges === null || left > 0,
+        mul: this.save.seen?.[this.mon.defId] ? elemMul(el, this.mon.defElement) : null,
+      };
+    });
+  }
+
+  necroSkills() {
+    return (this.save.necro.equipped ?? []).filter(Boolean).map((id) => {
+      const n = DB.necro_skillsBy[id];
+      const cd = this.necroCd[id] ?? 0;
+      return { ...n, cd, usable: cd === 0 && this.will >= n.will };
+    });
+  }
+
+  combatItems() {
+    return Object.entries(this.save.consumables ?? {})
+      .filter(([id, n]) => n > 0 && DB.itemsBy[id]?.use === 'combat')
+      .map(([id, n]) => ({ ...DB.itemsBy[id], count: n }));
+  }
+
+  /* ── 한 라운드 진행 ───────────────────────────────── */
+  act(action) {
+    if (this.over) return;
+    this.log = [];
+    this.turn++;
+
+    let golemActed = false;
+
+    // 네크로맨서 술법·아이템·관찰은 골렘의 행동을 대신한다 (그 턴 골렘은 공격하지 않는다)
+    if (action.kind === 'necro') { this.useNecro(action.id); golemActed = true; }
+    else if (action.kind === 'item') { this.useItem(action.id); golemActed = true; }
+    else if (action.kind === 'observe') { this.observe(); golemActed = true; }
+
+    // 소환수는 골렘보다 먼저 움직인다
+    if (this.summon) this.summonAct();
+    if (this.checkEnd()) return;
+
+    const golemFirst = this.speed(this.golem) >= this.speed(this.mon);
+
+    const doGolem = () => {
+      if (action.kind !== 'skill' || golemActed) return;
+      this.golemAct(action.id);
+    };
+    const doMon = () => { if (!this.over) this.monsterAct(); };
+
+    if (golemFirst) { doGolem(); if (this.checkEnd()) return; doMon(); }
+    else { doMon(); if (this.checkEnd()) return; doGolem(); }
+    if (this.checkEnd()) return;
+
+    this.endOfTurn();
+    this.checkEnd();
+  }
+
+  speed(u) {
+    let spd = (u.stats.spd ?? 0) * rankMul(u.ranks.spd);
+    if (hasStatus(u, '마비')) spd /= 2;
+    return spd;
+  }
+
+  /* ── 골렘 행동 ────────────────────────────────────── */
+  golemAct(sid) {
+    const s = DB.skillsBy[sid];
+    if (s.charges !== null) {
+      if ((this.charges[sid] ?? 0) <= 0) { this.say('충전이 남아 있지 않다.'); return; }
+      this.charges[sid]--;
+      this.rechargeClock[sid] = s.recharge;
+    }
+    if (this.skillOwner[sid]) this.usedParts.add(this.skillOwner[sid]);
+
+    const el = skillElement(this.save, sid);
+    this.say(s.text.replace('{user}', '골렘').replace('{target}', this.mon.name), 'golem');
+
+    if (hasStatus(this.golem, '마비') && this.rng.chance(25)) {
+      this.say('골렘의 관절이 얼어붙어 움직이지 않는다.', 'bad');
+      return;
+    }
+
+    if (s.power > 0) {
+      const hits = s.hits ?? 1;
+      let total = 0;
+      for (let i = 0; i < hits; i++) {
+        if (!this.rollHit(this.golem, this.mon, s.accuracy)) {
+          this.say(`${this.mon.name}이(가) 몸을 비틀어 피했다.`, 'dim');
+          continue;
+        }
+        total += this.dealDamage(this.golem, this.mon, s.power, el);
+      }
+      if (total > 0) {
+        this.reportElement(el);
+        const tap = this.g.traits.lifetap;
+        if (tap) { this.healGolem(tap); this.say(`방혈관이 ${tap}의 생기를 빨아들인다.`, 'good'); }
+      }
+    }
+
+    for (const e of s.effects ?? []) this.applyEffect(e, this.golem, this.mon, s);
+  }
+
+  applyEffect(e, self, foe, skill) {
+    switch (e.op) {
+      case 'status': {
+        const target = e.target === 'self' ? self : foe;
+        if (e.chance != null && !this.rng.chance(e.chance)) break;
+        addStatus(target, e.id, { stacks: e.stacks ?? 0, duration: e.duration ?? 0 });
+        this.say(`${this.nameOf(target)}이(가) ${e.id} 상태가 된다.`,
+                 target === this.mon ? 'good' : 'bad');
+        break;
+      }
+      case 'rank': {
+        const target = e.target === 'enemy' ? foe : self;
+        target.ranks[e.stat] = Math.max(-4, Math.min(4, target.ranks[e.stat] + e.delta));
+        const label = { atk: '공격', def: '방어', spd: '속도', eva: '회피' }[e.stat];
+        this.say(`${this.nameOf(target)}의 ${label}이(가) ${e.delta > 0 ? '올랐다' : '떨어졌다'}.`,
+                 (e.delta > 0) === (target === self) ? 'good' : 'bad');
+        break;
+      }
+      case 'lifesteal': break; // dealDamage에서 처리
+      case 'crit_bonus': break;
+      case 'reveal':
+        this.save.seen ??= {};
+        this.save.seen[this.mon.defId] = true;
+        this.say(`${this.mon.name}의 약점이 드러난다. (방어 속성: ${this.mon.defElement})`, 'good');
+        break;
+      default: break;
+    }
+  }
+
+  /* ── 몬스터 행동 ──────────────────────────────────── */
+  pickMonsterSkill() {
+    const ai = this.mon.ai ?? {};
+    const known = this.mon.skills;
+    if (ai.type === 'pattern' && ai.pattern?.length) {
+      return ai.pattern[(this.turn - 1) % ai.pattern.length];
+    }
+    const weights = ai.weights ?? {};
+    let entries = known.map((id) => [id, weights[id] ?? 20]);
+    // 같은 스킬을 너무 반복하지 않는다
+    const cap = ai.rules?.find((r) => r.no_repeat_over)?.no_repeat_over ?? 2;
+    if (this.mon.repeats >= cap) entries = entries.filter(([id]) => id !== this.mon.lastSkill);
+    if (!entries.length) entries = known.map((id) => [id, 1]);
+    return this.rng.weighted(entries);
+  }
+
+  monsterAct() {
+    if (hasStatus(this.mon, '마비') && this.rng.chance(25)) {
+      this.say(`${this.mon.name}이(가) 경련하며 움직이지 못한다.`, 'good');
+      return;
+    }
+    const sid = this.pickMonsterSkill();
+    this.mon.repeats = sid === this.mon.lastSkill ? this.mon.repeats + 1 : 0;
+    this.mon.lastSkill = sid;
+
+    const s = DB.skillsBy[sid];
+    this.say(s.text.replace('{user}', this.mon.name).replace('{target}', '골렘'), 'enemy');
+
+    // 소환수가 대신 맞을 수 있다
+    let target = this.golem;
+    if (this.summon && s.power > 0) {
+      const info = DB.summonsBy[this.summon.id];
+      if (this.rng.chance(info.taunt)) target = this.summon;
+    }
+
+    if (s.power > 0) {
+      const hits = s.hits ?? 1;
+      for (let i = 0; i < hits; i++) {
+        if (target === this.golem && !this.rollHit(this.mon, this.golem, s.accuracy)) {
+          this.say('골렘이 무겁게 비틀어 피한다.', 'good');
+          continue;
+        }
+        if (target === this.summon) {
+          const dmg = damage({
+            power: s.power, atk: this.mon.stats.atk, def: 0,
+            atkEl: s.element, defEl: '타격',
+            atkRank: this.mon.ranks.atk, defRank: 0,
+          });
+          this.summon.hp -= dmg;
+          this.say(`${DB.summonsBy[this.summon.id].name}이(가) 대신 ${dmg}의 피해를 받는다.`, 'dim');
+          if (this.summon.hp <= 0) {
+            this.say(`${DB.summonsBy[this.summon.id].name}이(가) 부서진다.`, 'dim');
+            this.summon = null;
+            break;
+          }
+        } else {
+          this.dealDamage(this.mon, this.golem, s.power, s.element);
+        }
+      }
+    }
+    for (const e of s.effects ?? []) this.applyEffect(e, this.mon, this.golem, s);
+  }
+
+  /* ── 공통 판정 ────────────────────────────────────── */
+  rollHit(attacker, defender, accuracy) {
+    const eva = Math.max(0, (defender.stats.eva ?? 0) * rankMul(defender.ranks.eva)
+                          - (attacker.stats.focus ?? 0) / 2);
+    const chance = Math.max(30, (accuracy ?? 95) - eva);
+    return this.rng.chance(chance);
+  }
+
+  dealDamage(from, to, power, element) {
+    let dmg = damage({
+      power,
+      atk: from.stats.atk,
+      def: to.stats.def ?? 0,
+      atkEl: element,
+      defEl: to.defElement,
+      atkRank: from.ranks.atk,
+      defRank: to.ranks.def,
+    });
+    if (hasStatus(from, '화상')) dmg = Math.floor(dmg * 0.75);
+    if (hasStatus(to, '균열')) dmg = Math.floor(dmg * 1.5);
+    if (this.rng.chance(5)) { dmg = Math.floor(dmg * 1.5); this.say('급소에 들어갔다!', 'good'); }
+
+    to.hp -= dmg;
+    this.say(`${this.nameOf(to)}이(가) ${dmg}의 피해를 입는다.`, to === this.mon ? 'good' : 'bad');
+
+    if (hasStatus(to, '가시')) {
+      const thorn = 3;
+      from.hp -= thorn;
+      this.say(`가시가 ${this.nameOf(from)}을(를) 되찌른다. (${thorn})`, 'dim');
+    }
+    return dmg;
+  }
+
+  reportElement(el) {
+    const m = elemMul(el, this.mon.defElement);
+    this.save.seen ??= {};
+    this.save.seen[this.mon.defId] = true;
+    if (m === 0) this.say('효과가 없다.', 'dim');
+    else if (m > 1) this.say('효과가 굉장했다!', 'good');
+    else if (m < 1) this.say('효과가 별로였다...', 'dim');
+  }
+
+  nameOf(u) {
+    if (u === this.golem) return '골렘';
+    if (u === this.mon) return this.mon.name;
+    return DB.summonsBy[u.id]?.name ?? '무언가';
+  }
+
+  healGolem(n) {
+    this.golem.hp = Math.min(this.golem.maxHp, this.golem.hp + n);
+  }
+
+  /* ── 네크로맨서 ───────────────────────────────────── */
+  useNecro(id) {
+    const n = DB.necro_skillsBy[id];
+    if (!n || (this.necroCd[id] ?? 0) > 0 || this.will < n.will) return;
+    this.will -= n.will;
+    this.necroCd[id] = n.cooldown;
+    this.usedNecro = true;
+    this.say(`네크로맨서가 ${n.name}을(를) 시전한다.`, 'necro');
+
+    const e = n.effect;
+    switch (e.op) {
+      case 'heal': {
+        const amt = Math.round(this.golem.maxHp * e.ratio);
+        this.healGolem(amt);
+        this.say(`골렘의 이음새가 메워진다. (+${amt})`, 'good');
+        break;
+      }
+      case 'rank':
+        this.golem.ranks[e.stat] = Math.max(-4, Math.min(4, this.golem.ranks[e.stat] + e.delta));
+        this.say('골렘의 몸에서 검은 김이 피어오른다.', 'good');
+        break;
+      case 'cleanse': {
+        const k = Object.keys(this.golem.statuses).find((x) => x !== '재생' && x !== '가시');
+        if (k) { delete this.golem.statuses[k]; this.say(`${k} 상태가 씻겨나간다.`, 'good'); }
+        else this.say('씻어낼 것이 없다.', 'dim');
+        break;
+      }
+      case 'damage': {
+        const dmg = damage({
+          power: e.power, atk: 20, def: this.mon.stats.def,
+          atkEl: e.element, defEl: this.mon.defElement, defRank: this.mon.ranks.def,
+        });
+        this.mon.hp -= dmg;
+        this.say(`${this.mon.name}이(가) ${dmg}의 피해를 입는다.`, 'good');
+        this.reportElement(e.element);
+        if (e.status) {
+          addStatus(this.mon, e.status.id, { stacks: e.status.stacks ?? 0, duration: e.status.duration ?? 0 });
+          this.say(`${this.mon.name}이(가) ${e.status.id} 상태가 된다.`, 'good');
+        }
+        break;
+      }
+      case 'execute': {
+        const dmg = Math.round(this.mon.maxHp * e.ratio);
+        this.mon.hp -= dmg;
+        this.say(`선고가 내려진다. ${this.mon.name}이(가) ${dmg}의 피해를 입는다.`, 'good');
+        break;
+      }
+      case 'summon': {
+        const info = DB.summonsBy[e.id];
+        if (this.summon) this.say(`${DB.summonsBy[this.summon.id].name}이(가) 흩어진다.`, 'dim');
+        this.summon = { id: e.id, hp: info.hp, maxHp: info.hp, left: info.duration };
+        this.summonCount++;
+        this.say(`${info.name}이(가) 땅을 뚫고 일어선다. (${info.duration}턴)`, 'necro');
+        break;
+      }
+      default: break;
+    }
+  }
+
+  summonAct() {
+    const s = this.summon;
+    const info = DB.summonsBy[s.id];
+    const a = info.action;
+    if (a.op === 'attack') {
+      this.say(info.text, 'necro');
+      const dmg = damage({
+        power: a.power, atk: 18, def: this.mon.stats.def,
+        atkEl: a.element, defEl: this.mon.defElement, defRank: this.mon.ranks.def,
+      });
+      this.mon.hp -= dmg;
+      this.say(`${this.mon.name}이(가) ${dmg}의 피해를 입는다.`, 'good');
+      if (a.rank) {
+        this.mon.ranks[a.rank.stat] = Math.max(-4, Math.min(4, this.mon.ranks[a.rank.stat] + a.rank.delta));
+        this.say(`${this.mon.name}의 회피가 떨어졌다.`, 'good');
+      }
+    } else if (a.op === 'burst') {
+      this.say(info.text, 'necro');
+      addStatus(this.mon, a.status.id, { stacks: a.status.stacks });
+      this.say(`${this.mon.name}이(가) 역병에 뒤덮인다.`, 'good');
+      this.summon = null;
+      return;
+    } else if (a.op === 'guard') {
+      this.say(info.text, 'necro');
+    }
+
+    s.left--;
+    if (s.left <= 0) {
+      this.say(`${info.name}이(가) 먼지가 되어 흩어진다.`, 'dim');
+      this.summon = null;
+    }
+  }
+
+  /* ── 아이템 · 관찰 ────────────────────────────────── */
+  useItem(id) {
+    const item = DB.itemsBy[id];
+    if (!item || !(this.save.consumables?.[id] > 0)) return;
+    this.save.consumables[id]--;
+    this.say(`${item.name}을(를) 사용한다.`, 'necro');
+    const e = item.effect;
+    if (e.op === 'heal') {
+      const amt = Math.round(this.golem.maxHp * e.ratio);
+      this.healGolem(amt);
+      this.say(`골렘이 ${amt} 회복했다.`, 'good');
+    } else if (e.op === 'rank') {
+      const t = e.target === 'enemy' ? this.mon : this.golem;
+      t.ranks[e.stat] = Math.max(-4, Math.min(4, t.ranks[e.stat] + e.delta));
+      this.say(`${this.nameOf(t)}의 방어가 ${e.delta > 0 ? '올랐다' : '떨어졌다'}.`,
+               e.target === 'enemy' ? 'good' : 'good');
+    }
+  }
+
+  observe() {
+    this.save.seen ??= {};
+    this.save.seen[this.mon.defId] = true;
+    this.say(`${this.mon.name}을(를) 관찰한다. 방어 속성은 ${this.mon.defElement}.`, 'necro');
+    this.say('이제 스킬 옆에 상성이 표시된다.', 'dim');
+  }
+
+  /* ── 턴 종료 ──────────────────────────────────────── */
+  endOfTurn() {
+    for (const u of [this.mon, this.golem]) this.tickStatuses(u);
+    for (const [sid, left] of Object.entries(this.rechargeClock)) {
+      const s = DB.skillsBy[sid];
+      const speed = 1 + Math.floor((this.golem.stats.focus ?? 0) / 6);
+      const next = left - speed;
+      if (next <= 0) {
+        this.charges[sid] = Math.min(s.charges, (this.charges[sid] ?? 0) + 1);
+        delete this.rechargeClock[sid];
+      } else this.rechargeClock[sid] = next;
+    }
+    for (const k of Object.keys(this.necroCd)) {
+      if (this.necroCd[k] > 0) this.necroCd[k]--;
+    }
+    this.will = Math.min(WILL_MAX, this.will + WILL_GAIN);
+  }
+
+  tickStatuses(u) {
+    const st = u.statuses;
+    if (st['중독']) {
+      const n = st['중독'].stacks;
+      u.hp -= n;
+      this.say(`${this.nameOf(u)}이(가) 중독으로 ${n}의 피해를 입는다.`, u === this.mon ? 'good' : 'bad');
+      st['중독'].stacks--;
+      if (st['중독'].stacks <= 0) delete st['중독'];
+    }
+    if (st['화상']) {
+      const n = Math.max(1, Math.round(u.maxHp * 0.05));
+      u.hp -= n;
+      this.say(`${this.nameOf(u)}이(가) 화상으로 ${n}의 피해를 입는다.`, u === this.mon ? 'good' : 'bad');
+    }
+    if (st['재생']) {
+      const n = Math.round(u.maxHp * 0.08);
+      u.hp = Math.min(u.maxHp, u.hp + n);
+      this.say(`${this.nameOf(u)}이(가) ${n} 회복한다.`, u === this.mon ? 'bad' : 'good');
+    }
+    for (const [k, v] of Object.entries(st)) {
+      if (v.duration != null) {
+        v.duration--;
+        if (v.duration <= 0) delete st[k];
+      }
+    }
+  }
+
+  checkEnd() {
+    if (this.mon.hp <= 0) {
+      this.mon.hp = 0;
+      this.over = true;
+      this.result = 'win';
+      this.say(`${this.mon.name}이(가) 쓰러진다.`, 'good');
+      return true;
+    }
+    if (this.golem.hp <= 0) {
+      this.golem.hp = 0;
+      this.over = true;
+      this.result = 'lose';
+      this.say('골렘이 무너져 내린다. 이음새가 전부 끊어졌다.', 'bad');
+      return true;
+    }
+    return false;
+  }
+}

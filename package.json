@@ -5,6 +5,7 @@
   "type": "module",
   "description": "텍스트 UI 기반 커맨드 턴제 로그라이트",
   "scripts": {
+    "start": "node tools/serve.mjs",
     "validate": "node tools/validate.mjs",
     "balance": "node tools/balance.mjs",
     "check": "npm run validate && npm run balance"

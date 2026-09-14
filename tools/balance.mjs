@@ -110,6 +110,33 @@ for (const [label, ids] of Object.entries(BUILDS)) {
   }
 }
 
+/* ── 층 누적 소모 검사 ──────────────────────────────────────
+ * 전투 1회를 버티는 것과 한 층(전투 4~6회)을 버티는 것은 다른 문제다.
+ * 회복 수단이 제한된 상태에서 층 전체를 완주할 수 있는지 검사한다. */
+const BATTLES_PER_FLOOR = 5;
+const HEAL_BUDGET = 1.9;   // 최대HP 100% + 물약 2개 60% + 안치실 휴식 30%
+const perBattleCap = HEAL_BUDGET / BATTLES_PER_FLOOR;
+
+console.log('\n── 층 누적 소모 ──────────────────────────');
+console.log(`한 층 전투 ${BATTLES_PER_FLOOR}회 · 회복 예산 ${Math.round(HEAL_BUDGET * 100)}%`
+  + ` → 전투당 ${Math.round(perBattleCap * 100)}% 이하여야 함`);
+
+for (const [label, ids] of Object.entries(BUILDS)) {
+  const g = assemble(ids);
+  for (const mid of EXPECTED[label]) {
+    const m = monsters.find((x) => x.id === mid);
+    if (m.tier !== 'normal') continue;
+    const { turns } = turnsToKill(g, m);
+    const surv = survivalTurns(g, m);
+    const spend = (surv.avg * (turns - 1)) / g.stats.hp;
+    const off = spend > perBattleCap;
+    if (off) warnings++;
+    console.log(`  ${off ? '⚠ ' : '✓ '}${label} vs ${m.name.padEnd(11)}`
+      + ` 전투당 ${(spend * 100).toFixed(0)}% 소모`
+      + `  (${BATTLES_PER_FLOOR}회면 ${(spend * BATTLES_PER_FLOOR * 100).toFixed(0)}%)`);
+  }
+}
+
 console.log('\n✓ = 해당 층에서 만나는 몬스터가 목표 턴수 안에 있음 / ⚠ = 벗어남');
 console.log('  표시 없음 = 그 층에서 마주치지 않는 조합 (참고용)');
 console.log(warnings ? `\n목표 이탈 ${warnings}건 — 조정 필요.` : '\n모든 예상 조우가 목표 턴수 안에 있음.');

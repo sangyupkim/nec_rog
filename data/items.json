@@ -1,0 +1,17 @@
+[
+  { "id": "it_corpseoil", "name": "시체 기름", "kind": "물약", "price": 60,
+    "desc": "전투 중 골렘 HP를 30% 회복한다.", "use": "combat",
+    "effect": { "op": "heal", "ratio": 0.30 } },
+  { "id": "it_bitumen", "name": "역청 한 병", "kind": "물약", "price": 80,
+    "desc": "파츠 하나의 내구도를 3 회복한다.", "use": "anywhere",
+    "effect": { "op": "repair", "value": 3 } },
+  { "id": "it_sigil_break", "name": "해체의 문양", "kind": "스크롤", "price": 90,
+    "desc": "전투 중 적의 방어 랭크를 2 낮춘다.", "use": "combat",
+    "effect": { "op": "rank", "stat": "def", "delta": -2, "target": "enemy" } },
+  { "id": "it_sigil_return", "name": "귀환의 문양", "kind": "스크롤", "price": 120,
+    "desc": "던전에서 즉시 마을로 돌아간다. 전리품은 유지된다.", "use": "dungeon",
+    "effect": { "op": "escape" } },
+  { "id": "it_sigil_ward", "name": "수호의 문양", "kind": "스크롤", "price": 100,
+    "desc": "전투 중 골렘의 방어 랭크를 2 올린다.", "use": "combat",
+    "effect": { "op": "rank", "stat": "def", "delta": 2, "target": "self" } }
+]

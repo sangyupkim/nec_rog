@@ -1,0 +1,12 @@
+[
+  { "id": "at_ironjoint", "name": "철제 이음쇠", "price": 120, "materials": { "scrap": 20 },
+    "desc": "파츠 내구도가 2전투당 1씩만 닳는다.", "effect": { "op": "wear_half" } },
+  { "id": "at_counterweight", "name": "균형추", "price": 90, "materials": { "boneMeal": 8 },
+    "desc": "속도 +6, 회피 +4", "effect": { "op": "stats", "stats": { "spd": 6, "eva": 4 } } },
+  { "id": "at_bloodvessel", "name": "방혈관", "price": 150, "materials": { "ichor": 6 },
+    "desc": "피해를 줄 때마다 HP를 3 회복한다.", "effect": { "op": "lifetap", "value": 3 } },
+  { "id": "at_plating", "name": "덧댄 철판", "price": 110, "materials": { "scrap": 14 },
+    "desc": "최대 HP +40, 속도 -2", "effect": { "op": "stats", "stats": { "hp": 40, "spd": -2 } } },
+  { "id": "at_crucible", "name": "속성 도가니", "price": 200, "materials": { "ichor": 4, "boneMeal": 6 },
+    "desc": "골렘 스킬 하나의 속성을 원하는 것으로 바꾼다.", "effect": { "op": "retune" } }
+]

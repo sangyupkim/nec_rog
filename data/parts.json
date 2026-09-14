@@ -14,15 +14,15 @@
 
   { "id": "part_body_fungal_ribcage", "name_template": "{mod}{owner} 흉곽", "owner": "곰팡이 시체의",
     "slot": "body", "rarity": "common", "integrity": 8, "def_element": "부패",
-    "stats": { "hp": 260, "atk": 0, "def": 9, "eva": 0, "spd": -2, "focus": 0 },
+    "stats": { "hp": 340, "atk": 0, "def": 9, "eva": 0, "spd": -2, "focus": 0 },
     "skills": ["sk_iron_wall"], "passive": null, "drop_from": ["m_fungal"] },
   { "id": "part_body_goblin_torso", "name_template": "{mod}{owner} 몸통", "owner": "고블린의",
     "slot": "body", "rarity": "common", "integrity": 6, "def_element": "참격",
-    "stats": { "hp": 210, "atk": 1, "def": 5, "eva": 2, "spd": 1, "focus": 0 },
+    "stats": { "hp": 280, "atk": 1, "def": 5, "eva": 2, "spd": 1, "focus": 0 },
     "skills": ["sk_brace"], "passive": null, "drop_from": ["m_goblin"] },
   { "id": "part_body_ogre_hide", "name_template": "{mod}{owner} 가죽", "owner": "오우거의",
     "slot": "body", "rarity": "rare", "integrity": 7, "def_element": "타격",
-    "stats": { "hp": 340, "atk": 3, "def": 12, "eva": -4, "spd": -4, "focus": 0 },
+    "stats": { "hp": 440, "atk": 3, "def": 12, "eva": -4, "spd": -4, "focus": 0 },
     "skills": ["sk_iron_wall", "sk_regenerate"], "passive": null, "drop_from": ["m_ogre"] },
 
   { "id": "part_arm_goblin_claw", "name_template": "{mod}{owner} 발톱팔", "owner": "고블린의",

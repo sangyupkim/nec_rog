@@ -22,7 +22,7 @@
 
   { "id": "m_fungal", "name": "곰팡이 시체", "tier": "normal", "acts": [1],
     "hp": 150, "def_element": "부패",
-    "stats": { "atk": 10, "def": 11, "eva": 2, "spd": 5, "focus": 2 },
+    "stats": { "atk": 7, "def": 11, "eva": 2, "spd": 5, "focus": 2 },
     "skills": ["sk_fungal_spore", "sk_fungal_slam"],
     "ai": { "type": "weighted",
             "weights": { "sk_fungal_spore": 55, "sk_fungal_slam": 45 },
