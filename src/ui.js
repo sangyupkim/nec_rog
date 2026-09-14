@@ -29,7 +29,11 @@ export function topbar(save, where) {
     <span><b>영혼재</b> ${save.soulAsh}</span>
     <span><b>조각</b> ${save.scrap}</span>
     <span><b>진액</b> ${save.ichor}</span>
-    <span><b>골분</b> ${save.boneMeal}</span>`;
+    <span><b>골분</b> ${save.boneMeal}</span>
+    <button id="uiscale" type="button" title="글자 크기"></button>`;
+  const btn = $('uiscale');
+  btn.addEventListener('click', () => window.cycleUiScale?.());
+  window.applyUiScale?.();
 }
 
 /* ── 선택지 ─────────────────────────────── */

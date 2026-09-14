@@ -24,10 +24,21 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%}
+/*
+ * rem의 기준을 뷰포트에 고정한다.
+ * 이걸 안 하면 모바일 브라우저의 글꼴 크기 설정에 화면 전체가 끌려간다.
+ * text-size-adjust는 안드로이드 크롬의 자동 글자 확대(text boosting)를 막는다.
+ */
+html{
+  font-size:calc(clamp(12px, 2.6vmin, 16px) * var(--ui-scale, 1));
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
 body{
   margin:0;background:var(--ground);color:var(--ink);
-  font-family:var(--body);font-weight:350;font-size:15px;line-height:1.6;
+  font-family:var(--body);font-weight:350;font-size:1rem;line-height:1.55;
   -webkit-font-smoothing:antialiased;overflow:hidden;
+  overscroll-behavior:none;
 }
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -38,22 +49,44 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   grid-template-rows:auto 1fr;
   max-width:1400px;margin:0 auto;
 }
+/* 좁은 화면에서도 한 줄을 유지한다. 넘치면 가로로 밀린다 */
 #topbar{
-  display:flex;flex-wrap:wrap;gap:.3rem 1.1rem;align-items:baseline;
-  padding:.55rem clamp(10px,2vw,18px);
+  display:flex;flex-wrap:nowrap;gap:0 .9rem;align-items:baseline;
+  padding:.4rem clamp(8px,1.6vw,18px);
   border-bottom:1px solid var(--line);background:var(--panel);
-  font-family:var(--mono);font-size:.76rem;color:var(--muted);
+  font-family:var(--mono);font-size:.74rem;color:var(--muted);
+  overflow-x:auto;scrollbar-width:none;white-space:nowrap;
 }
+#topbar::-webkit-scrollbar{display:none}
+#topbar span{flex:0 0 auto}
+#uiscale{
+  flex:0 0 auto;font-family:var(--mono);font-size:.74rem;color:var(--muted);
+  border:1px solid var(--line);border-radius:2px;padding:.1rem .4rem;margin-left:.2rem;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#uiscale:hover{color:var(--ink);border-color:var(--accent-dim)}
 #topbar .where{color:var(--accent);letter-spacing:.06em}
 #topbar .sp{flex:1}
 #topbar b{color:var(--ink-soft);font-weight:500}
 
 #panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}
 
-/* 세로 비율이면 위아래로 쌓는다 (§12.2) */
-@media (max-aspect-ratio:4/5){
+/* 세로 비율이거나 너무 좁으면 위아래로 쌓는다 (§12.2) */
+@media (max-aspect-ratio:4/5), (max-width:560px){
   #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) minmax(0,1fr)}
-  #left{max-height:40dvh;border-right:0;border-bottom:1px solid var(--line)}
+  #left{max-height:38dvh;border-right:0;border-bottom:1px solid var(--line)}
+}
+
+/* 가로모드 휴대폰 — 높이가 모자라므로 세로 여백을 걷어낸다 */
+@media (orientation:landscape) and (max-height:520px){
+  #topbar{padding-block:.25rem}
+  #left,#log{padding-block:.5rem}
+  #choices{max-height:52dvh;padding:.4rem clamp(6px,1.2vw,12px);gap:.3rem}
+  .btn{padding:.34rem .55rem}
+  .line{line-height:1.45}
+  .unit{margin-bottom:.7rem}
+  hr.sep{margin:.6rem 0}
+  section,.map{margin-block:.3rem}
 }
 
 #left{
@@ -67,8 +100,9 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 }
 #choices{
   border-top:1px solid var(--line);background:var(--panel);
-  padding:clamp(8px,1.6vw,14px);
-  display:flex;flex-wrap:wrap;gap:.45rem;align-content:flex-start;
+  padding:clamp(6px,1.4vw,14px);
+  padding-bottom:max(clamp(6px,1.4vw,14px), env(safe-area-inset-bottom));
+  display:flex;flex-wrap:wrap;gap:.4rem;align-content:flex-start;
   max-height:46dvh;overflow-y:auto;
 }
 
@@ -93,10 +127,15 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 /* ── 선택지 버튼 ─────────────────────────── */
 .btn{
   border:1px solid var(--line);background:var(--panel-2);
-  padding:.42rem .7rem;border-radius:2px;
-  display:flex;align-items:baseline;gap:.5rem;
+  padding:.4rem .65rem;border-radius:2px;
+  min-height:2.2rem;
+  display:flex;align-items:center;gap:.45rem;
   transition:border-color .12s,background .12s;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  max-width:100%;
 }
+/* 좁은 화면에서는 선택지를 한 줄에 하나씩 — 글자가 잘리지 않는다 */
+@media (max-width:560px){ .btn{width:100%} }
 .btn:hover:not(:disabled){border-color:var(--accent-dim);background:var(--accent-bg)}
 .btn:disabled{opacity:.36;cursor:not-allowed}
 .btn .k{font-family:var(--mono);font-size:.7rem;color:var(--accent);min-width:.9em}
@@ -156,10 +195,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .statgrid b{color:var(--ink);font-weight:500}
 
 /* ── 미니맵 ──────────────────────────────── */
-.map{display:grid;gap:3px;justify-content:center;margin:.4rem 0 .8rem}
+.map{--cell:min(2.2rem,7vmin);display:grid;gap:2px;justify-content:center;margin:.4rem 0 .8rem}
 .cell{
-  width:2.2rem;height:2.2rem;display:grid;place-items:center;
-  border:1px solid transparent;font-size:.95rem;border-radius:2px;
+  width:var(--cell);height:var(--cell);display:grid;place-items:center;
+  border:1px solid transparent;font-size:calc(var(--cell) * .45);border-radius:2px;
 }
 .cell.room{background:var(--sunken);border-color:var(--line)}
 .cell.seen{color:var(--muted);background:transparent;border-style:dashed}
@@ -194,6 +233,26 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
     </main>
   </div>
 </div>
+<script>
+  // 글자 크기는 모듈 로딩 전에 적용해 첫 화면부터 어긋나지 않게 한다
+  (function () {
+    var SC = [0.8, 0.9, 1, 1.15, 1.35];
+    var i = 2;
+    try { var v = localStorage.getItem('patchwork.uiScale'); if (v !== null) i = Math.min(SC.length - 1, Math.max(0, +v)); } catch (e) {}
+    function apply() {
+      document.documentElement.style.setProperty('--ui-scale', SC[i]);
+      var b = document.getElementById('uiscale');
+      if (b) b.textContent = '가' + Math.round(SC[i] * 100) + '%';
+    }
+    window.cycleUiScale = function () {
+      i = (i + 1) % SC.length;
+      try { localStorage.setItem('patchwork.uiScale', i); } catch (e) {}
+      apply();
+    };
+    window.applyUiScale = apply;
+    apply();
+  })();
+</script>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>
