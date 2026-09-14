@@ -1,42 +1,311 @@
 [
-  { "id": "m_goblin", "name": "시궁쥐 고블린", "tier": "normal", "acts": [1],
-    "hp": 110, "def_element": "참격",
-    "stats": { "atk": 8, "def": 6, "eva": 5, "spd": 12, "focus": 3 },
-    "skills": ["sk_gob_slash", "sk_gob_double", "sk_gob_guard"],
-    "ai": { "type": "weighted",
-            "weights": { "sk_gob_slash": 60, "sk_gob_double": 25, "sk_gob_guard": 15 },
-            "rules": [ { "if": "hp_below", "value": 30, "prefer": "sk_gob_double" },
-                       { "no_repeat_over": 2 } ] },
-    "drops": ["part_arm_goblin_claw", "part_leg_goblin_hop", "part_head_goblin_skull", "part_body_goblin_torso"],
-    "flavor": "시궁창 냄새를 달고 다니는 작은 포식자." },
-
-  { "id": "m_bonehound", "name": "뼈사냥개", "tier": "normal", "acts": [1],
-    "hp": 160, "def_element": "타격",
-    "stats": { "atk": 8, "def": 4, "eva": 10, "spd": 20, "focus": 4 },
-    "skills": ["sk_hound_bite", "sk_hound_rush"],
-    "ai": { "type": "weighted",
-            "weights": { "sk_hound_bite": 65, "sk_hound_rush": 35 },
-            "rules": [ { "no_repeat_over": 3 } ] },
-    "drops": ["part_leg_hound_legs", "part_head_hound_skull", "part_arm_bone_spike"],
-    "flavor": "살점 없이 달리는 것들은 지치지 않는다." },
-
-  { "id": "m_fungal", "name": "곰팡이 시체", "tier": "normal", "acts": [1],
-    "hp": 150, "def_element": "부패",
-    "stats": { "atk": 7, "def": 11, "eva": 2, "spd": 5, "focus": 2 },
-    "skills": ["sk_fungal_spore", "sk_fungal_slam"],
-    "ai": { "type": "weighted",
-            "weights": { "sk_fungal_spore": 55, "sk_fungal_slam": 45 },
-            "rules": [ { "no_repeat_over": 2 } ] },
-    "drops": ["part_body_fungal_ribcage", "part_head_fungal_cap", "part_arm_fungal_limb"],
-    "flavor": "죽은 뒤에도 자라는 것이 있다." },
-
-  { "id": "m_ogre", "name": "무덤파괴자 오우거", "tier": "elite", "acts": [1],
-    "hp": 380, "def_element": "타격",
-    "stats": { "atk": 26, "def": 14, "eva": 0, "spd": 6, "focus": 3 },
-    "skills": ["sk_ogre_smash", "sk_gob_guard", "sk_ogre_roar"],
-    "ai": { "type": "pattern",
-            "pattern": ["sk_ogre_roar", "sk_gob_guard", "sk_ogre_smash"],
-            "rules": [] },
-    "drops": ["part_arm_rusted_axe", "part_body_ogre_hide", "part_leg_ogre_stump"],
-    "flavor": "묘비를 뽑아 든다. 그것이 그의 무기다." }
+ {
+  "id": "m_goblin",
+  "name": "시궁쥐 고블린",
+  "tier": "normal",
+  "acts": [
+   1
+  ],
+  "hp": 110,
+  "def_element": "참격",
+  "stats": {
+   "atk": 8,
+   "def": 6,
+   "eva": 5,
+   "spd": 12,
+   "focus": 3
+  },
+  "skills": [
+   "sk_gob_slash",
+   "sk_gob_double",
+   "sk_gob_guard"
+  ],
+  "ai": {
+   "type": "weighted",
+   "weights": {
+    "sk_gob_slash": 60,
+    "sk_gob_double": 25,
+    "sk_gob_guard": 15
+   },
+   "rules": [
+    {
+     "if": "hp_below",
+     "value": 30,
+     "prefer": "sk_gob_double"
+    },
+    {
+     "no_repeat_over": 2
+    }
+   ]
+  },
+  "drops": [
+   "part_head_goblin_skull",
+   "part_body_goblin_torso",
+   "part_arm_goblin_claw",
+   "part_leg_goblin_hop",
+   "part_arm_twin"
+  ],
+  "flavor": "시궁창 냄새를 달고 다니는 작은 포식자."
+ },
+ {
+  "id": "m_bonehound",
+  "name": "뼈사냥개",
+  "tier": "normal",
+  "acts": [
+   1
+  ],
+  "hp": 160,
+  "def_element": "타격",
+  "stats": {
+   "atk": 8,
+   "def": 4,
+   "eva": 10,
+   "spd": 20,
+   "focus": 4
+  },
+  "skills": [
+   "sk_hound_bite",
+   "sk_hound_rush"
+  ],
+  "ai": {
+   "type": "weighted",
+   "weights": {
+    "sk_hound_bite": 65,
+    "sk_hound_rush": 35
+   },
+   "rules": [
+    {
+     "no_repeat_over": 3
+    }
+   ]
+  },
+  "drops": [
+   "part_head_hound_skull",
+   "part_arm_bone_spike",
+   "part_leg_hound_legs",
+   "part_head_ember_skull",
+   "part_body_hound_ribcage",
+   "part_arm_ice",
+   "part_leg_frost"
+  ],
+  "flavor": "살점 없이 달리는 것들은 지치지 않는다."
+ },
+ {
+  "id": "m_fungal",
+  "name": "곰팡이 시체",
+  "tier": "normal",
+  "acts": [
+   1
+  ],
+  "hp": 150,
+  "def_element": "부패",
+  "stats": {
+   "atk": 7,
+   "def": 11,
+   "eva": 2,
+   "spd": 5,
+   "focus": 2
+  },
+  "skills": [
+   "sk_fungal_spore",
+   "sk_fungal_slam"
+  ],
+  "ai": {
+   "type": "weighted",
+   "weights": {
+    "sk_fungal_spore": 55,
+    "sk_fungal_slam": 45
+   },
+   "rules": [
+    {
+     "no_repeat_over": 2
+    }
+   ]
+  },
+  "drops": [
+   "part_head_fungal_cap",
+   "part_body_fungal_ribcage",
+   "part_arm_fungal_limb",
+   "part_head_whisper_skull",
+   "part_body_frost_ribcage",
+   "part_arm_flame",
+   "part_arm_venom",
+   "part_leg_fungal"
+  ],
+  "flavor": "죽은 뒤에도 자라는 것이 있다."
+ },
+ {
+  "id": "m_ogre",
+  "name": "무덤파괴자 오우거",
+  "tier": "elite",
+  "acts": [
+   1
+  ],
+  "hp": 380,
+  "def_element": "타격",
+  "stats": {
+   "atk": 26,
+   "def": 14,
+   "eva": 0,
+   "spd": 6,
+   "focus": 3
+  },
+  "skills": [
+   "sk_ogre_smash",
+   "sk_gob_guard",
+   "sk_ogre_roar"
+  ],
+  "ai": {
+   "type": "pattern",
+   "pattern": [
+    "sk_ogre_roar",
+    "sk_gob_guard",
+    "sk_ogre_smash"
+   ],
+   "rules": []
+  },
+  "drops": [
+   "part_body_ogre_hide",
+   "part_arm_rusted_axe",
+   "part_leg_ogre_stump",
+   "part_head_ogre_skull",
+   "part_arm_hammer",
+   "part_arm_shatter",
+   "part_leg_iron",
+   "part_arm_ogre_tomb"
+  ],
+  "flavor": "묘비를 뽑아 든다. 그것이 그의 무기다."
+ },
+ {
+  "id": "m_carrion",
+  "name": "시체까마귀 떼",
+  "tier": "normal",
+  "acts": [
+   1
+  ],
+  "hp": 190,
+  "def_element": "참격",
+  "stats": {
+   "atk": 9,
+   "def": 3,
+   "eva": 25,
+   "spd": 22,
+   "focus": 5
+  },
+  "skills": [
+   "sk_crow_peck",
+   "sk_crow_swarm"
+  ],
+  "ai": {
+   "type": "weighted",
+   "weights": {
+    "sk_crow_peck": 70,
+    "sk_crow_swarm": 30
+   },
+   "rules": [
+    {
+     "no_repeat_over": 2
+    }
+   ]
+  },
+  "drops": [
+   "part_head_carrion_skull",
+   "part_body_carrion_frame",
+   "part_arm_holy",
+   "part_arm_needle",
+   "part_leg_carrion"
+  ],
+  "flavor": "하나를 쫓으면 스물이 달려든다."
+ },
+ {
+  "id": "m_weaver",
+  "name": "살가죽 직조공",
+  "tier": "elite",
+  "acts": [
+   1
+  ],
+  "hp": 300,
+  "def_element": "부패",
+  "stats": {
+   "atk": 14,
+   "def": 9,
+   "eva": 6,
+   "spd": 11,
+   "focus": 6
+  },
+  "skills": [
+   "sk_weaver_bind",
+   "sk_weaver_flay",
+   "sk_weaver_stitch"
+  ],
+  "ai": {
+   "type": "weighted",
+   "weights": {
+    "sk_weaver_bind": 30,
+    "sk_weaver_flay": 45,
+    "sk_weaver_stitch": 25
+   },
+   "rules": [
+    {
+     "if": "hp_below",
+     "value": 40,
+     "prefer": "sk_weaver_flay"
+    },
+    {
+     "no_repeat_over": 2
+    }
+   ]
+  },
+  "drops": [
+   "part_head_weaver_hood",
+   "part_body_weaver_hide",
+   "part_body_martyr_chest",
+   "part_arm_hook",
+   "part_arm_rot",
+   "part_leg_weaver",
+   "part_arm_weaver_needle"
+  ],
+  "flavor": "벗겨낸 가죽을 이어 붙여 무언가를 짓고 있다."
+ },
+ {
+  "id": "m_gravelord",
+  "name": "무덤군주",
+  "tier": "boss",
+  "acts": [
+   1
+  ],
+  "hp": 560,
+  "def_element": "부패",
+  "stats": {
+   "atk": 22,
+   "def": 16,
+   "eva": 4,
+   "spd": 9,
+   "focus": 8
+  },
+  "skills": [
+   "sk_lord_summon",
+   "sk_lord_sweep",
+   "sk_lord_decree",
+   "sk_gravelord_edict"
+  ],
+  "ai": {
+   "type": "pattern",
+   "pattern": [
+    "sk_lord_summon",
+    "sk_lord_sweep",
+    "sk_lord_decree",
+    "sk_lord_sweep",
+    "sk_gravelord_edict"
+   ],
+   "rules": []
+  },
+  "drops": [
+   "part_head_gravelord_crown",
+   "part_body_gravelord",
+   "part_arm_gravelord",
+   "part_leg_gravelord"
+  ],
+  "flavor": "무덤은 그의 집이고, 묻힌 모든 것이 그의 것이다."
+ }
 ]

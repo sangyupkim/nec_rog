@@ -103,7 +103,9 @@ export function makePart(defId, modId = null) {
 
 export function partName(p) {
   const def = DB.partsBy[p.defId];
-  const prefix = p.mod ? `${DB.modifiersBy[p.mod].prefix} ` : '';
+  const prefix = (p.mod ? `${DB.modifiersBy[p.mod].prefix} ` : '')
+    + (p.fused ? '이어붙인 ' : '')
+    + (p.refined ? '정제된 ' : '');
   return def.name_template
     .replace('{mod}', prefix)
     .replace('{owner}', def.owner ?? '')
@@ -115,10 +117,13 @@ export function partName(p) {
 export function partStats(p) {
   const def = DB.partsBy[p.defId];
   const mod = p.mod ? DB.modifiersBy[p.mod] : null;
+  // 접합로에서 융합·정제된 파츠는 자체 스탯을 들고 다닌다 (§9.3-③)
+  const base = p.fused?.stats ?? def.stats;
+  const refine = 1 + 0.1 * (p.refined ?? 0);
   const out = {};
-  for (const [k, v] of Object.entries(def.stats)) {
-    let n = v * (mod?.stat_multiplier?.[k] ?? 1) + (mod?.flat_bonus?.[k] ?? 0);
-    out[k] = Math.round(n);
+  for (const [k, v0] of Object.entries(base)) {
+    const v = v0 * refine;
+    out[k] = Math.round(v * (mod?.stat_multiplier?.[k] ?? 1) + (mod?.flat_bonus?.[k] ?? 0));
   }
   // 부패한 파츠는 성능이 절반
   if (p.integrity <= 0) for (const k of Object.keys(out)) out[k] = Math.round(out[k] / 2);
@@ -128,7 +133,7 @@ export function partStats(p) {
 export function partSkills(p) {
   const def = DB.partsBy[p.defId];
   const mod = p.mod ? DB.modifiersBy[p.mod] : null;
-  const ids = [...def.skills];
+  const ids = [...(p.fused?.skills ?? def.skills)];
   if (mod?.added_skill) ids.push(mod.added_skill);
   return ids;
 }
@@ -207,8 +212,8 @@ export function makeMonster(defId, modId, rng) {
 export function rollMonster(floor, rng) {
   const byFloor = {
     1: ['m_goblin', 'm_bonehound'],
-    2: ['m_goblin', 'm_bonehound', 'm_fungal'],
-    3: ['m_bonehound', 'm_fungal'],
+    2: ['m_goblin', 'm_bonehound', 'm_fungal', 'm_carrion'],
+    3: ['m_bonehound', 'm_fungal', 'm_carrion'],
   };
   const id = rng.pick(byFloor[floor] ?? byFloor[3]);
   const modChance = 25 + floor * 10;
@@ -222,7 +227,7 @@ export function rollMonster(floor, rng) {
 }
 
 /** 층별 엘리트. 전용 엘리트가 없는 층은 일반 몬스터를 승격시켜 쓴다. */
-const ELITE_BY_FLOOR = { 1: 'm_goblin', 2: 'm_fungal', 3: 'm_ogre' };
+const ELITE_BY_FLOOR = { 1: 'm_goblin', 2: 'm_weaver', 3: 'm_ogre' };
 
 export function rollElite(floor, rng) {
   const id = ELITE_BY_FLOOR[floor] ?? 'm_ogre';
@@ -237,6 +242,19 @@ export function rollElite(floor, rng) {
     m.name = `굶주린 ${m.name}`;
     m.tier = 'elite';
   }
+  return m;
+}
+
+/** 층 보스. 마지막 층은 전용 보스, 그 전은 엘리트를 승격시켜 쓴다. */
+export function rollBoss(floor, rng) {
+  if (floor >= 3) {
+    const pool = DB.modifiers.filter((x) => x.tier <= 2);
+    return makeMonster('m_gravelord', rng.weighted(pool.map((x) => [x.id, x.weight])), rng);
+  }
+  const m = rollElite(floor, rng);
+  m.maxHp = Math.round(m.maxHp * 1.2);
+  m.hp = m.maxHp;
+  m.name = `층의 주인 ${m.name}`;
   return m;
 }
 

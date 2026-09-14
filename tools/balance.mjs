@@ -88,8 +88,8 @@ const BUILDS = {
  */
 const EXPECTED = {
   '1층 시작': ['m_goblin', 'm_bonehound'],
-  '2층 중반': ['m_fungal'],
-  '3층 후반': ['m_ogre'],
+  '2층 중반': ['m_fungal', 'm_carrion', 'm_weaver'],
+  '3층 후반': ['m_ogre', 'm_gravelord'],
 };
 
 let warnings = 0;

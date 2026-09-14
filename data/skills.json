@@ -1,126 +1,1109 @@
 [
-  { "id": "sk_struggle", "name": "발버둥", "element": "타격", "power": 15, "accuracy": 100,
-    "priority": 0, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) 아무렇게나 몸을 휘두른다." },
-
-  { "id": "sk_claw_swipe", "name": "발톱 후려치기", "element": "참격", "power": 40, "accuracy": 95,
-    "priority": 0, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) {target}을(를) 발톱으로 후려친다." },
-  { "id": "sk_rend", "name": "살점 찢기", "element": "참격", "power": 55, "accuracy": 90,
-    "priority": 0, "charges": 3, "recharge": 4,
-    "effects": [ { "op": "status", "id": "균열", "chance": 30, "duration": 2 } ],
-    "text": "{user}가(이) {target}의 살점을 찢어발긴다." },
-  { "id": "sk_axe_cleave", "name": "도끼 내려찍기", "element": "참격", "power": 75, "accuracy": 85,
-    "priority": 0, "charges": 2, "recharge": 5, "effects": [],
-    "text": "{user}가(이) 녹슨 도끼날을 내려찍는다." },
-  { "id": "sk_bone_spear", "name": "뼈창 찌르기", "element": "타격", "power": 45, "accuracy": 95,
-    "priority": 0, "charges": null, "recharge": 0,
-    "effects": [ { "op": "crit_bonus", "value": 15 } ],
-    "text": "{user}가(이) 벼려진 뼈를 내지른다." },
-  { "id": "sk_pounce", "name": "덮치기", "element": "타격", "power": 35, "accuracy": 100,
-    "priority": 1, "charges": 3, "recharge": 4, "effects": [],
-    "text": "{user}가(이) 먼저 몸을 날린다." },
-
-  { "id": "sk_iron_wall", "name": "강철 방벽", "element": "타격", "power": 0, "accuracy": 100,
-    "priority": 1, "charges": 3, "recharge": 3,
-    "effects": [ { "op": "rank", "stat": "def", "delta": 2, "target": "self" } ],
-    "text": "{user}가(이) 흉곽을 단단히 여민다." },
-  { "id": "sk_brace", "name": "버티기", "element": "타격", "power": 0, "accuracy": 100,
-    "priority": 1, "charges": null, "recharge": 0,
-    "effects": [ { "op": "rank", "stat": "def", "delta": 1, "target": "self" } ],
-    "text": "{user}가(이) 자세를 낮춘다." },
-  { "id": "sk_spore_burst", "name": "포자 살포", "element": "독", "power": 20, "accuracy": 90,
-    "priority": 0, "charges": 3, "recharge": 4,
-    "effects": [ { "op": "status", "id": "중독", "chance": 100, "stacks": 3 } ],
-    "text": "{user}의 몸에서 포자가 터져나온다." },
-  { "id": "sk_regenerate", "name": "육신 재봉", "element": "부패", "power": 0, "accuracy": 100,
-    "priority": 0, "charges": 2, "recharge": 6,
-    "effects": [ { "op": "status", "id": "재생", "chance": 100, "duration": 3, "target": "self" } ],
-    "text": "{user}가(이) 벌어진 이음새를 스스로 꿰맨다." },
-
-  { "id": "sk_leap", "name": "도약", "element": "타격", "power": 30, "accuracy": 100,
-    "priority": 0, "charges": 3, "recharge": 3,
-    "effects": [ { "op": "rank", "stat": "eva", "delta": 1, "target": "self" } ],
-    "text": "{user}가(이) 뛰어오르며 내리찍는다." },
-  { "id": "sk_hamstring", "name": "발목 끊기", "element": "참격", "power": 25, "accuracy": 95,
-    "priority": 0, "charges": 3, "recharge": 4,
-    "effects": [ { "op": "rank", "stat": "spd", "delta": -2, "target": "enemy" } ],
-    "text": "{user}가(이) {target}의 발목을 노린다." },
-
-  { "id": "sk_insight", "name": "죽은 자의 시야", "element": "신성", "power": 0, "accuracy": 100,
-    "priority": 0, "charges": 2, "recharge": 5,
-    "effects": [ { "op": "rank", "stat": "atk", "delta": 1, "target": "self" },
-                 { "op": "reveal", "target": "enemy" } ],
-    "text": "{user}의 안와에 푸른 불이 켜진다." },
-
-  { "id": "sk_mod_poison_sting", "name": "독침", "element": "독", "power": 25, "accuracy": 95,
-    "priority": 0, "charges": 3, "recharge": 3,
-    "effects": [ { "op": "status", "id": "중독", "chance": 100, "stacks": 2 } ],
-    "text": "{user}가(이) 독이 밴 돌기를 박아넣는다." },
-  { "id": "sk_mod_crush", "name": "짓누르기", "element": "타격", "power": 90, "accuracy": 80,
-    "priority": -1, "charges": 2, "recharge": 6, "effects": [],
-    "text": "{user}가(이) 육중한 무게로 {target}을(를) 짓누른다." },
-  { "id": "sk_mod_afterimage", "name": "잔상", "element": "타격", "power": 0, "accuracy": 100,
-    "priority": 2, "charges": 2, "recharge": 5,
-    "effects": [ { "op": "rank", "stat": "eva", "delta": 2, "target": "self" } ],
-    "text": "{user}의 윤곽이 흐릿하게 번진다." },
-  { "id": "sk_mod_ignite", "name": "발화", "element": "화염", "power": 35, "accuracy": 90,
-    "priority": 0, "charges": 3, "recharge": 4,
-    "effects": [ { "op": "status", "id": "화상", "chance": 60, "duration": 3 } ],
-    "text": "{user}가(이) 불붙은 살점을 흩뿌린다." },
-  { "id": "sk_mod_frost", "name": "서리", "element": "냉기", "power": 30, "accuracy": 95,
-    "priority": 0, "charges": 3, "recharge": 4,
-    "effects": [ { "op": "rank", "stat": "spd", "delta": -1, "target": "enemy" } ],
-    "text": "서리가 {target}의 관절에 엉겨붙는다." },
-  { "id": "sk_mod_plague", "name": "역병 구름", "element": "부패", "power": 30, "accuracy": 85,
-    "priority": 0, "charges": 2, "recharge": 6,
-    "effects": [ { "op": "status", "id": "중독", "chance": 100, "stacks": 4 } ],
-    "text": "{user}를(을) 중심으로 역병 구름이 퍼진다." },
-  { "id": "sk_mod_harden", "name": "경화", "element": "타격", "power": 0, "accuracy": 100,
-    "priority": 1, "charges": 2, "recharge": 5,
-    "effects": [ { "op": "rank", "stat": "def", "delta": 3, "target": "self" },
-                 { "op": "rank", "stat": "spd", "delta": -1, "target": "self" } ],
-    "text": "{user}의 갑주가 굳어진다." },
-  { "id": "sk_mod_flurry", "name": "난도질", "element": "참격", "power": 22, "accuracy": 85,
-    "priority": 0, "charges": 2, "recharge": 5, "hits": 3, "effects": [],
-    "text": "{user}가(이) 미친 듯이 난도질한다." },
-  { "id": "sk_mod_thirst", "name": "갈증", "element": "부패", "power": 45, "accuracy": 90,
-    "priority": 0, "charges": 2, "recharge": 5,
-    "effects": [ { "op": "lifesteal", "ratio": 0.5 } ],
-    "text": "{user}가(이) {target}의 체액을 빨아들인다." },
-  { "id": "sk_mod_thorns", "name": "가시", "element": "참격", "power": 0, "accuracy": 100,
-    "priority": 0, "charges": 2, "recharge": 6,
-    "effects": [ { "op": "status", "id": "가시", "chance": 100, "duration": 99, "target": "self" } ],
-    "text": "{user}의 표면에서 뼈가시가 솟는다." },
-
-  { "id": "sk_gob_slash", "name": "녹슨 칼질", "element": "참격", "power": 40, "accuracy": 95,
-    "priority": 0, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) 녹슨 칼을 휘두른다." },
-  { "id": "sk_gob_double", "name": "연타", "element": "참격", "power": 24, "accuracy": 90,
-    "priority": 0, "charges": null, "recharge": 0, "hits": 2, "effects": [],
-    "text": "{user}가(이) 두 번 연달아 내리친다." },
-  { "id": "sk_gob_guard", "name": "웅크리기", "element": "타격", "power": 0, "accuracy": 100,
-    "priority": 1, "charges": null, "recharge": 0,
-    "effects": [ { "op": "rank", "stat": "def", "delta": 1, "target": "self" } ],
-    "text": "{user}가(이) 몸을 웅크린다." },
-  { "id": "sk_hound_bite", "name": "물어뜯기", "element": "참격", "power": 38, "accuracy": 95,
-    "priority": 0, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) 이빨을 박아넣는다." },
-  { "id": "sk_hound_rush", "name": "쇄도", "element": "타격", "power": 28, "accuracy": 100,
-    "priority": 1, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) 순식간에 거리를 좁힌다." },
-  { "id": "sk_fungal_spore", "name": "곰팡이 분출", "element": "독", "power": 18, "accuracy": 90,
-    "priority": 0, "charges": null, "recharge": 0,
-    "effects": [ { "op": "status", "id": "중독", "chance": 80, "stacks": 2 } ],
-    "text": "{user}에게서 곰팡이가 뿜어져 나온다." },
-  { "id": "sk_fungal_slam", "name": "무른 몸통박치기", "element": "타격", "power": 30, "accuracy": 85,
-    "priority": 0, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) 무른 몸을 던진다." },
-  { "id": "sk_ogre_smash", "name": "무덤 부수기", "element": "타격", "power": 85, "accuracy": 80,
-    "priority": -1, "charges": null, "recharge": 0, "effects": [],
-    "text": "{user}가(이) 묘비째로 내리친다." },
-  { "id": "sk_ogre_roar", "name": "포효", "element": "타격", "power": 0, "accuracy": 100,
-    "priority": 0, "charges": null, "recharge": 0,
-    "effects": [ { "op": "rank", "stat": "atk", "delta": 2, "target": "self" } ],
-    "text": "{user}가(이) 지축을 울리며 포효한다." }
+ {
+  "id": "sk_struggle",
+  "name": "발버둥",
+  "element": "타격",
+  "power": 15,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 아무렇게나 몸을 휘두른다."
+ },
+ {
+  "id": "sk_claw_swipe",
+  "name": "발톱 후려치기",
+  "element": "참격",
+  "power": 40,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) {target}을(를) 발톱으로 후려친다."
+ },
+ {
+  "id": "sk_rend",
+  "name": "살점 찢기",
+  "element": "참격",
+  "power": 55,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "균열",
+    "chance": 30,
+    "duration": 2
+   }
+  ],
+  "text": "{user}가(이) {target}의 살점을 찢어발긴다."
+ },
+ {
+  "id": "sk_axe_cleave",
+  "name": "도끼 내려찍기",
+  "element": "참격",
+  "power": 75,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [],
+  "text": "{user}가(이) 녹슨 도끼날을 내려찍는다."
+ },
+ {
+  "id": "sk_bone_spear",
+  "name": "뼈창 찌르기",
+  "element": "타격",
+  "power": 45,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "crit_bonus",
+    "value": 15
+   }
+  ],
+  "text": "{user}가(이) 벼려진 뼈를 내지른다."
+ },
+ {
+  "id": "sk_pounce",
+  "name": "덮치기",
+  "element": "타격",
+  "power": 35,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [],
+  "text": "{user}가(이) 먼저 몸을 날린다."
+ },
+ {
+  "id": "sk_iron_wall",
+  "name": "강철 방벽",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 2,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 흉곽을 단단히 여민다."
+ },
+ {
+  "id": "sk_brace",
+  "name": "버티기",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 1,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 자세를 낮춘다."
+ },
+ {
+  "id": "sk_spore_burst",
+  "name": "포자 살포",
+  "element": "독",
+  "power": 20,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "중독",
+    "chance": 100,
+    "stacks": 3
+   }
+  ],
+  "text": "{user}의 몸에서 포자가 터져나온다."
+ },
+ {
+  "id": "sk_regenerate",
+  "name": "육신 재봉",
+  "element": "부패",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [
+   {
+    "op": "status",
+    "id": "재생",
+    "chance": 100,
+    "duration": 3,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 벌어진 이음새를 스스로 꿰맨다."
+ },
+ {
+  "id": "sk_leap",
+  "name": "도약",
+  "element": "타격",
+  "power": 30,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "eva",
+    "delta": 1,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 뛰어오르며 내리찍는다."
+ },
+ {
+  "id": "sk_hamstring",
+  "name": "발목 끊기",
+  "element": "참격",
+  "power": 25,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": -2,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}가(이) {target}의 발목을 노린다."
+ },
+ {
+  "id": "sk_insight",
+  "name": "죽은 자의 시야",
+  "element": "신성",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "atk",
+    "delta": 1,
+    "target": "self"
+   },
+   {
+    "op": "reveal",
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}의 안와에 푸른 불이 켜진다."
+ },
+ {
+  "id": "sk_mod_poison_sting",
+  "name": "독침",
+  "element": "독",
+  "power": 25,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "status",
+    "id": "중독",
+    "chance": 100,
+    "stacks": 2
+   }
+  ],
+  "text": "{user}가(이) 독이 밴 돌기를 박아넣는다."
+ },
+ {
+  "id": "sk_mod_crush",
+  "name": "짓누르기",
+  "element": "타격",
+  "power": 90,
+  "accuracy": 80,
+  "priority": -1,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [],
+  "text": "{user}가(이) 육중한 무게로 {target}을(를) 짓누른다."
+ },
+ {
+  "id": "sk_mod_afterimage",
+  "name": "잔상",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 2,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "eva",
+    "delta": 2,
+    "target": "self"
+   }
+  ],
+  "text": "{user}의 윤곽이 흐릿하게 번진다."
+ },
+ {
+  "id": "sk_mod_ignite",
+  "name": "발화",
+  "element": "화염",
+  "power": 35,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "화상",
+    "chance": 60,
+    "duration": 3
+   }
+  ],
+  "text": "{user}가(이) 불붙은 살점을 흩뿌린다."
+ },
+ {
+  "id": "sk_mod_frost",
+  "name": "서리",
+  "element": "냉기",
+  "power": 30,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": -1,
+    "target": "enemy"
+   }
+  ],
+  "text": "서리가 {target}의 관절에 엉겨붙는다."
+ },
+ {
+  "id": "sk_mod_plague",
+  "name": "역병 구름",
+  "element": "부패",
+  "power": 30,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [
+   {
+    "op": "status",
+    "id": "중독",
+    "chance": 100,
+    "stacks": 4
+   }
+  ],
+  "text": "{user}를(을) 중심으로 역병 구름이 퍼진다."
+ },
+ {
+  "id": "sk_mod_harden",
+  "name": "경화",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 3,
+    "target": "self"
+   },
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": -1,
+    "target": "self"
+   }
+  ],
+  "text": "{user}의 갑주가 굳어진다."
+ },
+ {
+  "id": "sk_mod_flurry",
+  "name": "난도질",
+  "element": "참격",
+  "power": 22,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "hits": 3,
+  "effects": [],
+  "text": "{user}가(이) 미친 듯이 난도질한다."
+ },
+ {
+  "id": "sk_mod_thirst",
+  "name": "갈증",
+  "element": "부패",
+  "power": 45,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "lifesteal",
+    "ratio": 0.5
+   }
+  ],
+  "text": "{user}가(이) {target}의 체액을 빨아들인다."
+ },
+ {
+  "id": "sk_mod_thorns",
+  "name": "가시",
+  "element": "참격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [
+   {
+    "op": "status",
+    "id": "가시",
+    "chance": 100,
+    "duration": 99,
+    "target": "self"
+   }
+  ],
+  "text": "{user}의 표면에서 뼈가시가 솟는다."
+ },
+ {
+  "id": "sk_gob_slash",
+  "name": "녹슨 칼질",
+  "element": "참격",
+  "power": 40,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 녹슨 칼을 휘두른다."
+ },
+ {
+  "id": "sk_gob_double",
+  "name": "연타",
+  "element": "참격",
+  "power": 24,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "hits": 2,
+  "effects": [],
+  "text": "{user}가(이) 두 번 연달아 내리친다."
+ },
+ {
+  "id": "sk_gob_guard",
+  "name": "웅크리기",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 1,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 몸을 웅크린다."
+ },
+ {
+  "id": "sk_hound_bite",
+  "name": "물어뜯기",
+  "element": "참격",
+  "power": 38,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 이빨을 박아넣는다."
+ },
+ {
+  "id": "sk_hound_rush",
+  "name": "쇄도",
+  "element": "타격",
+  "power": 28,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 순식간에 거리를 좁힌다."
+ },
+ {
+  "id": "sk_fungal_spore",
+  "name": "곰팡이 분출",
+  "element": "독",
+  "power": 18,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "status",
+    "id": "중독",
+    "chance": 80,
+    "stacks": 2
+   }
+  ],
+  "text": "{user}에게서 곰팡이가 뿜어져 나온다."
+ },
+ {
+  "id": "sk_fungal_slam",
+  "name": "무른 몸통박치기",
+  "element": "타격",
+  "power": 30,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 무른 몸을 던진다."
+ },
+ {
+  "id": "sk_ogre_smash",
+  "name": "무덤 부수기",
+  "element": "타격",
+  "power": 85,
+  "accuracy": 80,
+  "priority": -1,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 묘비째로 내리친다."
+ },
+ {
+  "id": "sk_ogre_roar",
+  "name": "포효",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "atk",
+    "delta": 2,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 지축을 울리며 포효한다."
+ },
+ {
+  "id": "sk_gaze_chill",
+  "name": "서린 눈길",
+  "element": "냉기",
+  "power": 22,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": -1,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}의 안와에서 찬 기운이 새어나온다."
+ },
+ {
+  "id": "sk_focus_mind",
+  "name": "집중",
+  "element": "신성",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "atk",
+    "delta": 1,
+    "target": "self"
+   },
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 1,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 숨을 고른다."
+ },
+ {
+  "id": "sk_death_whisper",
+  "name": "죽은 자의 속삭임",
+  "element": "부패",
+  "power": 18,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "공포",
+    "chance": 40,
+    "duration": 1
+   }
+  ],
+  "text": "{user}에게서 알아들을 수 없는 말이 흘러나온다."
+ },
+ {
+  "id": "sk_bone_crown",
+  "name": "뼈관의 위압",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "atk",
+    "delta": -2,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}가(이) 뼈로 된 관을 들어 보인다."
+ },
+ {
+  "id": "sk_ember_eye",
+  "name": "타오르는 눈",
+  "element": "화염",
+  "power": 26,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "화상",
+    "chance": 50,
+    "duration": 3
+   }
+  ],
+  "text": "{user}의 눈구멍에서 불씨가 튄다."
+ },
+ {
+  "id": "sk_shell_up",
+  "name": "껍질 세우기",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 2,
+    "target": "self"
+   },
+   {
+    "op": "status",
+    "id": "가시",
+    "chance": 100,
+    "duration": 99,
+    "target": "self"
+   }
+  ],
+  "text": "{user}의 표면이 거칠게 곤두선다."
+ },
+ {
+  "id": "sk_second_wind",
+  "name": "두 번째 숨",
+  "element": "부패",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 0,
+  "charges": 1,
+  "recharge": 8,
+  "effects": [
+   {
+    "op": "status",
+    "id": "재생",
+    "chance": 100,
+    "duration": 3,
+    "target": "self"
+   }
+  ],
+  "text": "{user}의 가슴이 한 번 크게 부푼다."
+ },
+ {
+  "id": "sk_frost_shell",
+  "name": "서리 외피",
+  "element": "냉기",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 2,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": 2,
+    "target": "self"
+   },
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": -1,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}의 표면에 서리가 낀다."
+ },
+ {
+  "id": "sk_hook_pull",
+  "name": "갈고리 당기기",
+  "element": "참격",
+  "power": 36,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "eva",
+    "delta": -1,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}가(이) 갈고리를 걸어 끌어당긴다."
+ },
+ {
+  "id": "sk_hammer_fall",
+  "name": "쇠망치 낙하",
+  "element": "타격",
+  "power": 80,
+  "accuracy": 80,
+  "priority": -1,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [],
+  "text": "{user}가(이) 쇠망치를 머리 위로 들어올렸다 내린다."
+ },
+ {
+  "id": "sk_twin_slash",
+  "name": "쌍베기",
+  "element": "참격",
+  "power": 26,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "hits": 2,
+  "effects": [],
+  "text": "{user}가(이) 두 번 엇갈려 벤다."
+ },
+ {
+  "id": "sk_flame_palm",
+  "name": "불꽃 손바닥",
+  "element": "화염",
+  "power": 42,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "화상",
+    "chance": 45,
+    "duration": 3
+   }
+  ],
+  "text": "{user}의 손바닥에서 불길이 뻗는다."
+ },
+ {
+  "id": "sk_ice_lance",
+  "name": "얼음 창",
+  "element": "냉기",
+  "power": 48,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [],
+  "text": "{user}가(이) 얼어붙은 뼈를 내지른다."
+ },
+ {
+  "id": "sk_venom_rake",
+  "name": "독 갈퀴",
+  "element": "독",
+  "power": 30,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "status",
+    "id": "중독",
+    "chance": 100,
+    "stacks": 3
+   }
+  ],
+  "text": "{user}가(이) 독이 밴 갈퀴로 긁는다."
+ },
+ {
+  "id": "sk_rot_grip",
+  "name": "부패의 악력",
+  "element": "부패",
+  "power": 38,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "lifesteal",
+    "ratio": 0.4
+   }
+  ],
+  "text": "{user}가(이) 움켜쥔 자리를 썩게 만든다."
+ },
+ {
+  "id": "sk_holy_brand",
+  "name": "성흔 낙인",
+  "element": "신성",
+  "power": 44,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "effects": [
+   {
+    "op": "status",
+    "id": "균열",
+    "chance": 40,
+    "duration": 2
+   }
+  ],
+  "text": "{user}가(이) 빛나는 낙인을 찍는다."
+ },
+ {
+  "id": "sk_shatter_blow",
+  "name": "부수는 일격",
+  "element": "타격",
+  "power": 50,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "def",
+    "delta": -1,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}가(이) 방어째로 후려친다."
+ },
+ {
+  "id": "sk_needle_storm",
+  "name": "바늘 폭풍",
+  "element": "참격",
+  "power": 16,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 5,
+  "hits": 4,
+  "effects": [],
+  "text": "{user}에게서 바늘이 쏟아진다."
+ },
+ {
+  "id": "sk_sidestep",
+  "name": "곁걸음",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 2,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "eva",
+    "delta": 2,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 옆으로 미끄러진다."
+ },
+ {
+  "id": "sk_stomp",
+  "name": "짓밟기",
+  "element": "타격",
+  "power": 44,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "마비",
+    "chance": 25,
+    "duration": 3
+   }
+  ],
+  "text": "{user}가(이) 발을 내리찍는다."
+ },
+ {
+  "id": "sk_gallop",
+  "name": "질주",
+  "element": "타격",
+  "power": 30,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": 3,
+  "recharge": 3,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": 1,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 땅을 차고 달려든다."
+ },
+ {
+  "id": "sk_gravelord_edict",
+  "name": "무덤군주의 칙령",
+  "element": "부패",
+  "power": 70,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [
+   {
+    "op": "status",
+    "id": "공포",
+    "chance": 60,
+    "duration": 1
+   }
+  ],
+  "text": "{user}가(이) 무덤의 이름으로 명령한다."
+ },
+ {
+  "id": "sk_soul_harvest",
+  "name": "영혼 수확",
+  "element": "신성",
+  "power": 55,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": 2,
+  "recharge": 6,
+  "effects": [
+   {
+    "op": "lifesteal",
+    "ratio": 0.6
+   }
+  ],
+  "text": "{user}가(이) 흩어지는 영혼을 거둬들인다."
+ },
+ {
+  "id": "sk_weaver_stitch",
+  "name": "살가죽 꿰매기",
+  "element": "참격",
+  "power": 28,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": 3,
+  "recharge": 4,
+  "effects": [
+   {
+    "op": "status",
+    "id": "봉인",
+    "chance": 35,
+    "duration": 3
+   }
+  ],
+  "text": "{user}가(이) 상대의 움직임을 꿰매 붙인다."
+ },
+ {
+  "id": "sk_crow_peck",
+  "name": "쪼아대기",
+  "element": "참격",
+  "power": 20,
+  "accuracy": 95,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "hits": 2,
+  "effects": [],
+  "text": "{user}가(이) 사방에서 쪼아댄다."
+ },
+ {
+  "id": "sk_crow_swarm",
+  "name": "떼짓기",
+  "element": "타격",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "eva",
+    "delta": 2,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 검은 구름처럼 흩어졌다 모인다."
+ },
+ {
+  "id": "sk_weaver_bind",
+  "name": "살가죽 결박",
+  "element": "부패",
+  "power": 24,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "spd",
+    "delta": -2,
+    "target": "enemy"
+   }
+  ],
+  "text": "{user}가(이) 가죽끈을 던져 감는다."
+ },
+ {
+  "id": "sk_weaver_flay",
+  "name": "벗겨내기",
+  "element": "참격",
+  "power": 42,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "status",
+    "id": "균열",
+    "chance": 45,
+    "duration": 2
+   }
+  ],
+  "text": "{user}가(이) 겉면을 벗겨낸다."
+ },
+ {
+  "id": "sk_lord_summon",
+  "name": "하수인 부르기",
+  "element": "부패",
+  "power": 0,
+  "accuracy": 100,
+  "priority": 1,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "rank",
+    "stat": "atk",
+    "delta": 1,
+    "target": "self"
+   },
+   {
+    "op": "status",
+    "id": "재생",
+    "chance": 100,
+    "duration": 2,
+    "target": "self"
+   }
+  ],
+  "text": "{user}가(이) 바닥의 유해를 불러 세운다."
+ },
+ {
+  "id": "sk_lord_sweep",
+  "name": "묘비 휘두르기",
+  "element": "타격",
+  "power": 52,
+  "accuracy": 85,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [],
+  "text": "{user}가(이) 묘비를 휘둘러 쓸어버린다."
+ },
+ {
+  "id": "sk_lord_decree",
+  "name": "죽음의 포고",
+  "element": "부패",
+  "power": 38,
+  "accuracy": 90,
+  "priority": 0,
+  "charges": null,
+  "recharge": 0,
+  "effects": [
+   {
+    "op": "status",
+    "id": "중독",
+    "chance": 80,
+    "stacks": 4
+   }
+  ],
+  "text": "{user}가(이) 포고를 읊는다. 공기가 썩는다."
+ }
 ]

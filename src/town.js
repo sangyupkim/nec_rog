@@ -96,7 +96,8 @@ export const nextResetCost = (save) =>
 export function rollStock(rng) {
   const items = rng.shuffle(DB.items).slice(0, 4).map((i) => i.id);
   const parts = [];
-  const pool = DB.parts.map((p) => p.id);
+  // 유니크는 상점에 깔리지 않는다 — 보스를 잡아야 나온다
+  const pool = DB.parts.filter((p) => p.rarity !== 'unique').map((p) => p.id);
   for (let i = 0; i < rng.int(2, 3); i++) {
     const modId = rng.chance(45)
       ? rng.weighted(DB.modifiers.filter((m) => m.tier === 1).map((m) => [m.id, m.weight]))
@@ -108,7 +109,7 @@ export function rollStock(rng) {
 
 export function partPrice(p) {
   const def = DB.partsBy[p.defId];
-  const base = { common: 90, rare: 220 }[def.rarity] ?? 120;
+  const base = { common: 90, rare: 220, unique: 520 }[def.rarity] ?? 120;
   return Math.round(base * (p.mod ? 1.5 : 1));
 }
 

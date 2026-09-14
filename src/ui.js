@@ -45,8 +45,8 @@ export function choices(list) {
     b.disabled = Boolean(c.disabled);
     let k = '';
     if (!c.disabled && !c.nokey && n < 9) { n++; k = String(n); keyHandlers[n] = c.on; }
-    b.innerHTML = `${k ? `<span class="k">${k}</span>` : ''}<span class="nm">${c.label}</span>` +
-      (c.meta ? `<span class="meta">${c.meta}</span>` : '');
+    b.innerHTML = josa(`${k ? `<span class="k">${k}</span>` : ''}<span class="nm">${c.label}</span>`
+      + (c.meta ? `<span class="meta">${c.meta}</span>` : ''));
     if (!c.disabled && c.on) b.addEventListener('click', c.on);
     box.append(b);
   }
@@ -60,7 +60,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ── 왼쪽 패널 ──────────────────────────── */
-export const panel = (html) => { $('left').innerHTML = html; };
+export const panel = (html) => { $('left').innerHTML = josa(html); };
 
 export const bar = (cur, max, foe = false) => {
   const pct = Math.max(0, Math.min(100, (cur / max) * 100));
@@ -249,3 +249,55 @@ export function listPanel(title, rows, extra = '') {
 export const rowHTML = (lb, vl, rt = '', warn = false) =>
   `<div class="row"><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
    <span class="rt ${warn ? 'warn' : ''}">${esc(rt)}</span></div>`;
+
+/* ── 납골당 ─────────────────────────────── */
+export function ossuaryPanel(save, O, now = Date.now()) {
+  const o = save.ossuary;
+  const line = (icon, name, status, warn = false) =>
+    `<div class="row"><span class="lb">${icon}</span><span class="vl">${esc(name)}</span>
+     <span class="rt ${warn ? 'warn' : ''}">${esc(status)}</span></div>`;
+
+  const rows = [];
+  rows.push(line('🫗', '부패조', o.built.rotVat
+    ? `${o.rotVat.stored}/${O.vatCap(o)}${o.rotVat.stored >= O.vatCap(o) ? ' 가득' : ''}`
+    : '미건설', o.rotVat.stored >= O.vatCap(o)));
+  rows.push(line('🔪', '해체대', o.built.dissection
+    ? (o.dissection.slots.length
+        ? o.dissection.slots.map((s) => O.remainText(s.startedAt, s.durationMs, now)).join(', ')
+        : `비어 있음 (${O.dissectionSlots(o)}칸)`)
+    : '미건설'));
+  rows.push(line('🏺', '표본실', o.built.vault
+    ? `${o.vault.parts.length}/${o.vault.capacity}` : '미건설'));
+  rows.push(line('🕯', '접합로', o.built.forge
+    ? (o.forge.slots.length
+        ? o.forge.slots.map((s) => O.remainText(s.startedAt, s.durationMs, now)).join(', ')
+        : `비어 있음 (${O.forgeSlots(o)}칸)`)
+    : '미건설'));
+  rows.push(line('⛓', '사역 골렘 안치소', o.built.laborBay
+    ? (o.laborBay.dispatch.length
+        ? o.laborBay.dispatch.map((d) => O.SITES[d.site].name).join(', ')
+        : `파견 없음 (${O.laborSlots(o)}칸)`)
+    : '미건설'));
+
+  panel(`<p class="pt">납골당</p>
+    <div class="rows">${rows.join('')}</div>
+    <hr class="sep">
+    <p class="pt">오프라인 정산</p>
+    <div class="chips">
+      <span class="chip">상한 ${Math.round(o.offlineCapMs / 3600000)}시간</span>
+      <span class="chip">부패조 Lv${o.rotVat.level}</span>
+    </div>
+    <p class="note">자리를 비운 사이 흐른 시간만큼 한 번에 정산된다.
+      부패조는 상한에 닿으면 생산을 멈춘다.</p>`);
+}
+
+/** 복귀 정산 화면 — 방치형의 보상 순간 */
+export function returnReport(elapsedLabel, lines) {
+  const rows = lines.map((l) =>
+    `<div class="row"><span class="lb">${esc(l.facility)}</span>
+     <span class="vl">${esc(l.text)}</span>
+     <span class="rt ${l.warn ? 'warn' : ''}">${l.warn ? esc(l.warn) : ''}</span></div>`);
+  panel(`<p class="pt">자리를 비운 사이</p>
+    <div class="unit"><h3>${esc(elapsedLabel)}</h3></div>
+    <div class="rows">${rows.join('') || '<p class="empty">아무 일도 없었다.</p>'}</div>`);
+}
