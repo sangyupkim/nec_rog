@@ -380,7 +380,24 @@ function town(intro = true) {
     save();
   }
   UI.topbar(S, '시체골 · 마을');
-  UI.townPanel(S, buildingStatus(S));
+  // 건물은 왼쪽 그림에서 눌러 들어간다. 하단에는 '지금 할 행동'만 남긴다 (§12.4)
+  UI.townPanel(S, {
+    ...buildingStatus(S),
+    scavenger: S.golem.core ? `목표 ${CP.progress(S).done}/${CP.progress(S).total}` : '골렘이 없다',
+    ossuary: ossuaryBadge(),
+    golem: S.golem.core ? `방어도 ${assembleGolem(S).shieldNowTotal}` : '핵 없음',
+    inventory: `부속 ${S.inventory.length}`,
+  }, {
+    scavenger: scavengerScreen,
+    ossuary: ossuaryScreen,
+    quest: questScreen,
+    daily: dailyScreen,
+    shop: shopScreen,
+    forge: forgeScreen,
+    conclave: conclaveScreen,
+    golem: golemScreen,
+    inventory: () => inventoryScreen(town),
+  });
   if (intro) {
     UI.logHead('시체골');
     UI.logLine('젖은 흙과 초의 냄새. 아무도 당신이 무엇을 하는지 묻지 않는 마을이다.', 'narrate');
@@ -389,22 +406,9 @@ function town(intro = true) {
   // 목표 한 줄 — 이것이 늘 보이는 것이 캠페인의 8할이다 (§7-A.5)
   UI.logLine(`▸ 지금 할 일 — ${CP.objective(S)}`, 'necro');
   UI.choices([
-    { label: '🦴 뼈 수습꾼 바르그', cls: S.golem.core ? 'ghost' : 'primary',
-      meta: S.golem.core ? `목표 ${CP.progress(S).done}/${CP.progress(S).total}` : '골렘이 없다',
-      on: scavengerScreen },
-    { label: '납골당', meta: ossuaryBadge(), on: ossuaryScreen },
-    { label: '의뢰소', meta: questsAllDone(S) ? '수령 가능' : `${S.quests.active.filter((q) => q.done).length}/3`, on: questScreen },
-    { label: '☀ 오늘의 일', cls: dailyAllDone(S) ? 'primary' : '',
-      meta: `${(S.daily?.list ?? []).filter((q) => q.done).length}/${(S.daily?.list ?? []).length}`,
-      on: dailyScreen },
-    { label: '썩은 손수레', meta: '상점', on: shopScreen },
-    { label: '뼈 모루', meta: '대장간', on: forgeScreen },
-    { label: '강령술사 조합', meta: '술법', on: conclaveScreen },
-    { label: '골렘 정비', on: golemScreen },
-    { label: '소지품', on: () => inventoryScreen(town) },
-    { label: '상성표', cls: 'ghost', meta: '속성 일곱', on: () => affinityScreen(() => town(false)) },
     { label: '무덤으로 내려간다', cls: 'primary',
       meta: CP.nextStage(S) ? stageOf(CP.nextStage(S)).name : '아홉 단계 완료', on: startRun },
+    { label: '상성표', cls: 'ghost', meta: '속성 일곱', on: () => affinityScreen(() => town(false)) },
     { label: '저장', cls: 'ghost', on: () => { save(); UI.logLine('기록을 남겼다.', 'dim'); } },
     { label: '기록 보관', cls: 'ghost', meta: '내보내기 · 가져오기', on: backupScreen },
   ]);
@@ -907,13 +911,21 @@ function giveHandout() {
   save();
 }
 
-/* ── 납골당 ─────────────────────────────── */
+/* ── 납골당 ───────────────────────────────
+   시설은 왼쪽 그림에서 눌러 들어간다 (§12.4). 하단은 행동만 남는다. */
+const OSS_GO = () => ({
+  vat: vatScreen, dissect: dissectScreen, vault: vaultScreen, forge: forgeJobScreen,
+  labor: laborScreen, overhaul: overhaulScreen, workshop: workshopScreen,
+  crew: crewScreen, altar: altarScreen,
+});
+const ossPanel = () => UI.ossuaryPanel(S, O, Date.now(), OSS_GO());
+
 function ossuaryScreen() {
   const fresh = O.settle(S, Date.now());
   if (fresh.lines.length) notifyQuests({ kind: 'job', count: fresh.lines.length });
   for (const l of fresh.lines) UI.logLine(`${l.facility} — ${l.text}`, l.warn ? 'bad' : 'good');
   UI.topbar(S, '시체골 · 납골당');
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   const o = S.ossuary;
   UI.logHead('납골당');
   UI.logLine('네크로맨서의 작업장. 여기서는 시간이 재료를 만든다.', 'narrate');
@@ -927,29 +939,16 @@ function ossuaryScreen() {
     save();
   }
 
-  const list = [
-    { label: '🫗 부패조', meta: `${o.rotVat.stored}/${O.vatCap(o)}`, on: vatScreen },
-    { label: '🔪 해체대', meta: `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`, on: dissectScreen },
-  ];
-  if (o.built.vault) list.push({ label: '🏺 표본실', meta: `${o.vault.parts.length}/${o.vault.capacity}`, on: vaultScreen });
-  if (o.built.forge) list.push({ label: '🕯 접합로', meta: `${o.forge.slots.length}/${O.forgeSlots(o)}칸`, on: forgeJobScreen });
-  if (o.built.laborBay) list.push({ label: '⛓ 사역 골렘 안치소', meta: `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸`, on: laborScreen });
-  const cs = O.crewSpeed(S);
-  const oh = o.overhaul ?? [];
-  list.push({ label: '🔧 정비대', meta: oh.length ? `${oh.length}건 진행 중` : '방어도 · 핵', on: overhaulScreen });
-  const wg = O.workshopGolems(S);
-  list.push({ label: '⚙ 조립대', meta: wg.length ? `골렘 ${wg.length}기` : '핵으로 골렘을 세운다', on: workshopScreen });
-  list.push({ label: '🛠 작업반', meta: cs.cut ? `작업 ${Math.round(cs.cut * 100)}% 단축` : '배치 없음', on: crewScreen });
-  list.push({ label: '🕯 제단 — 영구 해금', cls: 'primary', on: altarScreen });
-  list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) });
-  UI.choices(list);
+  UI.choices([
+    { label: '돌아간다', cls: 'ghost', on: () => town(false) },
+  ]);
   save();
 }
 
 function vatScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 부패조');
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   UI.logHead('부패조');
   UI.logLine(`시체 조각을 담가두면 시간에 비례해 진액이 고인다. 통에 담긴 양 ${o.rotVat.input}, 고인 진액 ${o.rotVat.stored}/${O.vatCap(o)}.`);
   if (o.rotVat.stored >= O.vatCap(o)) UI.logLine('통이 가득 차 더 이상 고이지 않는다. 비워야 다시 돈다.', 'bad');
@@ -980,7 +979,7 @@ function vatScreen() {
 function dissectScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 해체대');
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   UI.logHead('해체대');
   for (const s2 of o.dissection.slots) {
     UI.logLine(`${s2.name} — ${O.remainText(s2.startedAt, s2.durationMs)}`, 'dim');
@@ -1023,7 +1022,7 @@ function dissectScreen() {
 function vaultScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 표본실');
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   UI.logHead('표본실');
   UI.logLine('여기 맡긴 것은 무슨 일이 있어도 그대로 남는다.', 'narrate');
   UI.logLine(`무덤에 들고 내려간 여분은 골렘이 무너질 때 하나당 ${SPARE_LOSS}%씩 흘린다. 여기 둔 것은 흘리지 않는다.`, 'necro');
@@ -1350,7 +1349,7 @@ function crewScreen() {
 function forgeJobScreen() {
   const o = S.ossuary;
   UI.topbar(S, `납골당 · 접합로 ${o.forge.slots.length}/${O.forgeSlots(o)}칸`);
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   UI.logHead('접합로');
   for (const j of o.forge.slots) {
     UI.logLine(`${O.RECIPES[j.recipe].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
@@ -1401,7 +1400,7 @@ function recipeScreen(key, first = null) {
   const o = S.ossuary;
   const r = O.RECIPES[key];
   UI.topbar(S, `접합로 · ${r.name}`);
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   UI.logLine(r.desc, 'dim');
 
   const start = (inputs, extra = {}) => {
@@ -1580,7 +1579,7 @@ function dispatchPick(siteKey) {
 function altarScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 제단');
-  UI.ossuaryPanel(S, O);
+  ossPanel();
   UI.logHead('제단');
   UI.logLine('영혼재는 오직 무덤에서만 나온다. 여기서 그것을 태워 영구적인 것을 산다.', 'narrate');
 
@@ -2952,15 +2951,24 @@ function destroyPart(p) {
   }
 }
 
-/** 몸통을 잃어 골렘이 더 이상 설 수 없는 경우 */
+/**
+ * 몸통을 잃어 더 내려갈 수 없는 경우 — **패배가 아니라 강제 귀환이다.**
+ *
+ * 전에는 여기서 골렘을 해체해 핵까지 쪼갰다. 이기고 난 직후, 핵이 162/190으로
+ * 멀쩡한데도 흉갑의 내구도가 0이 됐다는 이유만으로 런 전체를 날리는 처벌이었다.
+ * 패배의 대가(핵 파괴·부속 산실)는 **핵이 0이 되거나 모든 부위가 무너졌을 때**의 것이고,
+ * 흉갑 하나가 닳아 없어진 것은 그저 "더는 못 걷는다"는 뜻이다.
+ * 남은 부속과 핵은 그대로 안고 돌아온다.
+ */
 function collapseRun() {
-  UI.logHead('해체');
+  UI.logHead('철수');
   UI.logLine('몸통을 잃은 골렘이 주저앉는다. 끼워 넣을 흉곽이 남아 있지 않다.', 'narrate');
-  const r = dismantleGolem();
-  reportDismantle(r);
+  UI.logLine('핵은 성하다. 남은 부속을 수레에 싣고 돌아선다.', 'good');
+  S.golem.coreHp = S.run.golemHp;      // 핵 체력은 런을 넘어 남는다
   const ash = 15 + S.run.kills * 3;
   S.soulAsh += ash;
   UI.logLine(`영혼재 ${ash}를 정산했다.`, 'dim');
+  UI.logLine('마을에서 몸통을 끼워야 다시 내려갈 수 있다.', 'dim');
   S.run = null;
   S.town.stock = rollStock(rng, S.unlocks);
   UI.choices([{ label: '마을로 돌아간다', cls: 'primary', on: () => settleAndReport(() => town()) }]);

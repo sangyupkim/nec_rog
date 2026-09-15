@@ -135,9 +135,9 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
  */
 @media (max-aspect-ratio:4/5), (max-width:560px){
   #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) auto minmax(22dvh,1fr)}
-  #app #left{max-height:30dvh;border-right:0;border-bottom:1px solid var(--line)}
+  #app #left{max-height:40dvh;border-right:0;border-bottom:1px solid var(--line)}
   /* 기본 규칙이 파일 뒤쪽에 있어 명시도를 한 단계 올려야 이긴다 */
-  #app #choices{max-height:30dvh;gap:.3rem}
+  #app{--dock-rows:4;--btn-h:2.7rem}
   /* 세로에서는 줄 간격을 좁혀 같은 높이에 더 많은 줄을 담는다 */
   #app #log{gap:.12rem;padding-block:.5rem}
   #app #log .line{line-height:1.42}
@@ -162,8 +162,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 @media (orientation:landscape) and (max-height:520px){
   #topbar{padding-block:.25rem}
   #left,#log{padding-block:.5rem}
-  #choices{max-height:52dvh;padding:.4rem clamp(6px,1.2vw,12px);gap:.3rem}
-  .btn{padding:.34rem .55rem}
+  #app{--dock-rows:3;--btn-h:2.5rem}
+  #choices{padding:.4rem clamp(6px,1.2vw,12px)}
   .line{line-height:1.45}
   .unit{margin-bottom:.7rem}
   hr.sep{margin:.6rem 0}
@@ -180,13 +180,29 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   overflow-y:auto;padding:clamp(10px,2vw,18px);
   display:flex;flex-direction:column;gap:.24rem;
 }
+/*
+ * 하단 독 — **높이가 고정된다.**
+ * 전에는 선택지 개수만큼 늘었다 줄었다 해서 화면이 매번 다르게 보였다.
+ * 이제 칸 크기가 같은 격자에 버튼을 깔고, 넘치면 독 안에서 스크롤한다.
+ * 어느 화면에서든 로그와 선택지의 경계가 같은 자리에 있다.
+ */
+#app{
+  --btn-h:2.85rem; --dock-gap:.35rem; --dock-rows:3;
+  --dock-h:calc(var(--dock-rows) * var(--btn-h)
+    + (var(--dock-rows) - 1) * var(--dock-gap) + 1rem);
+}
 #choices{
   border-top:1px solid var(--line);background:var(--panel);
-  padding:clamp(6px,1.4vw,14px);
-  padding-bottom:max(clamp(6px,1.4vw,14px), env(safe-area-inset-bottom));
-  display:flex;flex-wrap:wrap;gap:.4rem;align-content:flex-start;
-  max-height:46dvh;overflow-y:auto;
+  padding:.5rem clamp(6px,1.4vw,14px);
+  padding-bottom:max(.5rem, env(safe-area-inset-bottom));
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));
+  grid-auto-rows:var(--btn-h);gap:var(--dock-gap);align-content:start;
+  height:var(--dock-h);overflow-y:auto;overscroll-behavior:contain;
 }
+/* 격자를 가로지르는 것들 — 연출 대기 표시와 글상자 */
+#choices .waiting,#choices .textbox{grid-column:1/-1}
+#choices .waiting{grid-row:span 1}
+#choices .textbox{grid-row:span 4}
 
 /* ── 로그 ────────────────────────────────── */
 .line{animation:fade .28s ease both}
@@ -267,8 +283,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .aftable .afzero{color:var(--danger);font-weight:700}
 
 /* 방어도 도식 — 여섯 줄 목록 대신 사람 모양으로 세워 놓고 숫자만 보여 준다 */
+/* 사람 모양으로 보여야 하므로 폭을 묶어 가운데 세운다 — 패널 전체로 늘리면 표가 된다 */
 .bodymap{
-  display:grid;gap:.2rem;margin:.1rem 0 .35rem;
+  display:grid;gap:.25rem;margin:.35rem auto;
+  max-width:17rem;width:100%;
   grid-template-columns:1fr 1fr 1fr;
   grid-template-areas:
     ".    head  ."
@@ -278,7 +296,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .bcell{
   position:relative;overflow:hidden;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
-  min-height:2.05rem;padding:.15rem .2rem;
+  min-height:2.6rem;padding:.2rem;
   background:var(--sunken);border:1px solid var(--line);border-radius:3px;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;
 }
@@ -300,7 +318,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .bcell:hover:not(.empty){border-color:var(--accent-dim)}
 
 .bodydetail{
-  min-height:1.6rem;font-size:.8rem;line-height:1.5;
+  min-height:1.6rem;max-width:22rem;margin:0 auto;font-size:.8rem;line-height:1.5;
   border-top:1px solid var(--line-soft);padding-top:.35rem;
 }
 .bodydetail .hint{color:var(--muted);font-size:.74rem}
@@ -371,22 +389,24 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .hz.t3{color:var(--danger)}
 
 /* ── 선택지 버튼 ─────────────────────────── */
+/* 이름 한 줄 · 곁말 한 줄. 글자 수가 달라도 칸의 크기는 같다 */
 .btn{
+  position:relative;overflow:hidden;
   border:1px solid var(--line);background:var(--panel-2);
-  padding:.4rem .65rem;border-radius:2px;
-  min-height:2.2rem;
-  display:flex;align-items:center;gap:.45rem;
+  padding:.25rem .5rem;border-radius:2px;height:100%;min-width:0;
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;
   transition:border-color .12s,background .12s;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;
-  max-width:100%;
 }
-/* 좁은 화면에서는 선택지를 한 줄에 하나씩 — 글자가 잘리지 않는다 */
-@media (max-width:560px){ .btn{width:100%} }
+.btn > span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn:hover:not(:disabled){border-color:var(--accent-dim);background:var(--accent-bg)}
 .btn:disabled{opacity:.36;cursor:not-allowed}
-.btn .k{font-family:var(--mono);font-size:.7rem;color:var(--accent);min-width:.9em}
-.btn .nm{font-weight:400}
-.btn .meta{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-left:auto;padding-left:.5rem}
+.btn .k{
+  position:absolute;top:.12rem;right:.3rem;
+  font-family:var(--mono);font-size:.6rem;color:var(--accent-dim);
+}
+.btn .nm{font-weight:400;font-size:.92rem;line-height:1.25;padding-right:.7rem}
+.btn .meta{font-family:var(--mono);font-size:.66rem;color:var(--muted);line-height:1.2}
 .btn.wide{width:100%}
 .btn.ghost{background:none;border-color:var(--line-soft);color:var(--muted)}
 .btn.ghost:hover:not(:disabled){color:var(--ink);border-color:var(--line)}
@@ -484,14 +504,48 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   display:flex;flex-wrap:wrap;gap:.15rem .7rem;
 }
 
-/* ── 마을 ────────────────────────────────── */
-.town{display:grid;gap:.5rem}
-.bldg{
-  border:1px solid var(--line);background:var(--sunken);
-  padding:.6rem .75rem;border-radius:2px;
+/* ── 마을·납골당 타일 ─────────────────────
+   건물을 선택지에 늘어놓으면 하단이 열 칸씩 차서 정작 '지금 할 일'이 묻힌다.
+   왼쪽에 그림으로 세워 두고 눌러 들어간다. 숫자 키도 그대로 먹는다. */
+.town{
+  display:grid;gap:.35rem;margin-bottom:.6rem;
+  grid-template-columns:repeat(auto-fill,minmax(4.6rem,1fr));
 }
-.bldg .n{font-family:var(--display);font-weight:700;font-size:1rem}
-.bldg .s{font-family:var(--mono);font-size:.72rem;color:var(--accent-dim);margin-top:.1rem}
+.bldg{
+  position:relative;overflow:hidden;
+  border:1px solid var(--line);background:var(--sunken);
+  padding:.45rem .3rem .4rem;border-radius:3px;
+  display:flex;flex-direction:column;align-items:center;gap:.05rem;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  transition:border-color .12s,background .12s;
+}
+.bldg:hover:not([disabled]){border-color:var(--accent-dim);background:var(--accent-bg)}
+.bldg[disabled]{opacity:.35}
+.bldg .bk{position:absolute;top:.1rem;left:.25rem;font-family:var(--mono);font-size:.56rem;color:var(--accent-dim)}
+.bldg .bi{font-size:1.15rem;line-height:1.1}
+.bldg .bn{font-size:.78rem;line-height:1.2;white-space:nowrap}
+.bldg .bs{
+  font-family:var(--mono);font-size:.6rem;color:var(--muted);line-height:1.2;
+  max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* 손이 가야 하는 건물은 눈에 띄게 — 핵이 없다, 통이 가득 찼다 같은 것 */
+.bldg.urge{border-color:var(--danger)}
+.bldg.urge .bs{color:var(--danger)}
+
+/* ── 접이식 구역 ─────────────────────────── */
+.sec{border-top:1px solid var(--line-soft);margin-top:.5rem}
+.sec > summary{
+  list-style:none;cursor:pointer;display:flex;align-items:baseline;gap:.4rem;
+  padding:.4rem 0;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);
+  -webkit-tap-highlight-color:transparent;
+}
+.sec > summary::-webkit-details-marker{display:none}
+.sec > summary::before{content:"▸";color:var(--accent-dim);font-size:.7rem}
+.sec[open] > summary::before{content:"▾"}
+.sec > summary:hover{color:var(--ink)}
+.sec .ss{margin-left:auto;text-transform:none;letter-spacing:0;color:var(--accent-dim)}
+.sec .sc{padding-bottom:.5rem}
 
 hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
 .note{font-size:.82rem;color:var(--muted);margin-top:.5rem}

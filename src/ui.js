@@ -209,7 +209,8 @@ function render(box, list) {
 
 document.addEventListener('keydown', (e) => {
   if (e.key >= '1' && e.key <= '9') {
-    const h = keyHandlers[Number(e.key)];
+    const n = Number(e.key);
+    const h = keyHandlers[n] ?? panelKeys[n];
     if (h) { e.preventDefault(); h(); }
   }
 });
@@ -267,7 +268,43 @@ export function askText(title, onOk) {
 export const onTextClosed = [];
 
 /* ── 왼쪽 패널 ──────────────────────────── */
-export const panel = (html) => { $('left').innerHTML = josa(html); };
+/* ── 접이식 구역 ─────────────────────────────
+   왼쪽 패널이 한 번에 쏟아내는 정보가 너무 많았다. 늘 봐야 하는 것(도식·경고)만
+   펼쳐 두고, 나머지(능력치표·스킬 목록)는 제목만 남기고 접는다.
+   무엇을 펼쳐 뒀는지는 화면을 다시 그려도 기억한다 — 접는 UI의 절반은 이 기억이다. */
+const secOpen = new Map();
+
+/** 접이식 구역 한 칸. id는 기억의 열쇠, sub는 접힌 채로도 보이는 요약. */
+export const sec = (id, title, sub, html, open = false) => `
+  <details class="sec" data-sec="${id}"${open ? ' open' : ''}>
+    <summary><span class="st">${esc(title)}</span>${sub ? `<span class="ss">${sub}</span>` : ''}</summary>
+    <div class="sc">${html}</div>
+  </details>`;
+
+/* 패널 안 타일에 걸린 숫자 단축키. 선택지에 없는 숫자만 여기로 넘어온다. */
+let panelKeys = [];
+
+export const panel = (html) => {
+  const el = $('left');
+  el.innerHTML = josa(html);
+  panelKeys = [];
+  for (const d of el.querySelectorAll('details[data-sec]')) {
+    const k = d.dataset.sec;
+    if (secOpen.has(k)) d.open = secOpen.get(k);
+    d.addEventListener('toggle', () => secOpen.set(k, d.open));
+  }
+};
+
+/** 패널 타일에 클릭과 숫자 키를 걸어 준다. go = { 이름: 함수 } */
+export function bindTiles(go = {}) {
+  for (const b of $('left').querySelectorAll('[data-go]')) {
+    const fn = go[b.dataset.go];
+    if (!fn) { b.setAttribute('disabled', ''); continue; }
+    b.addEventListener('click', () => { soundUnlock(); SFX.tap(); fn(); });
+    const k = Number(b.dataset.k);
+    if (k >= 1 && k <= 9) panelKeys[k] = fn;
+  }
+}
 
 /**
  * 체력 바. key를 주면 직전 값을 기억해 **깎인 만큼을 잔상으로 남긴다** —
@@ -305,47 +342,100 @@ function statusChips(u) {
   return out.length ? `<div class="chips">${out.join('')}</div>` : '';
 }
 
-/** 전투 중 왼쪽 패널 */
+/* ── 몸 도식 ─────────────────────────────────
+   여섯 줄짜리 목록은 화면 절반을 먹고도 한눈에 안 들어온다.
+   사람 모양으로 세워 놓고 **숫자 하나씩만** 보여 주고, 끼운 부속은 눌렀을 때 아래에 펼친다.
+   전투·정비·탐험이 같은 그림을 쓰므로 어느 화면에서 보든 읽는 법이 같다. */
+const CELL_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완', legL: '좌각', legR: '우각' };
+
+/** cells: [{ slot, pct, down, empty }] → 사람 모양 격자 */
+export function bodyMapHTML(cells) {
+  return `<div class="bodymap">${cells.map((c) => {
+    if (c.empty) {
+      return `<div class="bcell empty" style="grid-area:${c.slot}">
+        <span class="bl">${CELL_LABEL[c.slot]}</span><span class="bv">—</span></div>`;
+    }
+    const pct = Math.max(0, Math.min(100, Math.round(c.pct)));
+    const state = c.down ? 'down' : pct <= 35 ? 'low' : pct <= 70 ? 'mid' : 'ok';
+    return `<button type="button" class="bcell ${state}" style="grid-area:${c.slot}"
+      data-slot="${c.slot}" aria-label="${CELL_LABEL[c.slot]} ${pct}%">
+      <span class="bl">${CELL_LABEL[c.slot]}</span>
+      <span class="bv">${c.down ? '✕' : `${pct}%`}</span>
+      <span class="bfill" style="height:${c.down ? 0 : pct}%"></span>
+    </button>`;
+  }).join('')}</div>
+  <div id="bodydetail" class="bodydetail"><span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span></div>`;
+}
+
 /** 전투 중 펼쳐 둔 부위. 턴이 바뀌어 패널을 다시 그려도 보던 자리를 유지한다. */
 let openSlot = null;
 export const resetBodyPick = () => { openSlot = null; };
 
-function bindBodyCells(cb) {
+/** detailFor(slot) → 아래에 펼칠 HTML. null이면 비어 있는 자리. */
+export function bindBody(detailFor) {
   const box = $('bodydetail');
   if (!box) return;
-
-  const show = (slot) => {
-    const w = cb.g.worn.find((x) => x.slot === slot);
-    if (!w) { box.innerHTML = '<span class="hint">비어 있는 자리다.</span>'; return; }
-    const f = cb.frames?.[slot];
-    const sk = partSkills(w.part).map((id) => DB.skillsBy[id]?.name).filter(Boolean);
-    box.innerHTML = `
-      <div class="bd-top">
-        <span class="rar ${DB.partsBy[w.part.defId]?.rarity ?? 'common'}">${esc(partName(w.part))}</span>
-        ${w.part.raw ? '<span class="chip warn">날것</span>' : ''}
-      </div>
-      <div class="bd-row">
-        <span>방어도 <b>${f ? Math.max(0, f.hp) : 0}/${f ? f.max : 0}</b></span>
-        <span>내구도 <b class="${w.part.integrity <= 2 ? 'warn' : ''}">${w.part.integrity}/${w.part.maxIntegrity}</b></span>
-      </div>
-      ${f?.down ? '<div class="bd-down">방어가 무너졌다 — 이 부속의 기술을 쓸 수 없다.</div>' : ''}
-      ${sk.length ? `<div class="bd-row"><span>기술 ${sk.map(esc).join(', ')}</span></div>` : ''}`;
+  const HINT = '<span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span>';
+  const show = (slot) => { box.innerHTML = detailFor(slot) ?? '<span class="hint">비어 있는 자리다.</span>'; };
+  const mark = () => {
+    for (const o of document.querySelectorAll('.bodymap .bcell')) o.classList.toggle('picked', o.dataset.slot === openSlot);
   };
-
   for (const b of document.querySelectorAll('.bodymap .bcell[data-slot]')) {
     b.addEventListener('click', () => {
-      const slot = b.dataset.slot;
-      openSlot = openSlot === slot ? null : slot;
-      for (const o of document.querySelectorAll('.bodymap .bcell')) o.classList.toggle('picked', o.dataset.slot === openSlot);
-      if (openSlot) show(openSlot);
-      else box.innerHTML = '<span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span>';
+      openSlot = openSlot === b.dataset.slot ? null : b.dataset.slot;
+      mark();
+      if (openSlot) show(openSlot); else box.innerHTML = HINT;
     });
   }
-  // 다시 그려도 보던 자리를 유지한다
-  if (openSlot && cb.g.worn.some((x) => x.slot === openSlot)) {
-    for (const o of document.querySelectorAll('.bodymap .bcell')) o.classList.toggle('picked', o.dataset.slot === openSlot);
-    show(openSlot);
-  }
+  if (openSlot && detailFor(openSlot)) { mark(); show(openSlot); }
+}
+
+/** 부속 하나를 펼쳐 보여 주는 칸 — 전투와 정비가 같은 모양을 쓴다 */
+export function partDetailHTML(part, { shield, shieldMax: sMax, down = false, extra = '' }) {
+  const sk = partSkills(part).map((id) => DB.skillsBy[id]?.name).filter(Boolean);
+  return `
+    <div class="bd-top">
+      ${partHTML(part)}
+      ${part.raw ? '<span class="chip warn">날것</span>' : '<span class="chip good">정착</span>'}
+    </div>
+    <div class="bd-row">
+      <span>방어도 <b>${Math.max(0, shield)}/${sMax}</b></span>
+      <span>내구도 <b class="${part.integrity <= 2 ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</b></span>
+    </div>
+    ${down ? '<div class="bd-down">방어가 무너졌다 — 이 부속의 기술을 쓸 수 없다.</div>' : ''}
+    ${sk.length ? `<div class="bd-row"><span>기술 ${sk.map(esc).join(', ')}</span></div>` : ''}
+    ${extra}`;
+}
+
+/** 세이브에 장착된 그대로의 몸 도식 (정비·탐험 화면) */
+export function golemBody(save) {
+  const cells = SLOTS.map((slot) => {
+    const uid = save.golem[slot];
+    const p = uid ? save.inventory.find((x) => x.uid === uid) : null;
+    if (!p) return { slot, empty: true };
+    const max = shieldMax(p, slot);
+    return { slot, pct: (shieldNow(p, slot) / max) * 100, down: shieldNow(p, slot) <= 0 };
+  });
+  const detail = (slot) => {
+    const uid = save.golem[slot];
+    const p = uid ? save.inventory.find((x) => x.uid === uid) : null;
+    if (!p) return null;
+    const max = shieldMax(p, slot);
+    const now = shieldNow(p, slot);
+    return partDetailHTML(p, { shield: now, shieldMax: max, down: now <= 0 });
+  };
+  return { html: bodyMapHTML(cells), bind: () => bindBody(detail) };
+}
+
+function bindBodyCells(cb) {
+  bindBody((slot) => {
+    const w = cb.g.worn.find((x) => x.slot === slot);
+    if (!w) return null;
+    const f = cb.frames?.[slot];
+    return partDetailHTML(w.part, {
+      shield: f ? f.hp : 0, shieldMax: f ? f.max : 0, down: Boolean(f?.down),
+    });
+  });
 }
 
 export function combatPanel(cb, save) {
@@ -353,22 +443,12 @@ export function combatPanel(cb, save) {
   const seen = save.seen?.[mon.defId];
   const summon = cb.summon ? DB.summonsBy[cb.summon.id] : null;
 
-  /* 부위 상태 — 여섯 줄을 늘어놓으면 화면 절반을 먹고 정작 한눈에 안 들어온다.
-     사람 모양으로 세워 놓고 **숫자만** 보여 준다. 끼운 부속은 눌렀을 때 아래에 펼친다. */
-  const CELL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완', legL: '좌각', legR: '우각' };
-  const body = SLOTS.map((slot) => {
+  const cells = SLOTS.map((slot) => {
     const w = cb.g.worn.find((x) => x.slot === slot);
-    if (!w) return `<div class="bcell empty" style="grid-area:${slot}"><span class="bl">${CELL[slot]}</span><span class="bv">—</span></div>`;
+    if (!w) return { slot, empty: true };
     const f = cb.frames?.[slot];
-    const pct = f ? Math.max(0, Math.round((f.hp / f.max) * 100)) : 100;
-    const state = f?.down ? 'down' : pct <= 35 ? 'low' : pct <= 70 ? 'mid' : 'ok';
-    return `<button type="button" class="bcell ${state}" style="grid-area:${slot}"
-      data-slot="${slot}" aria-label="${CELL[slot]} ${pct}%">
-      <span class="bl">${CELL[slot]}</span>
-      <span class="bv">${f?.down ? '✕' : `${pct}%`}</span>
-      <span class="bfill" style="height:${f?.down ? 0 : pct}%"></span>
-    </button>`;
-  }).join('');
+    return { slot, pct: f ? (f.hp / f.max) * 100 : 100, down: Boolean(f?.down) };
+  });
 
   const shieldSum = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.hp, 0);
   const shieldCap = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.max, 0);
@@ -380,31 +460,27 @@ export function combatPanel(cb, save) {
   }).join('');
 
   panel(`
-    <p class="pt">적</p>
-    <div class="unit">
+    <div class="unit foe">
       <h3>${esc(mon.name)} <span class="tag" ${seen ? elColor(mon.defElement) : ''}>${seen ? mon.defElement : '???'}</span></h3>
       ${bar(mon.hp, mon.maxHp, true, 'mon')}
       ${statusChips(mon)}
-      <div class="chips">${monParts}</div>
+      ${monParts ? `<div class="chips">${monParts}</div>` : ''}
     </div>
-    ${summon ? `<p class="pt">소환수</p>
-    <div class="unit">
+    ${summon ? `<div class="unit">
       <h3>${esc(summon.name)} <span class="tag">남은 ${cb.summon.left}턴</span></h3>
       <div class="bar small"><i style="width:${(cb.summon.hp / cb.summon.maxHp) * 100}%"></i></div>
-      <div class="hpnum">HP ${cb.summon.hp} / ${cb.summon.maxHp}</div>
     </div>` : ''}
-    <p class="pt">골렘 — 핵</p>
+    <hr class="sep">
     <div class="unit">
       <h3>누더기 골렘 <span class="tag" ${elColor(g.defElement)}>${g.defElement}</span></h3>
       ${bar(g.hp, g.maxHp, false, 'golem')}
       ${statusChips(g)}
       <div class="chips">
         <span class="chip good">영력 ${cb.will}/10</span>
+        <span class="chip ${shieldSum < shieldCap ? 'warn' : ''}">방어도 ${shieldSum}/${shieldCap}</span>
       </div>
     </div>
-    <p class="pt">방어도 <span class="sub">${shieldSum}/${shieldCap}</span></p>
-    <div class="bodymap">${body}</div>
-    <div id="bodydetail" class="bodydetail"><span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span></div>`);
+    ${bodyMapHTML(cells)}`);
 
   // 누르면 그 자리에 끼운 부속을 펼친다. 패널 전체를 다시 그리지 않는다
   bindBodyCells(cb);
@@ -449,8 +525,9 @@ export function dungeonPanel(save, floorData) {
         ? esc(CP.HAZARD_TEXT[hz.kind][tier]) : '아직은 조용하다.'}</p>`
     : '';
 
+  const bm = golemBody(save);
   panel(`
-    <p class="pt">${esc(place)} ${floorData.floor}층 · 방 ${visited}/${floorData.rooms.length}</p>
+    <p class="pt">${esc(place)} ${floorData.floor}층 <span class="sub">방 ${visited}/${floorData.rooms.length}</span></p>
     ${hazardHtml}
     <div class="map" style="grid-template-columns:repeat(${cols},2.2rem)">${grid}</div>
     <div class="legend">
@@ -458,113 +535,107 @@ export function dungeonPanel(save, floorData) {
       <span class="lg"><i class="sw unseen"></i>안 가 봄${left ? ` ${left}` : ''}</span>
       <span class="lg"><i class="sw open"></i>남음</span>
       <span class="lg"><i class="sw done"></i>끝남</span>
-      ${sealed.map((r) => `<span>🔒 ${esc(r.seal.label)} 필요</span>`).join('')}
+      ${sealed.map((r) => `<span>🔒 ${esc(r.seal.label)}</span>`).join('')}
     </div>
     <hr class="sep">
-    <p class="pt">핵 · 방어도</p>
     ${bar(save.run.golemHp, g.stats.hp)}
     <div class="chips">
       <span class="chip ${g.shieldNowTotal < g.shieldTotal ? 'warn' : ''}">방어도 ${g.shieldNowTotal}/${g.shieldTotal}</span>
+      ${risky.map(({ part }) => `<span class="chip warn">⚠ ${esc(partName(part))} ${part.integrity}</span>`).join('')}
     </div>
-    ${risky.length ? `<div class="chips">${risky.map(({ slot, part }) =>
-      `<span class="chip warn">⚠ ${esc(partName(part))} ${part.integrity}</span>`).join('')}</div>` : ''}
-    <div class="statgrid">
+    ${bm.html}
+    ${sec('stat', '능력치', `공격 ${g.stats.atk} · 방어 ${g.stats.def} · 속도 ${g.stats.spd}`, statGridHTML(g))}`);
+  bm.bind();
+}
+
+/** 능력치 표 — 여러 화면이 같은 모양을 쓴다 */
+export function statGridHTML(g) {
+  return `<div class="statgrid">
       <div><span>공격</span> <b>${g.stats.atk}</b></div>
       <div><span>방어</span> <b>${g.stats.def}</b></div>
       <div><span>회피</span> <b>${g.stats.eva}</b></div>
       <div><span>속도</span> <b>${g.stats.spd}</b></div>
       <div><span>집중</span> <b>${g.stats.focus}</b></div>
-      <div><span>속성</span> <b>${g.defElement}</b></div>
-    </div>`);
+      <div><span>속성</span> <b style="color:var(--el-${g.defElement})">${g.defElement}</b></div>
+    </div>`;
 }
 
-/** 마을 왼쪽 패널 */
-export function townPanel(save, status) {
-  const b = (icon, n, s) => `<div class="bldg"><div class="n">${icon} ${n}</div><div class="s">${esc(s)}</div></div>`;
+/* ── 마을 ─────────────────────────────────
+   건물을 선택지에 늘어놓으면 하단이 열 칸씩 차서 정작 '지금 할 일'이 묻힌다.
+   마을은 **왼쪽에 그림으로 세워 두고 눌러 들어간다.** 하단에는 행동만 남는다. */
+export function townPanel(save, status, go = {}) {
+  const t = (key, k, icon, name, sub, cls = '') => `
+    <button type="button" class="bldg ${cls}" data-go="${key}" data-k="${k}">
+      <span class="bk">${k}</span>
+      <span class="bi">${icon}</span>
+      <span class="bn">${esc(name)}</span>
+      <span class="bs">${esc(sub)}</span>
+    </button>`;
+
+  const q = save.quests.active.filter((x) => x.done).length;
+  const d = (save.daily?.list ?? []);
+  const sp = save.necro.equipped.filter(Boolean).map((id) => DB.necro_skillsBy[id]);
+
   panel(`
     <p class="pt">시체골 · 밤</p>
     <div class="town">
-      ${b('📜', '의뢰소', status.quest)}
-      ${b('🛒', '썩은 손수레', status.shop)}
-      ${b('🔨', '뼈 모루', status.forge)}
-      ${b('🕯', '강령술사 조합', status.conclave)}
-      ${b('⛏', '무덤으로', `Act 1 · ${save.run ? `${save.run.floor}층 진행 중` : '1층부터'}`)}
+      ${t('scavenger', 1, '🦴', '바르그', status.scavenger ?? '길잡이', save.golem.core ? '' : 'urge')}
+      ${t('ossuary', 2, '⚱', '납골당', status.ossuary ?? '')}
+      ${t('quest', 3, '📜', '의뢰소', `${q}/3${status.questReady ? ' 수령' : ''}`)}
+      ${t('daily', 4, '☀', '오늘의 일', `${d.filter((x) => x.done).length}/${d.length}`)}
+      ${t('shop', 5, '🛒', '손수레', status.shop)}
+      ${t('forge', 6, '🔨', '뼈 모루', status.forge)}
+      ${t('conclave', 7, '🕯', '조합', status.conclave)}
+      ${t('golem', 8, '⚙', '골렘 정비', status.golem ?? '')}
+      ${t('inventory', 9, '🎒', '소지품', status.inventory ?? '')}
     </div>
-    <hr class="sep">
-    <p class="pt">네크로맨서 술법</p>
-    <div class="rows">
-      ${(save.necro.equipped.filter(Boolean).length
-        ? save.necro.equipped.filter(Boolean).map((id) => {
-            const n = DB.necro_skillsBy[id];
-            return `<div class="row"><span class="lb">${n.school}</span>
-              <span class="vl">${esc(n.name)}</span><span class="rt">영력 ${n.will}</span></div>`;
-          }).join('')
-        : '<p class="empty">아직 배운 술법이 없다.</p>')}
-    </div>`);
+    ${sec('necro', '네크로맨서 술법', sp.length ? `${sp.length}개` : '없음',
+      sp.length
+        ? `<div class="rows">${sp.map((n) => `<div class="row"><span class="lb">${n.school}</span>
+            <span class="vl">${esc(n.name)}</span><span class="rt">영력 ${n.will}</span></div>`).join('')}</div>`
+        : '<p class="empty">아직 배운 술법이 없다.</p>')}`);
+  bindTiles(go);
 }
 
-/** 골렘 상태창 왼쪽 패널 */
+/* ── 골렘 정비 ───────────────────────────────
+   장착 여섯 줄 + 능력치 일곱 + 스킬 열 줄이 한 화면에 전부 쏟아져 있었다.
+   도식 하나와 경고만 남기고, 나머지는 제목만 두고 접는다. */
 export function golemPanel(save) {
   const g = assembleGolem(save);
-  const rows = SLOTS.map((slot) => {
-    const uid = save.golem[slot];
-    const p = uid ? save.inventory.find((x) => x.uid === uid) : null;
-    if (!p) {
-      return `<div class="row"><span class="lb">${SLOT_LABEL[slot]}</span>
-        <span class="vl empty">비어 있음</span><span class="rt">—</span></div>`;
-    }
-    const warn = p.integrity <= 2;
-    const tags = (p.raw ? '<span class="chip warn">날것</span> ' : '<span class="chip good">정착</span> ')
-      + (p.integrity <= 0 ? '<span class="chip warn">부패</span> ' : '');
-    const sMax = shieldMax(p, slot);
-    const sNow = shieldNow(p, slot);
-    return `<div class="row"><span class="lb">${SLOT_LABEL[slot]}</span>
-      <span class="vl">${tags}${esc(partName(p))}
-        <span class="chip ${sNow < sMax ? 'warn' : ''}">방어 ${sNow}/${sMax}</span></span>
-      <span class="rt ${warn ? 'warn' : ''}">${p.integrity}/${p.maxIntegrity}</span></div>`;
-  }).join('');
-
-  const att = (save.golem.attachments ?? []).map((id) => DB.attachmentsBy[id]?.name).filter(Boolean);
-
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
   const coreHp = save.golem.coreHp ?? g.stats.hp;
+  const att = (save.golem.attachments ?? []).map((id) => DB.attachmentsBy[id]?.name).filter(Boolean);
+  const risky = g.worn.filter(({ part }) => part.integrity <= 2);
+  const raw = g.worn.filter(({ part }) => part.raw);
+  const bm = golemBody(save);
+
   panel(`
-    <p class="pt">골렘 구성</p>
-    <div class="rows">
-      <div class="row"><span class="lb">핵</span>
-        <span class="vl">${core ? esc(core.name) : '<span class="empty">없음 — 골렘이 서지 못한다</span>'}</span>
-        <span class="rt ${coreHp < g.stats.hp ? 'warn' : ''}">${core ? `${coreHp}/${g.stats.hp}` : '!'}</span></div>
-      ${rows}
-    </div>
-    <div class="statgrid">
-      <div><span>핵 체력</span> <b>${g.stats.hp}</b></div>
-      <div><span>방어도</span> <b>${g.shieldNowTotal}/${g.shieldTotal}</b></div>
-      <div><span>공격</span> <b>${g.stats.atk}</b></div>
-      <div><span>방어</span> <b>${g.stats.def}</b></div>
-      <div><span>회피</span> <b>${g.stats.eva}</b></div>
-      <div><span>속도</span> <b>${g.stats.spd}</b></div>
-      <div><span>집중</span> <b>${g.stats.focus}</b></div>
-    </div>
+    <p class="pt">골렘 <span class="sub">${core ? esc(core.name) : '핵 없음'}</span></p>
+    ${core ? bar(coreHp, g.stats.hp) : '<p class="empty">핵이 없다 — 골렘이 서지 못한다.</p>'}
     <div class="chips">
-      <span class="chip" style="color:var(--el-${g.defElement})">방어 속성 ${g.defElement}</span>
+      <span class="chip ${g.shieldNowTotal < g.shieldTotal ? 'warn' : ''}">방어도 ${g.shieldNowTotal}/${g.shieldTotal}</span>
+      <span class="chip" style="color:var(--el-${g.defElement})">${g.defElement}</span>
       <span class="chip ${g.over ? 'warn' : ''}">스킬 ${g.active.length}/${SKILL_CAP}</span>
       <span class="chip ${g.manaOver ? 'warn' : ''}">마력 ${g.manaUsed}/${g.manaMax}</span>
     </div>
-    <hr class="sep">
-    <p class="pt">부착물 ${att.length}/2</p>
-    ${att.length ? `<div class="chips">${att.map((n) => `<span class="chip good">${esc(n)}</span>`).join('')}</div>`
-      : '<p class="empty">없음</p>'}
-    <hr class="sep">
-    <p class="pt">사용 가능한 스킬</p>
-    <div class="rows">
-      ${g.active.map((sid) => {
-        const s = DB.skillsBy[sid];
-        const el = save.golem.retuned?.[sid] ?? s.element;
+    ${risky.length || raw.length ? `<div class="chips">
+      ${raw.map(({ part }) => `<span class="chip warn">날것 ${esc(partName(part))}</span>`).join('')}
+      ${risky.map(({ part }) => `<span class="chip warn">⚠ ${esc(partName(part))} ${part.integrity}</span>`).join('')}
+    </div>` : ''}
+    ${bm.html}
+    ${sec('stat', '능력치', `공격 ${g.stats.atk} · 방어 ${g.stats.def} · 속도 ${g.stats.spd}`, statGridHTML(g))}
+    ${sec('skills', '사용 가능한 스킬', `${g.active.length}개`,
+      `<div class="rows">${g.active.map((sid) => {
+        const sk = DB.skillsBy[sid];
+        const el = save.golem.retuned?.[sid] ?? sk.element;
         return `<div class="row"><span class="lb" style="color:var(--el-${el})">${el}</span>
-          <span class="vl">${esc(s.name)}</span>
-          <span class="rt">${s.power || '—'} · ${s.charges === null ? '∞' : s.charges}</span></div>`;
-      }).join('')}
-    </div>`);
+          <span class="vl">${esc(sk.name)}</span>
+          <span class="rt">${sk.power || '—'} · ${sk.charges === null ? '∞' : sk.charges}</span></div>`;
+      }).join('')}</div>`)}
+    ${sec('att', '부착물', `${att.length}/2`,
+      att.length ? `<div class="chips">${att.map((n) => `<span class="chip good">${esc(n)}</span>`).join('')}</div>`
+        : '<p class="empty">없음</p>')}`);
+  bm.bind();
 }
 
 /** 재화·소지품 등 단순 목록 패널 */
@@ -577,47 +648,46 @@ export const rowHTML = (lb, vl, rt = '', warn = false) =>
   `<div class="row"><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
    <span class="rt ${warn ? 'warn' : ''}">${esc(rt)}</span></div>`;
 
-/* ── 납골당 ─────────────────────────────── */
-export function ossuaryPanel(save, O, now = Date.now()) {
+/* ── 납골당 ─────────────────────────────────
+   마을과 같은 방식 — 시설은 왼쪽에 세워 두고 눌러 들어간다. */
+export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
   const o = save.ossuary;
-  const line = (icon, name, status, warn = false) =>
-    `<div class="row"><span class="lb">${icon}</span><span class="vl">${esc(name)}</span>
-     <span class="rt ${warn ? 'warn' : ''}">${esc(status)}</span></div>`;
+  const jobs = (arr) => arr.length ? O.remainText(arr[0].startedAt, arr[0].durationMs, now)
+    + (arr.length > 1 ? ` 외 ${arr.length - 1}` : '') : null;
 
-  const rows = [];
-  rows.push(line('🫗', '부패조', o.built.rotVat
-    ? `${o.rotVat.stored}/${O.vatCap(o)}${o.rotVat.stored >= O.vatCap(o) ? ' 가득' : ''}`
-    : '미건설', o.rotVat.stored >= O.vatCap(o)));
-  rows.push(line('🔪', '해체대', o.built.dissection
-    ? (o.dissection.slots.length
-        ? o.dissection.slots.map((s) => O.remainText(s.startedAt, s.durationMs, now)).join(', ')
-        : `비어 있음 (${O.dissectionSlots(o)}칸)`)
-    : '미건설'));
-  rows.push(line('🏺', '표본실', o.built.vault
-    ? `${o.vault.parts.length}/${o.vault.capacity}` : '미건설'));
-  rows.push(line('🕯', '접합로', o.built.forge
-    ? (o.forge.slots.length
-        ? o.forge.slots.map((s) => O.remainText(s.startedAt, s.durationMs, now)).join(', ')
-        : `비어 있음 (${O.forgeSlots(o)}칸)`)
-    : '미건설'));
-  rows.push(line('⛓', '사역 골렘 안치소', o.built.laborBay
-    ? (o.laborBay.dispatch.length
-        ? o.laborBay.dispatch.map((d) => O.SITES[d.site].name).join(', ')
-        : `파견 없음 (${O.laborSlots(o)}칸)`)
-    : '미건설'));
+  const tiles = [];
+  const t = (key, icon, name, sub, warn = false) =>
+    tiles.push(`<button type="button" class="bldg ${warn ? 'urge' : ''}" data-go="${key}"
+      data-k="${tiles.length + 1}">
+      <span class="bk">${tiles.length + 1}</span><span class="bi">${icon}</span>
+      <span class="bn">${esc(name)}</span><span class="bs">${esc(sub)}</span></button>`);
 
+  const vatFull = o.rotVat.stored >= O.vatCap(o);
+  t('vat', '🫗', '부패조', `${o.rotVat.stored}/${O.vatCap(o)}${vatFull ? ' 가득' : ''}`, vatFull);
+  t('dissect', '🔪', '해체대', jobs(o.dissection.slots) ?? `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`);
+  if (o.built.forge) t('forge', '🕯', '접합로', jobs(o.forge.slots) ?? `${o.forge.slots.length}/${O.forgeSlots(o)}칸`);
+  if (o.built.vault) t('vault', '🏺', '표본실', `${o.vault.parts.length}/${o.vault.capacity}`);
+  if (o.built.laborBay) t('labor', '⛓', '파견', o.laborBay.dispatch.length
+    ? `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸 나감` : `${O.laborSlots(o)}칸 비었다`);
+  const oh = o.overhaul ?? [];
+  t('overhaul', '🔧', '정비대', jobs(oh) ?? '방어도 · 핵');
+  t('workshop', '⚙', '조립대', `골렘 ${O.workshopGolems(save).length}기`);
+  const cs = O.crewSpeed(save);
+  t('crew', '🛠', '작업반', cs.cut ? `${Math.round(cs.cut * 100)}% 단축` : '배치 없음');
+  t('altar', '🕯', '제단', `영혼재 ${save.soulAsh}`);
+
+  const rawN = save.inventory.filter((p) => p.raw).length;
   panel(`<p class="pt">납골당</p>
-    <div class="rows">${rows.join('')}</div>
-    <hr class="sep">
-    <p class="pt">오프라인 정산</p>
-    <div class="chips">
-      <span class="chip">상한 ${Math.round(o.offlineCapMs / 3600000)}시간</span>
-      <span class="chip">부패조 Lv${o.rotVat.level}</span>
-    </div>
-    <p class="note">자리를 비운 사이 흐른 시간만큼 한 번에 정산된다.
-      부패조는 상한에 닿으면 생산을 멈춘다.</p>
-    ${(() => { const n = save.inventory.filter((p) => p.raw).length;
-      return n ? `<div class="chips"><span class="chip warn">정착 대기 ${n}개</span></div>` : ''; })()}`);
+    <div class="town">${tiles.join('')}</div>
+    ${rawN ? `<div class="chips"><span class="chip warn">정착 대기 ${rawN}개</span></div>` : ''}
+    ${sec('idle', '오프라인 정산', `상한 ${Math.round(o.offlineCapMs / 3600000)}시간`,
+      `<div class="chips">
+        <span class="chip">상한 ${Math.round(o.offlineCapMs / 3600000)}시간</span>
+        <span class="chip">부패조 Lv${o.rotVat.level}</span>
+      </div>
+      <p class="note">자리를 비운 사이 흐른 시간만큼 한 번에 정산된다.
+        부패조는 상한에 닿으면 생산을 멈춘다.</p>`)}`);
+  bindTiles(go);
 }
 
 /** 복귀 정산 화면 — 방치형의 보상 순간 */

@@ -246,11 +246,13 @@ export function buildingStatus(save) {
   const craftable = DB.attachments.filter((a) => canCraft(save, a)
     && !save.owned.attachments.includes(a.id)).length;
   const learnable = DB.necro_skills.filter((n) => canLearn(save, n)).length;
+  // 타일에 들어가는 한 줄이라 짧아야 한다 — 긴 문장은 잘린다
   return {
-    quest: questsAllDone(save) ? '보상 수령 가능!' : `의뢰 ${doneCount}/3 완료`,
-    shop: save.town.stock ? `물품 ${save.town.stock.items.length + save.town.stock.parts.length}종` : '재고 갱신됨',
-    forge: craftable ? `제작 가능 ${craftable}건` : '재료가 부족하다',
-    conclave: learnable ? `배울 수 있는 술법 ${learnable}` : '지금은 배울 것이 없다',
+    quest: `${doneCount}/3`,
+    questReady: questsAllDone(save),
+    shop: save.town.stock ? `물품 ${save.town.stock.items.length + save.town.stock.parts.length}` : '갱신됨',
+    forge: craftable ? `제작 ${craftable}건` : '재료 부족',
+    conclave: learnable ? `배울 것 ${learnable}` : '없음',
   };
 }
 
