@@ -867,6 +867,8 @@ function scavengerScreen() {
         '"닳은 건 납골당 접합로에서 수복해. 부패한 것도 되살아나."',
         '"방어도는 물약으로 안 돌아와. 작업대나 정비대에서만 고쳐."',
         '"부속 둘은 붙어 있어야 내려갈 수 있어. 하나 남은 골렘은 서 있기만 하지."',
+        '"흉곽이 없어도 걸을 수는 있어. 대신 핵이 드러나지 — 맞으면 곧장 핵이 깎여."',
+        '"술법은 골렘이 때리는 김에 같이 걸어. 턴을 따로 쓰던 시절은 지났다네."',
       ]) UI.logLine(t, 'narrate');
       UI.choices([{ label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) }]);
     } },
@@ -2154,9 +2156,10 @@ function slotScreen(slot, back, canEdit = true) {
         },
       };
     }),
-    cur && slot !== 'body' ? { label: '떼어낸다', cls: 'danger', on: () => {
+    cur ? { label: '떼어낸다', cls: 'danger', on: () => {
       S.golem[slot] = null;
       UI.logLine(`${SLOT_LABEL[slot]}을(를) 비웠다.`, 'dim');
+      if (slot === 'body') UI.logLine('흉곽이 빠지자 핵이 드러난다. 맞으면 곧장 핵이 깎인다.', 'bad');
       spendBench('swap');
       golemScreen(back, canEdit);
     } } : null,
@@ -2308,7 +2311,10 @@ function startRun() {
     UI.logLine('상점에서 사거나, 뼈 수습꾼을 찾아가 보라.', 'dim');
     return;
   }
-  if (!S.golem.body) { UI.logLine('몸통 없이는 내려갈 수 없다.', 'bad'); return; }
+  // 몸통은 더 이상 필수가 아니다 (§3.1). 없으면 핵이 드러난 채로 싸운다
+  if (!S.golem.body) {
+    UI.logLine('흉곽이 없다. 핵이 드러난 채로 내려간다 — 맞으면 곧장 핵이 깎인다.', 'bad');
+  }
   if (wornCount() < MIN_PARTS) {
     UI.logLine(`부속이 ${wornCount()}개뿐이다. 최소 ${MIN_PARTS}개는 끼워야 골렘이 움직인다.`, 'bad');
     UI.logLine('골렘 정비에서 더 끼우거나, 뼈 수습꾼에게 부속을 얻어라.', 'dim');
@@ -2353,6 +2359,8 @@ function beginStage(stageId) {
   UI.logLine(st.desc, 'narrate');
   const hz = CP.hazardOf(stageId);
   if (hz) UI.logLine(`${hz.name} — ${hz.text}`, 'bad');
+  // 흉곽 없이 내려가는 건 선택이지만, 무슨 값을 치르는지는 알고 내려가야 한다 (§3.1)
+  if (!S.golem.body) UI.logLine('흉곽이 없다. 핵이 드러난 채다 — 맞는 피해의 일부가 곧장 핵을 깎는다.', 'bad');
   enterRoom(roomAt(S.run.floorData, S.run.floorData.pos), true);
 }
 
@@ -2869,6 +2877,7 @@ function startBattle(room, elite, isBoss = false) {
     UI.logLine('— 처음이니 한 번만 짚는다 —', 'necro');
     UI.logLine('피해는 핵이 아니라 부속의 방어도부터 깎는다. 방어도가 다 닳아야 핵이 맞는다.', 'necro');
     UI.logLine('🎯 조준으로 적의 부위를 노릴 수 있다. 부수면 적이 약해지지만 그 부속은 못 얻는다.', 'necro');
+    UI.logLine('🕯 술법은 골렘의 턴을 빼앗지 않는다. 걸어 두면 골렘의 공격과 같은 턴에 함께 나간다.', 'necro');
     UI.logLine('자세한 건 마을의 뼈 수습꾼에게 물어보면 된다.', 'dim');
   }
   combatTurn();
@@ -2887,6 +2896,23 @@ function combatTurn() {
     nokey: true,
     on: () => { cb.cycleAim(); combatTurn(); },
   });
+
+  // 술법은 골렘의 공격에 얹어 나간다 (§9-A). 여기서 걸어 두고 기술을 고르면 함께 터진다
+  const spells = cb.necroSkills();
+  if (spells.length) {
+    const prep = cb.prepValid();
+    const ready = spells.filter((n) => n.usable).length;
+    list.push({
+      label: `🕯 술법 — <b>${prep ? UI.esc(prep.name) : '없음'}</b>`,
+      meta: prep ? `영력 ${prep.will} · 공격과 함께`
+        : ready ? `${ready}개 준비됨 — 눌러 고른다`
+        : spells.every((n) => n.cd > 0) ? '재사용 대기 중' : '영력이 모자라다',
+      cls: prep ? 'primary' : 'ghost',
+      disabled: !ready,
+      nokey: true,
+      on: () => { cb.cyclePrep(); combatTurn(); },
+    });
+  }
   for (const s of cb.golemSkills()) {
     let mark = '';
     if (s.mul != null) {
@@ -2898,15 +2924,7 @@ function combatTurn() {
       label: `<span style="color:var(--el-${s.element})">${s.element}</span> ${s.name}${mark}`,
       meta: s.down ? '부위 정지' : `${s.power || '—'} · ${s.charges === null ? '∞' : `${s.left}/${s.charges}`}`,
       disabled: !s.usable,
-      on: () => resolve({ kind: 'skill', id: s.id }),
-    });
-  }
-  for (const n of cb.necroSkills()) {
-    list.push({
-      label: `🕯 ${n.name}`,
-      meta: n.cd > 0 ? `재사용 ${n.cd}턴` : `영력 ${n.will}`,
-      disabled: !n.usable,
-      on: () => resolve({ kind: 'necro', id: n.id }),
+      on: () => resolve({ kind: 'skill', id: s.id, necro: cb.prep }),
     });
   }
   for (const it of cb.combatItems()) {
@@ -3035,16 +3053,19 @@ function destroyPart(p) {
   const rec = S.ossuary?.vault?.lostRecords;
   if (rec && !rec.includes(p.defId)) rec.push(p.defId);
 
-  // 몸통은 비울 수 없는 슬롯이다 (§3.1). 예비가 있으면 갈아끼우고, 없으면 골렘이 서지 못한다.
+  // 몸통이 빠지면 핵이 드러날 뿐, 골렘은 계속 선다 (§3.1).
+  // 예비가 있으면 갈아끼워 주고, 없으면 그대로 싸운다 — 대신 피해가 핵으로 샌다.
   if (!lostBody) return;
   const spare = S.inventory.find((x) => DB.partsBy[x.defId].slot === 'body');
   if (spare) {
     S.golem.body = spare.uid;
     UI.logLine(`몸통이 사라졌다. 급히 ${partName(spare)}을(를) 끼워 넣는다.`, 'necro');
     if (S.run) S.run.golemHp = Math.min(S.run.golemHp, assembleGolem(S).stats.hp);
-  } else if (S.run) {
-    S.run.collapsed = true;
+  } else {
+    UI.logLine('흉곽이 통째로 떨어져 나갔다. 핵이 드러났다 — 이제 맞으면 곧장 핵이 깎인다.', 'bad');
   }
+  // 부속이 하나도 남지 않으면 더 싸울 수 없다
+  if (S.run && !SLOTS.some((sl) => S.golem[sl])) S.run.collapsed = true;
 }
 
 /**
@@ -3058,7 +3079,7 @@ function destroyPart(p) {
  */
 function collapseRun() {
   UI.logHead('철수');
-  UI.logLine('몸통을 잃은 골렘이 주저앉는다. 끼워 넣을 흉곽이 남아 있지 않다.', 'narrate');
+  UI.logLine('마지막 부속까지 떨어져 나갔다. 핵만 남은 것은 골렘이 아니다.', 'narrate');
   UI.logLine('핵은 성하다. 남은 부속을 수레에 싣고 돌아선다.', 'good');
   S.golem.coreHp = S.run.golemHp;      // 핵 체력은 런을 넘어 남는다
   const ash = 15 + S.run.kills * 3;

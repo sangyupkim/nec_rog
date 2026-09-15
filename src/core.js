@@ -251,7 +251,9 @@ export function assembleGolem(save) {
 
   return { stats, defElement, skills, active, worn, traits, core, shieldTotal, shieldNowTotal,
            manaMax, manaUsed, manaOver: manaUsed > manaMax,
-           standing: Boolean(core && save.golem.body),
+           // 핵만 있으면 선다. 흉곽은 있으면 좋은 것이지 필수가 아니다 (§3.1)
+           standing: Boolean(core),
+           coreBare: !save.golem.body,
            over: active.length > SKILL_CAP };
 }
 

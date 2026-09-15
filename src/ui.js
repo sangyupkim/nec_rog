@@ -477,6 +477,8 @@ export function combatPanel(cb, save) {
       ${statusChips(g)}
       <div class="chips">
         <span class="chip good">영력 ${cb.will}/10</span>
+        ${cb.prep && DB.necro_skillsBy[cb.prep]
+          ? `<span class="chip good">🕯 ${esc(DB.necro_skillsBy[cb.prep].name)} 준비</span>` : ''}
         <span class="chip ${shieldSum < shieldCap ? 'warn' : ''}">방어도 ${shieldSum}/${shieldCap}</span>
       </div>
     </div>

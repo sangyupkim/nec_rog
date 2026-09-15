@@ -10,6 +10,12 @@ const MON_SLOT_LABEL = { head: '머리', body: '몸통', arm: '팔', leg: '다�
 
 /** 한 전투에서 도트(중독·화상·가시)가 핵에서 가져갈 수 있는 최대 비율 */
 const DOT_CAP = 0.35;
+
+/* 흉곽이 없으면 핵이 드러난다 (§3.1·§5.7).
+   몸통은 방어도가 가장 두꺼운 자리다. 그 자리를 비우면 총량이 줄어드는 것만으로는
+   "핵이 드러났다"가 느껴지지 않으므로, **들어온 피해의 일부가 방어도를 그냥 지나** 핵에 닿는다.
+   핵은 그걸 체력으로 받아 낸다 — 즉시 지는 것이 아니라 **버티는 자원이 바뀌는** 것이다. */
+const CORE_EXPOSED = 0.35;
 /** 화상 한 틱 = 최대 체력의 몇 %인가 */
 const BURN_RATIO = 0.03;
 
@@ -50,6 +56,7 @@ export class Combat {
 
     this.will = WILL_START;
     this.necroCd = {};
+    this.prep = null;        // 이번 턴 골렘의 공격에 얹어 나갈 술법
     this.summon = null;
     this.usedParts = new Set();
 
@@ -69,6 +76,7 @@ export class Combat {
     for (const { slot, part, shieldMax: max, shield } of g.worn) {
       this.frames[slot] = { slot, part, hp: shield, max, down: shield <= 0 };
     }
+    this.coreBare = !g.worn.some((w) => w.slot === 'body');   // 흉곽이 없다 = 핵이 드러났다
     this.monFrames = {};
     for (const [slot, ratio] of Object.entries(MON_FRAME_RATIO)) {
       const max = Math.round(this.mon.maxHp * ratio);
@@ -108,6 +116,26 @@ export class Combat {
     return AIM[this.aim];
   }
 
+  /* ── 준비한 술법 (§9-A) ─────────────────────────────
+     술법은 더 이상 골렘의 턴을 빼앗지 않는다. **미리 걸어 두면 골렘의 공격과 같은 턴에** 나간다.
+     네크로맨서가 뒤에서 술법을 걸고 골렘이 앞에서 때리는 것이 이 게임의 그림이다.
+     대신 영력과 재사용 대기가 그대로 값을 받는다 — 매 턴 쓸 수는 없다. */
+  cyclePrep() {
+    const usable = this.necroSkills().filter((n) => n.usable).map((n) => n.id);
+    if (!usable.length) { this.prep = null; return null; }
+    const i = usable.indexOf(this.prep);
+    this.prep = i < 0 ? usable[0] : (i + 1 < usable.length ? usable[i + 1] : null);
+    return this.prep;
+  }
+
+  /** 준비한 술법이 아직 쓸 수 있는가. 못 쓰게 됐으면 비운다 */
+  prepValid() {
+    if (!this.prep) return null;
+    const n = this.necroSkills().find((x) => x.id === this.prep);
+    if (!n?.usable) { this.prep = null; return null; }
+    return n;
+  }
+
   /** 조준에 따라 실제로 맞을 부위를 고른다 */
   pickFrame(frames, key) {
     const conf = AIM[this.aim];
@@ -142,8 +170,16 @@ export class Combat {
 
     let golemActed = false;
 
-    // 네크로맨서 술법·아이템·관찰은 골렘의 행동을 대신한다 (그 턴 골렘은 공격하지 않는다)
-    if (action.kind === 'necro') { this.useNecro(action.id); golemActed = true; }
+    // 술법은 골렘의 공격보다 먼저, **같은 턴 안에서** 나간다 (§9-A)
+    const spell = action.necro ?? (action.kind === 'necro' ? action.id : null);
+    if (spell) {
+      this.phase = 'necro';
+      this.useNecro(spell);
+      if (this.prep === spell) this.prep = null;
+      this.phase = 'golem';
+    }
+    // 아이템과 관찰은 여전히 골렘의 행동을 대신한다 (그 턴 골렘은 공격하지 않는다)
+    if (action.kind === 'necro') golemActed = true;
     else if (action.kind === 'item') { this.useItem(action.id); golemActed = true; }
     else if (action.kind === 'observe') { this.observe(); golemActed = true; }
 
@@ -418,6 +454,12 @@ export class Combat {
    */
   absorb(dmg) {
     let left = dmg;
+    let bare = 0;
+    // 흉곽이 없으면 일부는 방어도를 지나쳐 곧장 핵으로 간다
+    if (this.coreBare) {
+      bare = Math.max(1, Math.round(dmg * CORE_EXPOSED));
+      left -= bare;
+    }
     // 조준된 부위가 먼저 맞고, 모자라면 남은 부위가 이어 받는다
     const first = this.pickFrame(this.frames, 'slots');
     const order = [first, ...Object.values(this.frames).filter((f) => f && f !== first && !f.down)]
@@ -435,8 +477,10 @@ export class Combat {
         this.brokenGolemSlots.push(f.slot);
       }
     }
-    if (left < dmg) this.say(`방어도가 ${dmg - left}을(를) 받아냈다.`, 'dim', { hit: 'golem' });
-    return left;
+    const soaked = dmg - bare - left;
+    if (soaked > 0) this.say(`방어도가 ${soaked}을(를) 받아냈다.`, 'dim', { hit: 'golem' });
+    if (bare > 0) this.say('드러난 핵에 그대로 꽂힌다.', 'bad', { hit: 'golem' });
+    return left + bare;
   }
 
   /** 몬스터 부위에 피해가 누적된다. 0이 되면 그 부위는 망가진다 (§5.7) */
