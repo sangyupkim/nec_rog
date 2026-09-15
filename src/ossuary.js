@@ -51,7 +51,9 @@ export function newOssuary() {
     built: { rotVat: true, dissection: true, vault: false, forge: true, laborBay: false },
     rotVat: { level: 1, input: 0, stored: 0 },
     dissection: { level: 1, slots: [] },
-    forge: { level: 1, slots: [] },
+    // 정착은 전투 드랍이 **반드시** 거쳐야 하는 길이라 한 칸이면 병목이 된다.
+    // 다른 시설과 달리 두 칸에서 시작한다 (§9.3-③)
+    forge: { level: 2, slots: [] },
     laborBay: { level: 1, dispatch: [] },
     vault: { capacity: 3, parts: [], lostRecords: [] },
     // 조립대 — 여분 핵으로 세운 사역 골렘들. 작업반·파견에 세울 수 있는 것은 이들뿐이다

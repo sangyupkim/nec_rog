@@ -81,12 +81,18 @@ function save() {
  */
 function resyncUids(s) {
   let max = 0;
+  // 파츠가 머무는 자리를 **하나도 빼놓지 않고** 훑어야 한다.
+  // 해체대·접합로·대장간을 빠뜨렸더니, 거기 올려 둔 파츠의 번호를 새 파츠가
+  // 다시 쓰는 일이 생겼다 — 같은 uid가 둘이면 장착 표시가 엉뚱한 것에 붙는다.
   const all = [
     ...(s.inventory ?? []),
     ...(s.ossuary?.vault?.parts ?? []),
     ...(s.ossuary?.crew?.parts ?? []),
     ...(s.ossuary?.workshop?.golems ?? []).flatMap((g) => g.parts ?? []),
     ...(s.ossuary?.laborBay?.dispatch ?? []).flatMap((d) => d.parts ?? []),
+    ...(s.ossuary?.dissection?.slots ?? []).flatMap((j) => j.parts ?? (j.part ? [j.part] : [])),
+    ...(s.ossuary?.forge?.slots ?? []).flatMap((j) => j.inputs ?? []),
+    ...(s.town?.smithy ?? []).map((j) => j.part).filter(Boolean),
   ];
   for (const p of all) max = Math.max(max, Number(String(p.uid).slice(1)) || 0);
   syncUidSeq(max + 1);
@@ -166,8 +172,9 @@ function migrate(s) {
   o.vault.lostRecords ??= [];
   o.dissection ??= { level: 1, slots: [] };
   o.dissection.slots ??= [];
-  o.forge ??= { level: 1, slots: [] };
+  o.forge ??= { level: 2, slots: [] };
   o.forge.slots ??= [];
+  if (o.forge.level < 2) o.forge.level = 2;   // 한 칸이던 시절의 세이브를 올려 준다
   o.laborBay ??= { level: 1, dispatch: [] };
   o.laborBay.dispatch ??= [];
   o.rotVat ??= { level: 1, input: 0, stored: 0 };
@@ -1059,6 +1066,7 @@ function overhaulScreen() {
 
   UI.logHead('정비대');
   UI.logLine('부서진 것을 원래대로 돌리는 자리. 오래 걸리고 재료를 먹는다.', 'narrate');
+  UI.logLine('골렘을 통째로 올려놓는 작업이라, 끝나기 전에는 무덤에 내려갈 수 없다.', 'necro');
   for (const j of o.overhaul) {
     UI.logLine(`${O.OVERHAUL[j.kind].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
   }
@@ -1087,6 +1095,17 @@ function overhaulScreen() {
         },
       };
     }),
+    // 급하면 물릴 수 있어야 한다. 그러지 않으면 정비를 걸어 둔 채 몇 시간을 못 내려간다
+    ...o.overhaul.map((j) => ({
+      label: `${O.OVERHAUL[j.kind].name} 물린다`, cls: 'danger',
+      meta: '쓴 재료는 돌아오지 않는다',
+      on: () => {
+        o.overhaul = o.overhaul.filter((x) => x !== j);
+        UI.logLine(`${O.OVERHAUL[j.kind].name}을(를) 중간에 걷어냈다. 쓴 재료는 돌아오지 않는다.`, 'bad');
+        save();
+        overhaulScreen();
+      },
+    })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ]);
   save();
@@ -1316,7 +1335,7 @@ function crewScreen() {
 /* ── 접합로 ─────────────────────────────── */
 function forgeJobScreen() {
   const o = S.ossuary;
-  UI.topbar(S, '납골당 · 접합로');
+  UI.topbar(S, `납골당 · 접합로 ${o.forge.slots.length}/${O.forgeSlots(o)}칸`);
   UI.ossuaryPanel(S, O);
   UI.logHead('접합로');
   for (const j of o.forge.slots) {
@@ -1328,8 +1347,10 @@ function forgeJobScreen() {
   UI.logLine('버린 파츠에 두 번째 생명을 준다.', 'narrate');
   const rawAll = S.inventory.filter((p) => p.raw).length;
   if (rawAll) UI.logLine(`정착하지 않은 날것 부속이 ${rawAll}개 있다.`, 'bad');
-  if (free <= 0) UI.logLine('접합로가 꽉 찼다.', 'bad');
-  else if (!spareCount) UI.logLine('재료로 쓸 여분 파츠가 없다.', 'dim');
+  if (free <= 0) {
+    UI.logLine(`접합로가 꽉 찼다 (${o.forge.slots.length}/${O.forgeSlots(o)}칸). 지금 걸린 작업이 끝나야 다음을 건다.`, 'bad');
+    UI.logLine('제단에서 접합로를 증설하면 동시에 여러 개를 걸 수 있다.', 'dim');
+  } else if (!spareCount) UI.logLine('재료로 쓸 여분 파츠가 없다.', 'dim');
 
   const rawCount = S.inventory.filter((p) => p.raw && !equippedF.has(p.uid)).length;
   const damagedCount = S.inventory.filter((p) => p.integrity < p.maxIntegrity && !equippedF.has(p.uid)).length;
@@ -1338,16 +1359,25 @@ function forgeJobScreen() {
     .map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
 
   UI.choices([
-    ...Object.entries(O.RECIPES).map(([key, r]) => ({
-      label: `${r.name}`,
-      meta: `${Math.round(r.ms / 60000)}분 · ${costText(r)}`,
-      disabled: free <= 0 || !affordable(r)
-        || (key === 'revive' ? !o.vault.lostRecords.length
-          : key === 'attune' ? rawCount < 1
-          : key === 'mend' ? damagedCount < 1
-          : spareCount < (key === 'fuse' ? 2 : 1)),
-      on: () => recipeScreen(key),
-    })),
+    ...Object.entries(O.RECIPES).map(([key, r]) => {
+      // 못 누르는 이유를 버튼에 적는다. 그냥 흐려지기만 하면 고장으로 읽힌다
+      const noStock = key === 'revive' ? !o.vault.lostRecords.length
+        : key === 'attune' ? rawCount < 1
+        : key === 'mend' ? damagedCount < 1
+        : spareCount < (key === 'fuse' ? 2 : 1);
+      const why = free <= 0 ? `접합로가 꽉 참 (${o.forge.slots.length}/${O.forgeSlots(o)}칸)`
+        : noStock ? (key === 'revive' ? '잃어버린 기록이 없다'
+          : key === 'attune' ? '정착할 날것이 없다'
+          : key === 'mend' ? '상한 부속이 없다'
+          : key === 'fuse' ? '여분이 둘 이상 필요하다' : '여분 부속이 없다')
+        : !affordable(r) ? '재료가 모자라다' : null;
+      return {
+        label: `${r.name}`,
+        meta: why ?? `${Math.round(r.ms / 60000)}분 · ${costText(r)}`,
+        disabled: Boolean(why),
+        on: () => recipeScreen(key),
+      };
+    }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ], { paged: true });
   save();
@@ -1532,7 +1562,7 @@ function altarScreen() {
     list.push(buy(`해체대 증설 (${o.dissection.level} → ${o.dissection.level + 1}칸)`, c, `영혼재 ${c}`,
       () => { o.dissection.level++; }));
   }
-  if (o.built.forge && o.forge.level < 3) {
+  if (o.built.forge && o.forge.level < 4) {
     const c = 90 * o.forge.level;
     list.push(buy(`접합로 증설 (${o.forge.level} → ${o.forge.level + 1}칸)`, c, `영혼재 ${c}`,
       () => { o.forge.level++; }));
@@ -2023,21 +2053,43 @@ function inventoryScreen(back = town) {
   ].filter(([, n]) => n > 0).map(([k, n]) => UI.rowHTML('재료', UI.esc(k), String(n)));
   const items = Object.entries(S.consumables).filter(([, n]) => n > 0)
     .map(([id, n]) => UI.rowHTML(DB.itemsBy[id].kind, UI.esc(DB.itemsBy[id].name), `${n}개`));
+  // 어느 자리에 끼워져 있는지까지 적는다. '장착'만으로는 어느 팔인지 알 수 없다
+  const slotOf = new Map(SLOTS.filter((x) => S.golem[x]).map((x) => [S.golem[x], x]));
   const parts = S.inventory.map((p) => UI.rowHTML(
-    KIND_LABEL[DB.partsBy[p.defId].slot],
-    `${equipped.has(p.uid) ? '<span class="chip good">장착</span> ' : ''}${p.raw ? '<span class="chip warn">날것</span> ' : ''}${UI.partHTML(p)}`,
+    slotOf.has(p.uid) ? SLOT_LABEL[slotOf.get(p.uid)] : KIND_LABEL[DB.partsBy[p.defId].slot],
+    `${slotOf.has(p.uid) ? '<span class="chip good">장착</span> ' : ''}${p.raw ? '<span class="chip warn">날것</span> ' : ''}${UI.partHTML(p)}`,
     `${p.integrity}/${p.maxIntegrity}`, p.integrity <= 2));
   const rows = [...mats, ...items, ...parts];
-  UI.listPanel(`가진 것 — 파츠 ${S.inventory.length}개`, rows);
+  const away = [
+    ['표본실', (S.ossuary?.vault?.parts ?? []).length],
+    ['조립대', O.workshopGolems(S).reduce((n, g) => n + g.parts.length, 0)],
+    ['파견', (S.ossuary?.laborBay?.dispatch ?? []).reduce((n, d) => n + d.parts.length, 0)],
+    ['접합로', (S.ossuary?.forge?.slots ?? []).reduce((n, j) => n + (j.inputs?.length ?? 0), 0)],
+    ['대장간', (S.town?.smithy ?? []).length],
+    ['해체대', (S.ossuary?.dissection?.slots ?? []).length],
+  ].filter(([, n]) => n > 0);
+  UI.listPanel(`가진 것 — 파츠 ${S.inventory.length}개`, rows,
+    away.length
+      ? `<p class="note">맡겨 둔 것: ${away.map(([k, n]) => `${k} ${n}`).join(' · ')}<br>
+         여기 없는 부속은 사라진 게 아니라 그쪽에 가 있다.</p>`
+      : '');
   UI.logLine(`재료: 조각 ${S.scrap} · 진액 ${S.ichor} · 골분 ${S.boneMeal} / 은화 ${S.silver} · 영혼재 ${S.soulAsh}`, 'dim');
+  UI.logLine(`장착 ${slotOf.size}개 · 여분 ${S.inventory.length - slotOf.size}개. 여분은 무덤에서 무너지면 일부를 흘린다.`, 'dim');
   UI.choices([
     { label: '재화가 뭔지 보기', cls: 'ghost', pin: true, on: () => resourceGuideScreen(() => inventoryScreen(back)) },
     // 부속을 눌러 무엇을 할 수 있는 물건인지 본다 — 이름만으로는 알 수가 없다
-    ...S.inventory.map((p) => ({
-      label: `${equipped.has(p.uid) ? '▪ ' : ''}${UI.partHTML(p)}`,
-      meta: `${UI.RARITY_LABEL[UI.rarityOf(p)]} · 마력 ${partMana(p)}${p.raw ? ' · 날것' : ''} · ${p.integrity}/${p.maxIntegrity}`,
-      on: () => partDetailScreen(p, () => inventoryScreen(back)),
-    })),
+    // 장착 중인 것을 위로 모으고, 어느 자리인지를 이름 앞에 박아 둔다
+    ...[...S.inventory]
+      .sort((a, b) => Number(slotOf.has(b.uid)) - Number(slotOf.has(a.uid)))
+      .map((p) => {
+        const at = slotOf.get(p.uid);
+        return {
+          label: `${at ? `<span class="chip good">${SLOT_LABEL[at]}</span> ` : ''}${UI.partHTML(p)}`,
+          meta: `${at ? '장착 중' : '여분'} · ${UI.RARITY_LABEL[UI.rarityOf(p)]}`
+            + ` · 마력 ${partMana(p)}${p.raw ? ' · 날것' : ''} · ${p.integrity}/${p.maxIntegrity}`,
+          on: () => partDetailScreen(p, () => inventoryScreen(back)),
+        };
+      }),
     ...S.inventory.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
       .map((p) => ({
         label: `${partName(p)}에 역청`, meta: `+3 (${S.consumables.it_bitumen}개 남음)`, on: () => {
@@ -2104,6 +2156,16 @@ function startRun() {
   if (wornCount() < MIN_PARTS) {
     UI.logLine(`부속이 ${wornCount()}개뿐이다. 최소 ${MIN_PARTS}개는 끼워야 골렘이 움직인다.`, 'bad');
     UI.logLine('골렘 정비에서 더 끼우거나, 뼈 수습꾼에게 부속을 얻어라.', 'dim');
+    return;
+  }
+  // 정비대는 골렘을 통째로 올려놓고 하는 작업이다. 그동안 그 골렘으로 내려갈 수는 없다
+  const bench = S.ossuary?.overhaul ?? [];
+  if (bench.length) {
+    UI.logLine('골렘이 정비대에 올라가 있다. 작업이 끝나기 전에는 내려갈 수 없다.', 'bad');
+    for (const j of bench) {
+      UI.logLine(`${O.OVERHAUL[j.kind].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
+    }
+    UI.logLine('납골당 정비대에서 물릴 수도 있다 — 쓴 재료는 돌아오지 않는다.', 'dim');
     return;
   }
   const gm = assembleGolem(S);
