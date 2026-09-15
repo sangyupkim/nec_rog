@@ -51,7 +51,9 @@ export function choices(list) {
     if (!c.disabled && !c.nokey && n < 9) { n++; k = String(n); keyHandlers[n] = c.on; }
     b.innerHTML = josa(`${k ? `<span class="k">${k}</span>` : ''}<span class="nm">${c.label}</span>`
       + (c.meta ? `<span class="meta">${c.meta}</span>` : ''));
-    if (!c.disabled && c.on) b.addEventListener('click', c.on);
+    // 인자를 넘기지 않는다. 그대로 넘기면 클릭 이벤트가 첫 인자로 들어가
+    // golemScreen(back) 같은 기본 인자를 덮어써 버린다.
+    if (!c.disabled && c.on) b.addEventListener('click', () => c.on());
     box.append(b);
   }
 }
@@ -94,13 +96,28 @@ export function combatPanel(cb, save) {
   const seen = save.seen?.[mon.defId];
   const summon = cb.summon ? DB.summonsBy[cb.summon.id] : null;
 
+  // 부위 상태 — 이 시스템이 보이지 않으면 조준의 의미를 알 수 없다 (§5.7)
   const worn = cb.g.worn
     .map(({ slot, part }) => {
-      const warn = part.integrity <= 2;
-      return `<div class="row"><span class="lb">${SLOT_LABEL[slot]}</span>
-        <span class="vl">${esc(partName(part))}</span>
-        <span class="rt ${warn ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</span></div>`;
+      const f = cb.frames?.[slot];
+      const pct = f ? Math.max(0, (f.hp / f.max) * 100) : 100;
+      const low = f && !f.down && pct <= 35;
+      return `<div class="frame ${f?.down ? 'down' : ''}">
+        <div class="frame-top">
+          <span class="lb">${SLOT_LABEL[slot]}</span>
+          <span class="vl">${part.raw ? '<span class="chip warn">날것</span> ' : ''}${esc(partName(part))}</span>
+          <span class="rt ${part.integrity <= 2 ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</span>
+        </div>
+        <div class="bar tiny ${low ? 'low' : ''}"><i style="width:${f?.down ? 0 : pct}%"></i></div>
+        ${f?.down ? '<div class="downtag">기능 정지</div>' : ''}
+      </div>`;
     }).join('');
+
+  const MON_SLOT = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
+  const monParts = Object.values(cb.monFrames ?? {}).map((f) => {
+    const pct = Math.max(0, (f.hp / f.max) * 100);
+    return `<span class="chip ${f.down ? 'warn' : ''}">${MON_SLOT[f.slot]} ${f.down ? '✕' : Math.round(pct) + '%'}</span>`;
+  }).join('');
 
   panel(`
     <p class="pt">적</p>
@@ -108,6 +125,7 @@ export function combatPanel(cb, save) {
       <h3>${esc(mon.name)} <span class="tag" ${seen ? elColor(mon.defElement) : ''}>${seen ? mon.defElement : '???'}</span></h3>
       ${bar(mon.hp, mon.maxHp, true)}
       ${statusChips(mon)}
+      <div class="chips">${monParts}</div>
     </div>
     ${summon ? `<p class="pt">소환수</p>
     <div class="unit">
@@ -122,8 +140,9 @@ export function combatPanel(cb, save) {
       ${statusChips(g)}
       <div class="chips"><span class="chip good">영력 ${cb.will}/10</span></div>
     </div>
-    <p class="pt">장착 · 내구도</p>
-    <div class="rows">${worn}</div>`);
+    <p class="pt">부위 상태 · 내구도</p>
+    <div class="frames">${worn}</div>
+    <p class="note">막대 = 부위 체력. 0이 되면 그 부속의 기술을 쓸 수 없다.</p>`);
 }
 
 /** 던전 탐험 중 왼쪽 패널 */
@@ -292,7 +311,9 @@ export function ossuaryPanel(save, O, now = Date.now()) {
       <span class="chip">부패조 Lv${o.rotVat.level}</span>
     </div>
     <p class="note">자리를 비운 사이 흐른 시간만큼 한 번에 정산된다.
-      부패조는 상한에 닿으면 생산을 멈춘다.</p>`);
+      부패조는 상한에 닿으면 생산을 멈춘다.</p>
+    ${(() => { const n = save.inventory.filter((p) => p.raw).length;
+      return n ? `<div class="chips"><span class="chip warn">정착 대기 ${n}개</span></div>` : ''; })()}`);
 }
 
 /** 복귀 정산 화면 — 방치형의 보상 순간 */

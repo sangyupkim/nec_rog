@@ -1,10 +1,12 @@
 /** 커맨드 턴제 전투 엔진. DOM에 의존하지 않으므로 콘솔 시뮬레이션에도 쓸 수 있다. */
 import {
   DB, damage, elemMul, rankMul, addStatus, hasStatus,
-  assembleGolem, skillElement, partSkills,
+  assembleGolem, skillElement, partSkills, partName,
+  frameMax, MON_FRAME_RATIO, AIM, RAW_FAIL_CHANCE, SLOT_LABEL,
 } from './core.js';
 
 const WILL_START = 3, WILL_MAX = 10, WILL_GAIN = 1;
+const MON_SLOT_LABEL = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
 
 export class Combat {
   constructor(save, monster, rng) {
@@ -46,9 +48,27 @@ export class Combat {
 
     // 이 전투에서 파츠를 실제로 사용했는지 추적 (§3.3 내구도)
     this.skillOwner = {};
-    for (const { part } of g.worn) {
-      for (const sid of partSkills(part)) this.skillOwner[sid] ??= part.uid;
+    this.slotOfSkill = {};
+    for (const { slot, part } of g.worn) {
+      for (const sid of partSkills(part)) {
+        this.skillOwner[sid] ??= part.uid;
+        this.slotOfSkill[sid] ??= slot;
+      }
     }
+
+    // ── 부위 체력 (§5.7) ──
+    this.aim = 'random';
+    this.frames = {};
+    for (const { slot, part } of g.worn) {
+      const max = frameMax(part, slot);
+      this.frames[slot] = { slot, part, hp: max, max, down: false };
+    }
+    this.monFrames = {};
+    for (const [slot, ratio] of Object.entries(MON_FRAME_RATIO)) {
+      const max = Math.round(this.mon.maxHp * ratio);
+      this.monFrames[slot] = { slot, hp: max, max, down: false };
+    }
+    this.brokenMonSlots = [];
 
     this.say(`${this.mon.name}이(가) 어둠 속에서 모습을 드러낸다.`);
   }
@@ -61,13 +81,34 @@ export class Combat {
       const s = DB.skillsBy[sid];
       const el = skillElement(this.save, sid);
       const left = s.charges === null ? null : (this.charges[sid] ?? 0);
+      const slot = this.slotOfSkill[sid];
+      const down = slot ? this.frames[slot]?.down : false;
       return {
         id: sid, name: s.name, element: el, power: s.power,
-        charges: s.charges, left,
-        usable: s.charges === null || left > 0,
+        charges: s.charges, left, slot, down,
+        raw: Boolean(this.frames[slot]?.part?.raw),
+        usable: !down && (s.charges === null || left > 0),
         mul: this.save.seen?.[this.mon.defId] ? elemMul(el, this.mon.defElement) : null,
       };
     });
+  }
+
+  /** 조준 부위 전환 — 매 턴 클릭을 늘리지 않도록 토글로 둔다 */
+  cycleAim() {
+    const order = ['random', 'upper', 'lower'];
+    this.aim = order[(order.indexOf(this.aim) + 1) % order.length];
+    return AIM[this.aim];
+  }
+
+  /** 조준에 따라 실제로 맞을 부위를 고른다 */
+  pickFrame(frames, key) {
+    const conf = AIM[this.aim];
+    const alive = Object.values(frames).filter((f) => !f.down);
+    if (!alive.length) return null;
+    const wanted = conf[key];
+    if (!wanted) return this.rng.pick(alive);
+    const inZone = alive.filter((f) => wanted.includes(f.slot));
+    return inZone.length ? this.rng.pick(inZone) : this.rng.pick(alive);
   }
 
   necroSkills() {
@@ -141,11 +182,23 @@ export class Combat {
       return;
     }
 
+    // 정착하지 않은 파츠는 이음새가 어긋난다 (§3.4)
+    const owner = this.frames[this.slotOfSkill[sid]]?.part;
+    if (owner?.raw && this.rng.chance(RAW_FAIL_CHANCE)) {
+      this.say(`${partName(owner)}의 이음새가 어긋나 동작이 불발된다.`, 'bad');
+      return;
+    }
+
+    const conf = AIM[this.aim];
+    if (s.power > 0 && this.aim !== 'random') {
+      this.say(`${conf.name}을(를) 노린다.`, 'dim');
+    }
+
     if (s.power > 0) {
       const hits = s.hits ?? 1;
       let total = 0;
       for (let i = 0; i < hits; i++) {
-        if (!this.rollHit(this.golem, this.mon, s.accuracy)) {
+        if (!this.rollHit(this.golem, this.mon, s.accuracy + conf.acc)) {
           this.say(`${this.mon.name}이(가) 몸을 비틀어 피했다.`, 'dim');
           continue;
         }
@@ -277,6 +330,7 @@ export class Combat {
 
     to.hp -= dmg;
     this.say(`${this.nameOf(to)}이(가) ${dmg}의 피해를 입는다.`, to === this.mon ? 'good' : 'bad');
+    this.hitFrame(to, dmg);
 
     if (hasStatus(to, '가시')) {
       const thorn = 3;
@@ -284,6 +338,44 @@ export class Combat {
       this.say(`가시가 ${this.nameOf(from)}을(를) 되찌른다. (${thorn})`, 'dim');
     }
     return dmg;
+  }
+
+  /** 피해의 일부가 조준된 부위에 누적된다. 0이 되면 그 부위는 멈춘다 (§5.7) */
+  hitFrame(to, dmg) {
+    const conf = AIM[this.aim];
+    if (to === this.mon) {
+      const f = this.pickFrame(this.monFrames, 'mon');
+      if (!f) return;
+      f.hp -= Math.round(dmg * conf.mul);
+      if (f.hp > 0) return;
+      f.hp = 0; f.down = true;
+      this.brokenMonSlots.push(f.slot);
+      this.say(`${this.mon.name}의 ${MON_SLOT_LABEL[f.slot]}이(가) 짓뭉개졌다. 부속으로 쓸 수 없다.`, 'bad');
+      this.applyMonBreak(f.slot);
+      return;
+    }
+    if (to !== this.golem) return;       // 소환수는 부위가 없다
+    const f = this.pickFrame(this.frames, 'slots');
+    if (!f) return;
+    f.hp -= dmg;
+    if (f.hp > 0) return;
+    f.hp = 0; f.down = true;
+    this.say(`${partName(f.part)}이(가) 기능을 멈췄다. 연결된 기술을 쓸 수 없다.`, 'bad');
+    this.brokenGolemSlots ??= [];
+    this.brokenGolemSlots.push(f.slot);
+    if (f.slot === 'body') {
+      this.golem.ranks.def = Math.max(-4, this.golem.ranks.def - 2);
+      this.say('흉곽이 내려앉아 방어가 무너진다.', 'bad');
+    }
+  }
+
+  /** 몬스터는 골렘이 아니므로 부위 파괴가 능력 저하로 나타난다 */
+  applyMonBreak(slot) {
+    const st = this.mon.stats;
+    if (slot === 'arm') { st.atk = Math.round(st.atk * 0.5); this.say(`${this.mon.name}의 팔이 늘어진다. 공격이 약해졌다.`, 'good'); }
+    else if (slot === 'leg') { st.spd = Math.round(st.spd * 0.5); st.eva = Math.round(st.eva * 0.5); this.say('다리를 절며 느려진다.', 'good'); }
+    else if (slot === 'head') { st.focus = Math.round(st.focus * 0.4); this.say('머리가 꺾여 겨냥이 흐트러진다.', 'good'); }
+    else if (slot === 'body') { st.def = Math.round(st.def * 0.5); this.say('몸통이 열렸다. 방어가 무너진다.', 'good'); }
   }
 
   reportElement(el) {
@@ -481,6 +573,13 @@ export class Combat {
       this.over = true;
       this.result = 'lose';
       this.say('골렘이 무너져 내린다. 이음새가 전부 끊어졌다.', 'bad');
+      return true;
+    }
+    const frames = Object.values(this.frames);
+    if (frames.length && frames.every((f) => f.down)) {
+      this.over = true;
+      this.result = 'lose';
+      this.say('모든 부위가 멈췄다. 골렘은 더 이상 움직이지 못한다.', 'bad');
       return true;
     }
     return false;

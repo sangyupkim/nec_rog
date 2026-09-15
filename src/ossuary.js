@@ -27,6 +27,8 @@ export const SITES = {
 };
 
 export const RECIPES = {
+  attune:  { name: '정착', ms: 20 * 60_000, desc: '전투에서 막 뜯어온 날것 부속을 골렘에 맞춘다. 성능 100%로 회복된다.',
+             cost: { scrap: 8, ichor: 1 }, rawOnly: true },
   fuse:    { name: '융합', ms: 45 * 60_000, desc: '같은 슬롯 파츠 2개를 합친다. 스탯 평균 +15%, 스킬은 양쪽에서 하나씩.',
              cost: { ichor: 3 } },
   graft:   { name: '이식', ms: 20 * 60_000, desc: '파츠 하나에 무작위 모디파이어를 붙인다.',
@@ -178,6 +180,12 @@ function finishRecipe(save, job, rng) {
       part.integrity = part.maxIntegrity;
       part.refined = (a.refined ?? 0) + 1;
       if (a.fused) part.fused = a.fused;
+      return part;
+    }
+    case 'attune': {
+      const a = inputs[0];
+      if (!a) return null;
+      const part = { ...a, raw: false };
       return part;
     }
     case 'revive': {

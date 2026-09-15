@@ -127,6 +127,8 @@ export function partStats(p) {
   }
   // 부패한 파츠는 성능이 절반
   if (p.integrity <= 0) for (const k of Object.keys(out)) out[k] = Math.round(out[k] / 2);
+  // 정착하지 않은 날것 파츠는 60%만 발휘된다 (§3.4)
+  if (p.raw) for (const k of Object.keys(out)) out[k] = Math.round(out[k] * RAW_STAT_RATIO);
   return out;
 }
 
@@ -137,6 +139,11 @@ export function partSkills(p) {
   if (mod?.added_skill) ids.push(mod.added_skill);
   return ids;
 }
+
+/* ── 미처리 파츠 (§3.4) ─────────────────────────────── */
+export const RAW_STAT_RATIO = 0.6;    // 날것 파츠의 스탯 발휘율
+export const RAW_FAIL_CHANCE = 25;    // 스킬 사용 실패 확률 %
+export const RAW_WEAR = 2;            // 전투당 내구도 소모
 
 export const SLOTS = ['head', 'body', 'armL', 'armR', 'leg'];
 export const SLOT_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완', leg: '다리' };
@@ -186,6 +193,23 @@ export function assembleGolem(save) {
 export function skillElement(save, skillId) {
   return save.golem.retuned?.[skillId] ?? DB.skillsBy[skillId].element;
 }
+
+/* ── 부위 체력 (§5.7) ───────────────────────────────── */
+const FRAME_BASE = { head: 60, body: 140, armL: 70, armR: 70, leg: 70 };
+/** 부위가 버티는 양. 파츠가 튼튼할수록(체력·방어) 오래 버틴다 */
+export function frameMax(part, slot) {
+  const st = partStats(part);
+  return Math.max(24, Math.round(FRAME_BASE[slot] + st.hp / 6 + st.def * 2));
+}
+
+/** 몬스터의 부위별 내구 비율 — 처치보다 부위 파괴가 먼저 오지 않도록 넉넉하게 */
+export const MON_FRAME_RATIO = { head: 0.45, body: 0.85, arm: 0.55, leg: 0.48 };
+
+export const AIM = {
+  random: { name: '무작위', acc: 0, mul: 1.0, slots: null },
+  upper:  { name: '상단',   acc: -15, mul: 1.5, slots: ['head', 'armL', 'armR'], mon: ['head', 'arm'] },
+  lower:  { name: '하단',   acc: -10, mul: 1.3, slots: ['body', 'leg'],          mon: ['body', 'leg'] },
+};
 
 /* ── 몬스터 인스턴스 ────────────────────────────────── */
 export function makeMonster(defId, modId, rng) {
@@ -258,11 +282,19 @@ export function rollBoss(floor, rng) {
   return m;
 }
 
-/** 처치한 몬스터가 남기는 파츠 후보 */
-export function rollLoot(mon, rng, count = 2) {
+/**
+ * 처치한 몬스터가 남기는 파츠 후보.
+ * 전투 중 부서진 부위는 쓸 수 없으므로 후보에서 빠진다 (§5.7).
+ */
+export function rollLoot(mon, rng, count = 2, brokenSlots = []) {
   const def = DB.monstersBy[mon.defId];
-  const pool = rng.shuffle(def.drops).slice(0, count);
-  return pool.map((pid) => makePart(pid, mon.mod));
+  const usable = def.drops.filter((pid) => !brokenSlots.includes(DB.partsBy[pid].slot));
+  const pool = rng.shuffle(usable).slice(0, count);
+  return pool.map((pid) => {
+    const p = makePart(pid, mon.mod);
+    p.raw = true;              // 막 뜯어낸 것은 정착 전까지 날것이다
+    return p;
+  });
 }
 
 /* ── 상태이상 ───────────────────────────────────────── */

@@ -46,7 +46,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 /* ── 전체 틀 ─────────────────────────────── */
 #app{
   height:100dvh;display:grid;
-  grid-template-rows:auto 1fr;
+  grid-template-rows:auto minmax(0,1fr) auto;   /* 상단바 · 본문 · 선택지 */
   max-width:1400px;margin:0 auto;
 }
 /* 좁은 화면에서도 한 줄을 유지한다. 넘치면 가로로 밀린다 */
@@ -74,7 +74,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 /* 세로 비율이거나 너무 좁으면 위아래로 쌓는다 (§12.2) */
 @media (max-aspect-ratio:4/5), (max-width:560px){
   #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) minmax(0,1fr)}
-  #left{max-height:38dvh;border-right:0;border-bottom:1px solid var(--line)}
+  #left{max-height:34dvh;border-right:0;border-bottom:1px solid var(--line)}
 }
 
 /* 가로모드 휴대폰 — 높이가 모자라므로 세로 여백을 걷어낸다 */
@@ -93,7 +93,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   border-right:1px solid var(--line);overflow-y:auto;
   padding:clamp(10px,2vw,18px);background:var(--panel);
 }
-#right{display:grid;grid-template-rows:minmax(0,1fr) auto;min-height:0}
+#right{display:grid;min-height:0}
+/* 오른쪽은 순수 텍스트 영역 — 로그만 있다 */
 #log{
   overflow-y:auto;padding:clamp(10px,2vw,18px);
   display:flex;flex-direction:column;gap:.24rem;
@@ -176,6 +177,20 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .chip.warn{color:var(--danger);border-color:var(--danger)}
 .chip.good{color:var(--accent);border-color:var(--accent-dim)}
 
+.frames{display:grid;gap:.45rem}
+.frame{padding:.2rem 0;border-bottom:1px solid var(--line-soft)}
+.frame:last-child{border-bottom:0}
+.frame.down{opacity:.5}
+.frame-top{display:grid;grid-template-columns:2.7rem 1fr auto;gap:.6rem;align-items:baseline}
+.frame-top .lb{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+.frame-top .vl{min-width:0;overflow-wrap:anywhere}
+.frame-top .rt{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
+.frame-top .rt.warn{color:var(--danger)}
+.bar.tiny{height:4px;margin-top:.22rem}
+.bar.tiny i{background:var(--accent-dim)}
+.bar.tiny.low i{background:var(--danger)}
+.downtag{font-family:var(--mono);font-size:.66rem;color:var(--danger);margin-top:.15rem}
+
 .rows{display:grid;gap:.3rem}
 .row{
   display:grid;grid-template-columns:2.7rem 1fr auto;gap:.6rem;align-items:baseline;
@@ -229,9 +244,9 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
     <aside id="left"></aside>
     <main id="right">
       <div id="log"></div>
-      <div id="choices"></div>
     </main>
   </div>
+  <div id="choices"></div>
 </div>
 <script>
   // 글자 크기는 모듈 로딩 전에 적용해 첫 화면부터 어긋나지 않게 한다
