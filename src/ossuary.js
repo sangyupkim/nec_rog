@@ -15,7 +15,7 @@ export const FACILITIES = {
   rotVat:     { name: '부패조',          icon: '🫗', unlock: 0 },
   dissection: { name: '해체대',          icon: '🔪', unlock: 0 },
   vault:      { name: '표본실',          icon: '🏺', unlock: 30 },
-  forge:      { name: '접합로',          icon: '🕯', unlock: 60 },
+  forge:      { name: '접합로',          icon: '🕯', unlock: 0 },
   laborBay:   { name: '사역 골렘 안치소', icon: '⛓', unlock: 150 },
 };
 
@@ -47,7 +47,8 @@ export function newOssuary() {
     lastSeenAt: Date.now(),
     offlineCapMs: CAP_STEPS[0],
     capStep: 0,
-    built: { rotVat: true, dissection: true, vault: false, forge: false, laborBay: false },
+    // 접합로는 처음부터 열려 있다 — 전투 드랍이 전부 날것이라 '정착'이 필수 경로다
+    built: { rotVat: true, dissection: true, vault: false, forge: true, laborBay: false },
     rotVat: { level: 1, input: 0, stored: 0 },
     dissection: { level: 1, slots: [] },
     forge: { level: 1, slots: [] },

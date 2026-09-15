@@ -45,7 +45,7 @@ function newSave() {
     quests: { active: rollQuests(r), resets: 0 },
     town: { stock: rollStock(r), smithy: [] },
     seen: {}, run: null,
-    ossuary: O.newOssuary(),
+    ossuary: (() => { const o = O.newOssuary(); o.built.forge = true; return o; })(),
     unlocks: { vaultStart: 1, necroSlots: 3 },
     modSamples: {},
     log: { runs: 0, kills: 0, lost: 0, handouts: 0 },
@@ -55,11 +55,63 @@ function newSave() {
 function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch { /* 저장 불가 환경 */ }
 }
+/**
+ * 예전 세이브에 없던 필드를 채운다.
+ * 새 기능을 넣을 때 여기를 같이 고치지 않으면, 이미 플레이 중인 사람의 화면에서
+ * undefined.map 같은 오류가 난다. 필드를 추가하면 반드시 여기도 추가할 것.
+ */
+function migrate(s) {
+  s.cores ??= [];
+  s.modSamples ??= {};
+  s.unlocks ??= { vaultStart: 1, necroSlots: 3 };
+  s.unlocks.vaultStart ??= 1;
+  s.unlocks.necroSlots ??= 3;
+  s.log ??= {};
+  s.log.handouts ??= 0;
+  s.town ??= {};
+  s.town.smithy ??= [];
+  s.golem ??= {};
+  s.golem.core ??= (s.golem.body ? 'core_scrap' : null);  // 예전 골렘에는 핵을 끼워 준다
+  s.golem.attachments ??= [];
+  s.golem.banned ??= [];
+  s.golem.retuned ??= {};
+  s.consumables ??= {};
+  s.owned ??= { attachments: [] };
+  s.owned.attachments ??= [];
+  s.necro ??= { known: [], equipped: [] };
+  s.necro.known ??= [];
+  s.necro.equipped ??= [];
+
+  const o = (s.ossuary ??= O.newOssuary());
+  o.crew ??= { parts: [] };
+  o.crew.parts ??= [];
+  o.vault ??= { capacity: 3, parts: [], lostRecords: [] };
+  o.vault.parts ??= [];
+  o.vault.lostRecords ??= [];
+  o.dissection ??= { level: 1, slots: [] };
+  o.dissection.slots ??= [];
+  o.forge ??= { level: 1, slots: [] };
+  o.forge.slots ??= [];
+  o.laborBay ??= { level: 1, dispatch: [] };
+  o.laborBay.dispatch ??= [];
+  o.rotVat ??= { level: 1, input: 0, stored: 0 };
+  o.built ??= {};
+  o.built.rotVat ??= true;
+  o.built.dissection ??= true;
+  o.built.forge = true;          // 정착이 여기 있으므로 항상 열려 있어야 한다
+  o.built.vault ??= false;
+  o.built.laborBay ??= false;
+  o.lastSeenAt ??= Date.now();
+  o.offlineCapMs ??= O.CAP_STEPS[0];
+  o.capStep ??= 0;
+  return s;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    const s = JSON.parse(raw);
+    const s = migrate(JSON.parse(raw));
     if (s.version !== 1) return null;
     let max = 0;
     const all = [...s.inventory,
@@ -72,6 +124,11 @@ function load() {
 }
 
 const KIND_LABEL = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
+/** 최소 이만큼은 끼워야 무덤에 내려갈 수 있다 (§3.6) */
+const MIN_PARTS = 2;
+const wornCount = () => SLOTS.filter((s) => S.golem[s]).length;
+/** 소지 + 장착한 파츠 총수 — 바르그의 지원 판정에 쓴다 */
+const totalParts = () => S.inventory.length;
 
 /* 던전에서만 방향키가 살아난다. 화면이 바뀌면 곧바로 꺼진다. */
 let arrowMoves = null;
@@ -141,49 +198,42 @@ function ossuaryBadge() {
 function scavengerScreen() {
   UI.topbar(S, '시체골 · 뼈 수습꾼');
   const g = assembleGolem(S);
+  const ready = Boolean(S.golem.core) && wornCount() >= MIN_PARTS;
   UI.listPanel('바르그의 수레', [
     UI.rowHTML('핵', g.core ? UI.esc(g.core.name) : '<span class="empty">없음</span>',
-      g.core ? '장착' : '—', !g.core),
-    UI.rowHTML('몸통', S.golem.body ? UI.esc(partName(findPart(S.golem.body))) : '<span class="empty">비어 있음</span>', ''),
-    UI.rowHTML('상태', g.standing ? '골렘이 서 있다' : '<span class="empty">골렘이 없다</span>', ''),
-  ], '<p class="note">핵이 없으면 무덤에 내려갈 수 없다. 바르그는 빈손으로 돌아온 자에게 한 벌을 내준다.</p>');
+      g.core ? '장착' : '!', !g.core),
+    UI.rowHTML('장착', `${wornCount()}개`, `최소 ${MIN_PARTS}`, wornCount() < MIN_PARTS),
+    UI.rowHTML('소지', `${totalParts()}개`, '', totalParts() <= MIN_PARTS),
+    UI.rowHTML('상태', ready ? '내려갈 수 있다' : '<span class="empty">아직 못 내려간다</span>', '', !ready),
+  ], `<p class="note">핵이 없거나 부속이 ${MIN_PARTS}개 이하로 남으면 바르그가 모자란 것만 채워 준다.</p>`);
 
   UI.logHead('뼈 수습꾼 바르그');
   const times = S.log.handouts ?? 0;
-  if (!S.golem.core) {
+  if (!S.golem.core || totalParts() <= MIN_PARTS) {
     UI.logLine(times === 0
       ? '"빈손이군. 그런 얼굴은 여기서 자주 봐."'
       : times < 4 ? '"또 부서져 왔군. 그럴 줄 알았지."'
       : '"자네 덕에 내 수레가 늘 비어 있어."', 'narrate');
-    UI.logLine('바르그가 수레를 뒤적여 낡은 핵 하나와 뼈 몇 조각을 꺼내 놓는다.', 'narrate');
+    UI.logLine('바르그가 수레를 뒤적인다. 낡은 핵과 뼈 몇 조각이 굴러 나온다.', 'narrate');
   } else {
     UI.logLine('"멀쩡히 서 있는 걸 보니 아직은 쓸 만한가 보군."', 'narrate');
     UI.logLine('바르그는 무덤에서 돌아오지 못한 자들의 부속을 주워다 판다. 당신의 단골이 될 것이다.', 'dim');
   }
 
-  const needsHelp = !S.golem.core;
+  // 핵이 없거나 부속이 바닥났으면 손을 내민다
+  const noCore = !S.golem.core;
+  const lowParts = totalParts() <= MIN_PARTS;
+  const needsHelp = noCore || lowParts;
   UI.choices([
-    { label: '기본 골렘 한 벌을 받는다', cls: 'primary',
-      meta: needsHelp ? '무료' : '골렘이 멀쩡하다',
+    { label: needsHelp ? '도움을 받는다' : '도움을 청한다', cls: 'primary',
+      meta: needsHelp ? '무료' : '아직 쓸 만하다',
       disabled: !needsHelp,
-      on: () => {
-        S.golem.core = 'core_scrap';
-        const kit = [makePart('part_body_goblin_torso'), makePart('part_arm_goblin_claw'),
-                     makePart('part_leg_goblin_hop')];
-        S.inventory.push(...kit);
-        S.golem.body = kit[0].uid;
-        S.golem.armL = kit[1].uid;
-        S.golem.leg = kit[2].uid;
-        S.log.handouts = (S.log.handouts ?? 0) + 1;
-        UI.logLine('주워 맞춘 핵에 몸통과 팔, 다리를 끼웠다. 다시 설 수 있다.', 'good');
-        UI.logLine(S.log.handouts >= 3
-          ? '"값은 됐어. 어차피 자네가 물어다 줄 테니까."'
-          : '"주워 온 것들이야. 값은 나중에 무덤에서 갚아."', 'dim');
-        scavengerScreen();
-      } },
+      on: () => { giveHandout(); scavengerScreen(); } },
     { label: '조언을 듣는다', cls: 'ghost', on: () => {
       for (const t of [
-        '"무덤에서 뜯어온 건 날것이야. 그대로 끼우면 헛돌지. 납골당 정착대를 거쳐."',
+        '"무덤에서 뜯어온 건 날것이야. 그대로 끼우면 헛돌지."',
+        '"고치려면 납골당 → 접합로 → 정착. 시체 조각 여덟에 진액 하나, 스무 날쯤 걸려."',
+        '"닳은 건 같은 자리에서 수복. 부패한 것도 되살아나."',
         '"팔을 노려 부수면 놈이 약해져. 대신 그 팔은 못 건지고."',
         '"작업대가 있는 방에서만 갈아끼울 수 있어. 밖에선 눈으로만 봐."',
         '"핵이 깨지면 골렘은 끝이야. 부속은 좀 주워 오겠지만."',
@@ -192,6 +242,42 @@ function scavengerScreen() {
     } },
     { label: '돌아간다', cls: 'ghost', on: () => town(false) },
   ]);
+  save();
+}
+
+/**
+ * 바르그의 지원. 모자란 것만 채워 준다 —
+ * 핵이 없으면 핵을, 부속이 MIN_PARTS 이하면 최하급 부속을 3개까지.
+ */
+function giveHandout() {
+  const given = [];
+  if (!S.golem.core) { S.golem.core = 'core_scrap'; given.push(DB.coresBy.core_scrap.name); }
+
+  const BASIC = ['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'];
+  while (totalParts() < 3) {
+    const need = BASIC[Math.min(totalParts(), BASIC.length - 1)];
+    const p = makePart(need);
+    S.inventory.push(p);
+    given.push(partName(p));
+  }
+  // 비어 있는 자리에 알아서 끼워 준다 — 빈손으로 내보내지 않는다
+  const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
+  for (const slot of SLOTS) {
+    if (S.golem[slot]) continue;
+    const kind = SLOT_KIND[slot];
+    const free = S.inventory.find((p) => !equipped.has(p.uid) && DB.partsBy[p.defId].slot === kind);
+    if (!free) continue;
+    S.golem[slot] = free.uid;
+    equipped.add(free.uid);
+  }
+
+  S.log.handouts = (S.log.handouts ?? 0) + 1;
+  if (given.length) UI.logLine(`바르그가 ${given.join(', ')}을(를) 건넸다.`, 'good');
+  else UI.logLine('바르그가 남은 부속을 골렘에 끼워 맞춰 준다.', 'good');
+  UI.logLine(`골렘에 ${wornCount()}개가 붙었다.`, wornCount() >= MIN_PARTS ? 'good' : 'bad');
+  UI.logLine(S.log.handouts >= 3
+    ? '"값은 됐어. 어차피 자네가 물어다 줄 테니까."'
+    : '"주워 온 것들이야. 값은 나중에 무덤에서 갚아."', 'dim');
   save();
 }
 
@@ -952,6 +1038,9 @@ function coreScreen(back, canEdit = true) {
   const cur = S.golem.core ? DB.coresBy[S.golem.core] : null;
   UI.logHead('핵');
   UI.logLine(cur ? `현재: ${cur.name} — ${cur.desc}` : '핵이 비어 있다. 골렘이 서지 못한다.', cur ? '' : 'bad');
+  if (!S.cores.length) {
+    UI.logLine('예비 핵이 없다. 상점에서 사거나 층의 주인을 잡아야 한다.', 'dim');
+  }
   const statText = (c) => Object.entries(c.stats).filter(([, v]) => v)
     .map(([k, v]) => `${STAT_LABEL[k]}${v > 0 ? '+' : ''}${v}`).join(' ') || '보정 없음';
   UI.choices([
@@ -1085,6 +1174,11 @@ function startRun() {
     return;
   }
   if (!S.golem.body) { UI.logLine('몸통 없이는 내려갈 수 없다.', 'bad'); return; }
+  if (wornCount() < MIN_PARTS) {
+    UI.logLine(`부속이 ${wornCount()}개뿐이다. 최소 ${MIN_PARTS}개는 끼워야 골렘이 움직인다.`, 'bad');
+    UI.logLine('골렘 정비에서 더 끼우거나, 뼈 수습꾼에게 부속을 얻어라.', 'dim');
+    return;
+  }
   const vault = S.ossuary.vault;
   if (vault.parts.length) {
     const bring = vault.parts.slice(0, S.unlocks.vaultStart);
