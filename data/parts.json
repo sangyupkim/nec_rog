@@ -1,1029 +1,1950 @@
 [
- {
-  "id": "part_head_goblin_skull",
-  "name_template": "{mod}{owner} 두개골",
-  "owner": "고블린의",
-  "slot": "head",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 1,
-   "eva": 0,
-   "spd": 2,
-   "focus": 4
+  {
+    "id": "part_head_goblin_skull",
+    "name_template": "{mod}{owner} 두개골",
+    "owner": "고블린의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 1,
+      "eva": 0,
+      "spd": 2,
+      "focus": 4
+    },
+    "skills": [
+      "sk_insight"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_goblin"
+    ]
   },
-  "skills": [
-   "sk_insight"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_goblin"
-  ]
- },
- {
-  "id": "part_head_hound_skull",
-  "name_template": "{mod}{owner} 두개골",
-  "owner": "뼈사냥개의",
-  "slot": "head",
-  "rarity": "common",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 2,
-   "def": 0,
-   "eva": 2,
-   "spd": 5,
-   "focus": 2
+  {
+    "id": "part_head_hound_skull",
+    "name_template": "{mod}{owner} 두개골",
+    "owner": "뼈사냥개의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 2,
+      "def": 0,
+      "eva": 2,
+      "spd": 5,
+      "focus": 2
+    },
+    "skills": [],
+    "passive": "start_spd_rank_1",
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "skills": [],
-  "passive": "start_spd_rank_1",
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_head_fungal_cap",
-  "name_template": "{mod}{owner} 균모",
-  "owner": "곰팡이 시체의",
-  "slot": "head",
-  "rarity": "common",
-  "integrity": 6,
-  "stats": {
-   "hp": 24,
-   "atk": 0,
-   "def": 2,
-   "eva": 0,
-   "spd": 0,
-   "focus": 3
+  {
+    "id": "part_head_fungal_cap",
+    "name_template": "{mod}{owner} 균모",
+    "owner": "곰팡이 시체의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 24,
+      "atk": 0,
+      "def": 2,
+      "eva": 0,
+      "spd": 0,
+      "focus": 3
+    },
+    "skills": [
+      "sk_spore_burst"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_spore_burst"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_body_fungal_ribcage",
-  "name_template": "{mod}{owner} 흉곽",
-  "owner": "곰팡이 시체의",
-  "slot": "body",
-  "rarity": "common",
-  "integrity": 8,
-  "def_element": "부패",
-  "stats": {
-   "hp": 340,
-   "atk": 0,
-   "def": 9,
-   "eva": 0,
-   "spd": -2,
-   "focus": 0
+  {
+    "id": "part_body_fungal_ribcage",
+    "name_template": "{mod}{owner} 흉곽",
+    "owner": "곰팡이 시체의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 8,
+    "def_element": "부패",
+    "stats": {
+      "hp": 340,
+      "atk": 0,
+      "def": 9,
+      "eva": 0,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_iron_wall"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_iron_wall"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_body_goblin_torso",
-  "name_template": "{mod}{owner} 몸통",
-  "owner": "고블린의",
-  "slot": "body",
-  "rarity": "common",
-  "integrity": 6,
-  "def_element": "참격",
-  "stats": {
-   "hp": 280,
-   "atk": 1,
-   "def": 5,
-   "eva": 2,
-   "spd": 1,
-   "focus": 0
+  {
+    "id": "part_body_goblin_torso",
+    "name_template": "{mod}{owner} 몸통",
+    "owner": "고블린의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 6,
+    "def_element": "참격",
+    "stats": {
+      "hp": 280,
+      "atk": 1,
+      "def": 5,
+      "eva": 2,
+      "spd": 1,
+      "focus": 0
+    },
+    "skills": [
+      "sk_brace"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_goblin"
+    ]
   },
-  "skills": [
-   "sk_brace"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_goblin"
-  ]
- },
- {
-  "id": "part_body_ogre_hide",
-  "name_template": "{mod}{owner} 가죽",
-  "owner": "오우거의",
-  "slot": "body",
-  "rarity": "rare",
-  "integrity": 7,
-  "def_element": "타격",
-  "stats": {
-   "hp": 440,
-   "atk": 3,
-   "def": 12,
-   "eva": -4,
-   "spd": -4,
-   "focus": 0
+  {
+    "id": "part_body_ogre_hide",
+    "name_template": "{mod}{owner} 가죽",
+    "owner": "오우거의",
+    "slot": "body",
+    "rarity": "rare",
+    "integrity": 7,
+    "def_element": "타격",
+    "stats": {
+      "hp": 440,
+      "atk": 3,
+      "def": 12,
+      "eva": -4,
+      "spd": -4,
+      "focus": 0
+    },
+    "skills": [
+      "sk_iron_wall",
+      "sk_regenerate"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_iron_wall",
-   "sk_regenerate"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_arm_goblin_claw",
-  "name_template": "{mod}{owner} 발톱팔",
-  "owner": "고블린의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 5,
-   "def": 0,
-   "eva": 2,
-   "spd": 3,
-   "focus": 1
+  {
+    "id": "part_arm_goblin_claw",
+    "name_template": "{mod}{owner} 발톱팔",
+    "owner": "고블린의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 5,
+      "def": 0,
+      "eva": 2,
+      "spd": 3,
+      "focus": 1
+    },
+    "skills": [
+      "sk_claw_swipe",
+      "sk_rend"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_goblin"
+    ]
   },
-  "skills": [
-   "sk_claw_swipe",
-   "sk_rend"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_goblin"
-  ]
- },
- {
-  "id": "part_arm_rusted_axe",
-  "name_template": "{mod}{owner} 도끼팔",
-  "owner": "무덤파괴자의",
-  "slot": "arm",
-  "rarity": "rare",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 11,
-   "def": 1,
-   "eva": -2,
-   "spd": -2,
-   "focus": 0
+  {
+    "id": "part_arm_rusted_axe",
+    "name_template": "{mod}{owner} 도끼팔",
+    "owner": "무덤파괴자의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 11,
+      "def": 1,
+      "eva": -2,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_axe_cleave"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_axe_cleave"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_arm_bone_spike",
-  "name_template": "{mod}{owner} 뼈창팔",
-  "owner": "뼈사냥개의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 6,
-  "stats": {
-   "hp": 0,
-   "atk": 7,
-   "def": 0,
-   "eva": 0,
-   "spd": 2,
-   "focus": 3
+  {
+    "id": "part_arm_bone_spike",
+    "name_template": "{mod}{owner} 뼈창팔",
+    "owner": "뼈사냥개의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 7,
+      "def": 0,
+      "eva": 0,
+      "spd": 2,
+      "focus": 3
+    },
+    "skills": [
+      "sk_bone_spear"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "skills": [
-   "sk_bone_spear"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_arm_fungal_limb",
-  "name_template": "{mod}{owner} 팔",
-  "owner": "곰팡이 시체의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 7,
-  "stats": {
-   "hp": 16,
-   "atk": 4,
-   "def": 2,
-   "eva": 0,
-   "spd": 0,
-   "focus": 1
+  {
+    "id": "part_arm_fungal_limb",
+    "name_template": "{mod}{owner} 팔",
+    "owner": "곰팡이 시체의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 7,
+    "stats": {
+      "hp": 16,
+      "atk": 4,
+      "def": 2,
+      "eva": 0,
+      "spd": 0,
+      "focus": 1
+    },
+    "skills": [
+      "sk_spore_burst",
+      "sk_regenerate"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_spore_burst",
-   "sk_regenerate"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_leg_goblin_hop",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "고블린의",
-  "slot": "leg",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 0,
-   "eva": 6,
-   "spd": 8,
-   "focus": 0
+  {
+    "id": "part_leg_goblin_hop",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "고블린의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 6,
+      "spd": 8,
+      "focus": 0
+    },
+    "skills": [
+      "sk_leap"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_goblin"
+    ]
   },
-  "skills": [
-   "sk_leap"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_goblin"
-  ]
- },
- {
-  "id": "part_leg_hound_legs",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "뼈사냥개의",
-  "slot": "leg",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 2,
-   "def": 0,
-   "eva": 6,
-   "spd": 11,
-   "focus": 0
+  {
+    "id": "part_leg_hound_legs",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "뼈사냥개의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 2,
+      "def": 0,
+      "eva": 6,
+      "spd": 11,
+      "focus": 0
+    },
+    "skills": [
+      "sk_pounce",
+      "sk_hamstring"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "skills": [
-   "sk_pounce",
-   "sk_hamstring"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_leg_ogre_stump",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "오우거의",
-  "slot": "leg",
-  "rarity": "rare",
-  "integrity": 6,
-  "stats": {
-   "hp": 40,
-   "atk": 2,
-   "def": 4,
-   "eva": -3,
-   "spd": 2,
-   "focus": 0
+  {
+    "id": "part_leg_ogre_stump",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "오우거의",
+    "slot": "leg",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 40,
+      "atk": 2,
+      "def": 4,
+      "eva": -3,
+      "spd": 2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_brace"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_brace"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_head_carrion_skull",
-  "name_template": "{mod}{owner} 머리뼈",
-  "owner": "시체까마귀의",
-  "slot": "head",
-  "rarity": "common",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 0,
-   "eva": 5,
-   "spd": 4,
-   "focus": 3
+  {
+    "id": "part_head_carrion_skull",
+    "name_template": "{mod}{owner} 머리뼈",
+    "owner": "시체까마귀의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 5,
+      "spd": 4,
+      "focus": 3
+    },
+    "skills": [
+      "sk_gaze_chill"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_carrion"
+    ]
   },
-  "skills": [
-   "sk_gaze_chill"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_carrion"
-  ]
- },
- {
-  "id": "part_head_weaver_hood",
-  "name_template": "{mod}{owner} 두건",
-  "owner": "살가죽 직조공의",
-  "slot": "head",
-  "rarity": "rare",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 6
+  {
+    "id": "part_head_weaver_hood",
+    "name_template": "{mod}{owner} 두건",
+    "owner": "살가죽 직조공의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 6
+    },
+    "skills": [
+      "sk_focus_mind"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "skills": [
-   "sk_focus_mind"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_head_ogre_skull",
-  "name_template": "{mod}{owner} 두개골",
-  "owner": "무덤파괴자의",
-  "slot": "head",
-  "rarity": "rare",
-  "integrity": 6,
-  "stats": {
-   "hp": 18,
-   "atk": 2,
-   "def": 3,
-   "eva": 0,
-   "spd": 0,
-   "focus": 0
+  {
+    "id": "part_head_ogre_skull",
+    "name_template": "{mod}{owner} 두개골",
+    "owner": "무덤파괴자의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 18,
+      "atk": 2,
+      "def": 3,
+      "eva": 0,
+      "spd": 0,
+      "focus": 0
+    },
+    "skills": [
+      "sk_bone_crown"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_bone_crown"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_head_ember_skull",
-  "name_template": "{mod}{owner} 그을린 두개골",
-  "owner": "불탄 시체의",
-  "slot": "head",
-  "rarity": "common",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 3,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 2
+  {
+    "id": "part_head_ember_skull",
+    "name_template": "{mod}{owner} 그을린 두개골",
+    "owner": "불탄 시체의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 3,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 2
+    },
+    "skills": [
+      "sk_ember_eye"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "skills": [
-   "sk_ember_eye"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_head_whisper_skull",
-  "name_template": "{mod}{owner} 속삭이는 두개골",
-  "owner": "썩은 사제의",
-  "slot": "head",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 1,
-   "eva": 0,
-   "spd": 0,
-   "focus": 4
+  {
+    "id": "part_head_whisper_skull",
+    "name_template": "{mod}{owner} 속삭이는 두개골",
+    "owner": "썩은 사제의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 1,
+      "eva": 0,
+      "spd": 0,
+      "focus": 4
+    },
+    "skills": [
+      "sk_death_whisper"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_death_whisper"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_body_hound_ribcage",
-  "name_template": "{mod}{owner} 흉곽",
-  "owner": "뼈사냥개의",
-  "slot": "body",
-  "rarity": "common",
-  "integrity": 6,
-  "stats": {
-   "hp": 230,
-   "atk": 2,
-   "def": 6,
-   "eva": 0,
-   "spd": 4,
-   "focus": 0
+  {
+    "id": "part_body_hound_ribcage",
+    "name_template": "{mod}{owner} 흉곽",
+    "owner": "뼈사냥개의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 230,
+      "atk": 2,
+      "def": 6,
+      "eva": 0,
+      "spd": 4,
+      "focus": 0
+    },
+    "def_element": "참격",
+    "skills": [
+      "sk_brace"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "def_element": "참격",
-  "skills": [
-   "sk_brace"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_body_carrion_frame",
-  "name_template": "{mod}{owner} 뼈대",
-  "owner": "시체까마귀의",
-  "slot": "body",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 200,
-   "atk": 0,
-   "def": 4,
-   "eva": 9,
-   "spd": 7,
-   "focus": 0
+  {
+    "id": "part_body_carrion_frame",
+    "name_template": "{mod}{owner} 뼈대",
+    "owner": "시체까마귀의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 200,
+      "atk": 0,
+      "def": 4,
+      "eva": 9,
+      "spd": 7,
+      "focus": 0
+    },
+    "def_element": "참격",
+    "skills": [
+      "sk_second_wind"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_carrion"
+    ]
   },
-  "def_element": "참격",
-  "skills": [
-   "sk_second_wind"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_carrion"
-  ]
- },
- {
-  "id": "part_body_weaver_hide",
-  "name_template": "{mod}{owner} 살가죽",
-  "owner": "살가죽 직조공의",
-  "slot": "body",
-  "rarity": "rare",
-  "integrity": 7,
-  "stats": {
-   "hp": 300,
-   "atk": 0,
-   "def": 11,
-   "eva": 0,
-   "spd": 0,
-   "focus": 0
+  {
+    "id": "part_body_weaver_hide",
+    "name_template": "{mod}{owner} 살가죽",
+    "owner": "살가죽 직조공의",
+    "slot": "body",
+    "rarity": "rare",
+    "integrity": 7,
+    "stats": {
+      "hp": 300,
+      "atk": 0,
+      "def": 11,
+      "eva": 0,
+      "spd": 0,
+      "focus": 0
+    },
+    "def_element": "부패",
+    "skills": [
+      "sk_shell_up"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "def_element": "부패",
-  "skills": [
-   "sk_shell_up"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_body_frost_ribcage",
-  "name_template": "{mod}{owner} 언 흉곽",
-  "owner": "얼어붙은 시체의",
-  "slot": "body",
-  "rarity": "common",
-  "integrity": 7,
-  "stats": {
-   "hp": 260,
-   "atk": 0,
-   "def": 12,
-   "eva": 0,
-   "spd": -3,
-   "focus": 0
+  {
+    "id": "part_body_frost_ribcage",
+    "name_template": "{mod}{owner} 언 흉곽",
+    "owner": "얼어붙은 시체의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 7,
+    "stats": {
+      "hp": 260,
+      "atk": 0,
+      "def": 12,
+      "eva": 0,
+      "spd": -3,
+      "focus": 0
+    },
+    "def_element": "냉기",
+    "skills": [
+      "sk_frost_shell"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "def_element": "냉기",
-  "skills": [
-   "sk_frost_shell"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_body_martyr_chest",
-  "name_template": "{mod}{owner} 흉곽",
-  "owner": "순교자의",
-  "slot": "body",
-  "rarity": "rare",
-  "integrity": 6,
-  "stats": {
-   "hp": 250,
-   "atk": 0,
-   "def": 8,
-   "eva": 0,
-   "spd": 0,
-   "focus": 3
+  {
+    "id": "part_body_martyr_chest",
+    "name_template": "{mod}{owner} 흉곽",
+    "owner": "순교자의",
+    "slot": "body",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 250,
+      "atk": 0,
+      "def": 8,
+      "eva": 0,
+      "spd": 0,
+      "focus": 3
+    },
+    "def_element": "신성",
+    "skills": [
+      "sk_second_wind"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "def_element": "신성",
-  "skills": [
-   "sk_second_wind"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_arm_hook",
-  "name_template": "{mod}{owner} 갈고리팔",
-  "owner": "살가죽 직조공의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 6,
-   "def": 0,
-   "eva": 0,
-   "spd": 2,
-   "focus": 0
+  {
+    "id": "part_arm_hook",
+    "name_template": "{mod}{owner} 갈고리팔",
+    "owner": "살가죽 직조공의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 6,
+      "def": 0,
+      "eva": 0,
+      "spd": 2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_hook_pull"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "skills": [
-   "sk_hook_pull"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_arm_hammer",
-  "name_template": "{mod}{owner} 쇠망치팔",
-  "owner": "무덤파괴자의",
-  "slot": "arm",
-  "rarity": "rare",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 13,
-   "def": 2,
-   "eva": 0,
-   "spd": -4,
-   "focus": 0
+  {
+    "id": "part_arm_hammer",
+    "name_template": "{mod}{owner} 쇠망치팔",
+    "owner": "무덤파괴자의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 13,
+      "def": 2,
+      "eva": 0,
+      "spd": -4,
+      "focus": 0
+    },
+    "skills": [
+      "sk_hammer_fall"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_hammer_fall"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_arm_twin",
-  "name_template": "{mod}{owner} 쌍날팔",
-  "owner": "고블린의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 6,
-   "def": 0,
-   "eva": 0,
-   "spd": 3,
-   "focus": 0
+  {
+    "id": "part_arm_twin",
+    "name_template": "{mod}{owner} 쌍날팔",
+    "owner": "고블린의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 6,
+      "def": 0,
+      "eva": 0,
+      "spd": 3,
+      "focus": 0
+    },
+    "skills": [
+      "sk_twin_slash"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_goblin"
+    ]
   },
-  "skills": [
-   "sk_twin_slash"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_goblin"
-  ]
- },
- {
-  "id": "part_arm_flame",
-  "name_template": "{mod}{owner} 불타는 팔",
-  "owner": "불탄 시체의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 8,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 1
+  {
+    "id": "part_arm_flame",
+    "name_template": "{mod}{owner} 불타는 팔",
+    "owner": "불탄 시체의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 8,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 1
+    },
+    "skills": [
+      "sk_flame_palm"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_flame_palm"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_arm_ice",
-  "name_template": "{mod}{owner} 언 팔",
-  "owner": "얼어붙은 시체의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 6,
-  "stats": {
-   "hp": 0,
-   "atk": 9,
-   "def": 0,
-   "eva": 0,
-   "spd": -1,
-   "focus": 0
+  {
+    "id": "part_arm_ice",
+    "name_template": "{mod}{owner} 언 팔",
+    "owner": "얼어붙은 시체의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 9,
+      "def": 0,
+      "eva": 0,
+      "spd": -1,
+      "focus": 0
+    },
+    "skills": [
+      "sk_ice_lance"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "skills": [
-   "sk_ice_lance"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_arm_venom",
-  "name_template": "{mod}{owner} 독 갈퀴팔",
-  "owner": "곰팡이 시체의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 6,
-  "stats": {
-   "hp": 0,
-   "atk": 5,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 2
+  {
+    "id": "part_arm_venom",
+    "name_template": "{mod}{owner} 독 갈퀴팔",
+    "owner": "곰팡이 시체의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 5,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 2
+    },
+    "skills": [
+      "sk_venom_rake"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_venom_rake"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_arm_rot",
-  "name_template": "{mod}{owner} 썩은 팔",
-  "owner": "살가죽 직조공의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 6,
-   "atk": 8,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 0
+  {
+    "id": "part_arm_rot",
+    "name_template": "{mod}{owner} 썩은 팔",
+    "owner": "살가죽 직조공의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 6,
+      "atk": 8,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 0
+    },
+    "skills": [
+      "sk_rot_grip"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "skills": [
-   "sk_rot_grip"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_arm_holy",
-  "name_template": "{mod}{owner} 성유 바른 팔",
-  "owner": "순교자의",
-  "slot": "arm",
-  "rarity": "rare",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 9,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 3
+  {
+    "id": "part_arm_holy",
+    "name_template": "{mod}{owner} 성유 바른 팔",
+    "owner": "순교자의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 9,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 3
+    },
+    "skills": [
+      "sk_holy_brand"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_carrion"
+    ]
   },
-  "skills": [
-   "sk_holy_brand"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_carrion"
-  ]
- },
- {
-  "id": "part_arm_shatter",
-  "name_template": "{mod}{owner} 부수는 팔",
-  "owner": "무덤파괴자의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 10,
-   "def": 0,
-   "eva": 0,
-   "spd": -2,
-   "focus": 0
+  {
+    "id": "part_arm_shatter",
+    "name_template": "{mod}{owner} 부수는 팔",
+    "owner": "무덤파괴자의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 10,
+      "def": 0,
+      "eva": 0,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_shatter_blow"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_shatter_blow"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_arm_needle",
-  "name_template": "{mod}{owner} 바늘팔",
-  "owner": "시체까마귀의",
-  "slot": "arm",
-  "rarity": "common",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 5,
-   "def": 0,
-   "eva": 3,
-   "spd": 4,
-   "focus": 0
+  {
+    "id": "part_arm_needle",
+    "name_template": "{mod}{owner} 바늘팔",
+    "owner": "시체까마귀의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 5,
+      "def": 0,
+      "eva": 3,
+      "spd": 4,
+      "focus": 0
+    },
+    "skills": [
+      "sk_needle_storm"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_carrion"
+    ]
   },
-  "skills": [
-   "sk_needle_storm"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_carrion"
-  ]
- },
- {
-  "id": "part_leg_carrion",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "시체까마귀의",
-  "slot": "leg",
-  "rarity": "common",
-  "integrity": 4,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 0,
-   "eva": 10,
-   "spd": 13,
-   "focus": 0
+  {
+    "id": "part_leg_carrion",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "시체까마귀의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 10,
+      "spd": 13,
+      "focus": 0
+    },
+    "skills": [
+      "sk_sidestep"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_carrion"
+    ]
   },
-  "skills": [
-   "sk_sidestep"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_carrion"
-  ]
- },
- {
-  "id": "part_leg_weaver",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "살가죽 직조공의",
-  "slot": "leg",
-  "rarity": "common",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 0,
-   "eva": 5,
-   "spd": 9,
-   "focus": 2
+  {
+    "id": "part_leg_weaver",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "살가죽 직조공의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 5,
+      "spd": 9,
+      "focus": 2
+    },
+    "skills": [
+      "sk_gallop"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "skills": [
-   "sk_gallop"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_leg_fungal",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "곰팡이 시체의",
-  "slot": "leg",
-  "rarity": "common",
-  "integrity": 7,
-  "stats": {
-   "hp": 12,
-   "atk": 0,
-   "def": 3,
-   "eva": 2,
-   "spd": 3,
-   "focus": 0
+  {
+    "id": "part_leg_fungal",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "곰팡이 시체의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 7,
+    "stats": {
+      "hp": 12,
+      "atk": 0,
+      "def": 3,
+      "eva": 2,
+      "spd": 3,
+      "focus": 0
+    },
+    "skills": [
+      "sk_stomp"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_fungal"
+    ]
   },
-  "skills": [
-   "sk_stomp"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_fungal"
-  ]
- },
- {
-  "id": "part_leg_frost",
-  "name_template": "{mod}{owner} 언 다리",
-  "owner": "얼어붙은 시체의",
-  "slot": "leg",
-  "rarity": "common",
-  "integrity": 6,
-  "stats": {
-   "hp": 0,
-   "atk": 0,
-   "def": 2,
-   "eva": 4,
-   "spd": 6,
-   "focus": 0
+  {
+    "id": "part_leg_frost",
+    "name_template": "{mod}{owner} 언 다리",
+    "owner": "얼어붙은 시체의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 2,
+      "eva": 4,
+      "spd": 6,
+      "focus": 0
+    },
+    "skills": [
+      "sk_leap"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bonehound"
+    ]
   },
-  "skills": [
-   "sk_leap"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_bonehound"
-  ]
- },
- {
-  "id": "part_leg_iron",
-  "name_template": "{mod}{owner} 쇠붙인 다리",
-  "owner": "무덤파괴자의",
-  "slot": "leg",
-  "rarity": "rare",
-  "integrity": 6,
-  "stats": {
-   "hp": 16,
-   "atk": 3,
-   "def": 4,
-   "eva": 0,
-   "spd": 4,
-   "focus": 0
+  {
+    "id": "part_leg_iron",
+    "name_template": "{mod}{owner} 쇠붙인 다리",
+    "owner": "무덤파괴자의",
+    "slot": "leg",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 16,
+      "atk": 3,
+      "def": 4,
+      "eva": 0,
+      "spd": 4,
+      "focus": 0
+    },
+    "skills": [
+      "sk_stomp",
+      "sk_gallop"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_stomp",
-   "sk_gallop"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- },
- {
-  "id": "part_head_gravelord_crown",
-  "name_template": "{mod}{owner} 뼈관",
-  "owner": "무덤군주의",
-  "slot": "head",
-  "rarity": "unique",
-  "integrity": 8,
-  "stats": {
-   "hp": 20,
-   "atk": 4,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 6
+  {
+    "id": "part_head_gravelord_crown",
+    "name_template": "{mod}{owner} 뼈관",
+    "owner": "무덤군주의",
+    "slot": "head",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 20,
+      "atk": 4,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 6
+    },
+    "skills": [
+      "sk_gravelord_edict"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gravelord"
+    ]
   },
-  "skills": [
-   "sk_gravelord_edict"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_gravelord"
-  ]
- },
- {
-  "id": "part_body_gravelord",
-  "name_template": "{mod}{owner} 흉곽",
-  "owner": "무덤군주의",
-  "slot": "body",
-  "rarity": "unique",
-  "integrity": 8,
-  "stats": {
-   "hp": 380,
-   "atk": 4,
-   "def": 14,
-   "eva": 0,
-   "spd": 0,
-   "focus": 2
+  {
+    "id": "part_body_gravelord",
+    "name_template": "{mod}{owner} 흉곽",
+    "owner": "무덤군주의",
+    "slot": "body",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 380,
+      "atk": 4,
+      "def": 14,
+      "eva": 0,
+      "spd": 0,
+      "focus": 2
+    },
+    "def_element": "부패",
+    "skills": [
+      "sk_shell_up",
+      "sk_second_wind"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gravelord"
+    ]
   },
-  "def_element": "부패",
-  "skills": [
-   "sk_shell_up",
-   "sk_second_wind"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_gravelord"
-  ]
- },
- {
-  "id": "part_arm_gravelord",
-  "name_template": "{mod}{owner} 팔",
-  "owner": "무덤군주의",
-  "slot": "arm",
-  "rarity": "unique",
-  "integrity": 7,
-  "stats": {
-   "hp": 0,
-   "atk": 15,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 2
+  {
+    "id": "part_arm_gravelord",
+    "name_template": "{mod}{owner} 팔",
+    "owner": "무덤군주의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 7,
+    "stats": {
+      "hp": 0,
+      "atk": 15,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 2
+    },
+    "skills": [
+      "sk_soul_harvest"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gravelord"
+    ]
   },
-  "skills": [
-   "sk_soul_harvest"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_gravelord"
-  ]
- },
- {
-  "id": "part_leg_gravelord",
-  "name_template": "{mod}{owner} 다리",
-  "owner": "무덤군주의",
-  "slot": "leg",
-  "rarity": "unique",
-  "integrity": 7,
-  "stats": {
-   "hp": 20,
-   "atk": 0,
-   "def": 4,
-   "eva": 8,
-   "spd": 12,
-   "focus": 0
+  {
+    "id": "part_leg_gravelord",
+    "name_template": "{mod}{owner} 다리",
+    "owner": "무덤군주의",
+    "slot": "leg",
+    "rarity": "unique",
+    "integrity": 7,
+    "stats": {
+      "hp": 20,
+      "atk": 0,
+      "def": 4,
+      "eva": 8,
+      "spd": 12,
+      "focus": 0
+    },
+    "skills": [
+      "sk_gallop",
+      "sk_sidestep"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gravelord"
+    ]
   },
-  "skills": [
-   "sk_gallop",
-   "sk_sidestep"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_gravelord"
-  ]
- },
- {
-  "id": "part_arm_weaver_needle",
-  "name_template": "{mod}{owner} 바늘팔",
-  "owner": "살가죽 직조공의",
-  "slot": "arm",
-  "rarity": "unique",
-  "integrity": 6,
-  "stats": {
-   "hp": 0,
-   "atk": 11,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 4
+  {
+    "id": "part_arm_weaver_needle",
+    "name_template": "{mod}{owner} 바늘팔",
+    "owner": "살가죽 직조공의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 11,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 4
+    },
+    "skills": [
+      "sk_weaver_stitch"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver"
+    ]
   },
-  "skills": [
-   "sk_weaver_stitch"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_weaver"
-  ]
- },
- {
-  "id": "part_arm_ogre_tomb",
-  "name_template": "{mod}{owner} 묘비팔",
-  "owner": "무덤파괴자의",
-  "slot": "arm",
-  "rarity": "unique",
-  "integrity": 5,
-  "stats": {
-   "hp": 0,
-   "atk": 16,
-   "def": 3,
-   "eva": 0,
-   "spd": -5,
-   "focus": 0
+  {
+    "id": "part_arm_ogre_tomb",
+    "name_template": "{mod}{owner} 묘비팔",
+    "owner": "무덤파괴자의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 16,
+      "def": 3,
+      "eva": 0,
+      "spd": -5,
+      "focus": 0
+    },
+    "skills": [
+      "sk_hammer_fall",
+      "sk_shatter_blow"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ogre"
+    ]
   },
-  "skills": [
-   "sk_hammer_fall",
-   "sk_shatter_blow"
-  ],
-  "passive": null,
-  "drop_from": [
-   "m_ogre"
-  ]
- }
+  {
+    "id": "part_body_drowned_bloat",
+    "name_template": "{mod}{owner} 부푼 몸통",
+    "owner": "익사체의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 300,
+      "atk": 0,
+      "def": 11,
+      "eva": -2,
+      "spd": -3,
+      "focus": 0
+    },
+    "skills": [
+      "sk_dr_bloat"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_drowned"
+    ],
+    "def_element": "냉기"
+  },
+  {
+    "id": "part_leg_drowned",
+    "name_template": "{mod}{owner} 불어터진 다리",
+    "owner": "익사체의",
+    "slot": "leg",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 18,
+      "atk": 0,
+      "def": 3,
+      "eva": 1,
+      "spd": 2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_dr_burst"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_drowned"
+    ]
+  },
+  {
+    "id": "part_arm_leech",
+    "name_template": "{mod}{owner} 흡반팔",
+    "owner": "거머리의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 6,
+      "def": 0,
+      "eva": 1,
+      "spd": 2,
+      "focus": 2
+    },
+    "skills": [
+      "sk_le_swarm",
+      "sk_le_drain"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_leech"
+    ]
+  },
+  {
+    "id": "part_head_leech",
+    "name_template": "{mod}{owner} 흡반 머리",
+    "owner": "거머리의",
+    "slot": "head",
+    "rarity": "common",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 2,
+      "spd": 1,
+      "focus": 3
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_leech"
+    ]
+  },
+  {
+    "id": "part_arm_piston",
+    "name_template": "{mod}{owner} 피스톤팔",
+    "owner": "자동인형의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 7,
+    "stats": {
+      "hp": 0,
+      "atk": 10,
+      "def": 2,
+      "eva": -1,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_ru_piston"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_rustdoll"
+    ]
+  },
+  {
+    "id": "part_body_rust_frame",
+    "name_template": "{mod}{owner} 녹슨 골조",
+    "owner": "자동인형의",
+    "slot": "body",
+    "rarity": "rare",
+    "integrity": 7,
+    "stats": {
+      "hp": 290,
+      "atk": 0,
+      "def": 13,
+      "eva": -3,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_ru_repair"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_rustdoll"
+    ],
+    "def_element": "타격"
+  },
+  {
+    "id": "part_head_gulper",
+    "name_template": "{mod}{owner} 아가리",
+    "owner": "포식자의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 3,
+      "def": 2,
+      "eva": 0,
+      "spd": 0,
+      "focus": 4
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_gulper"
+    ]
+  },
+  {
+    "id": "part_arm_gulper",
+    "name_template": "{mod}{owner} 갈고리 턱",
+    "owner": "포식자의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 12,
+      "def": 1,
+      "eva": 0,
+      "spd": 0,
+      "focus": 2
+    },
+    "skills": [
+      "sk_gu_swallow",
+      "sk_gu_acid"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gulper"
+    ]
+  },
+  {
+    "id": "part_head_ratking",
+    "name_template": "{mod}{owner} 왕관 쓴 두개골",
+    "owner": "시궁쥐 왕의",
+    "slot": "head",
+    "rarity": "unique",
+    "integrity": 7,
+    "stats": {
+      "hp": 15,
+      "atk": 3,
+      "def": 1,
+      "eva": 2,
+      "spd": 3,
+      "focus": 5
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_ratking"
+    ]
+  },
+  {
+    "id": "part_arm_ratking",
+    "name_template": "{mod}{owner} 갈고리 앞발",
+    "owner": "시궁쥐 왕의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 7,
+    "stats": {
+      "hp": 0,
+      "atk": 12,
+      "def": 0,
+      "eva": 3,
+      "spd": 5,
+      "focus": 2
+    },
+    "skills": [
+      "sk_rk_swarm",
+      "sk_rk_gnaw"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ratking"
+    ]
+  },
+  {
+    "id": "part_body_sluice",
+    "name_template": "{mod}{owner} 무쇠 흉갑",
+    "owner": "수문지기의",
+    "slot": "body",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 360,
+      "atk": 3,
+      "def": 16,
+      "eva": -2,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_sw_slam"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_sluicewarden"
+    ],
+    "def_element": "타격"
+  },
+  {
+    "id": "part_arm_sluice",
+    "name_template": "{mod}{owner} 쇠사슬 팔",
+    "owner": "수문지기의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 0,
+      "atk": 14,
+      "def": 3,
+      "eva": 0,
+      "spd": -1,
+      "focus": 1
+    },
+    "skills": [
+      "sk_sw_chain",
+      "sk_sw_gate"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_sluicewarden"
+    ]
+  },
+  {
+    "id": "part_body_bloatmother",
+    "name_template": "{mod}{owner} 산란낭",
+    "owner": "어머니의",
+    "slot": "body",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 420,
+      "atk": 2,
+      "def": 15,
+      "eva": 0,
+      "spd": -3,
+      "focus": 3
+    },
+    "skills": [
+      "sk_bm_spawn"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bloatmother"
+    ],
+    "def_element": "부패"
+  },
+  {
+    "id": "part_leg_bloatmother",
+    "name_template": "{mod}{owner} 부푼 다리",
+    "owner": "어머니의",
+    "slot": "leg",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 36,
+      "atk": 0,
+      "def": 6,
+      "eva": 3,
+      "spd": 4,
+      "focus": 0
+    },
+    "skills": [
+      "sk_bm_spew"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_bloatmother"
+    ]
+  },
+  {
+    "id": "part_head_wraith",
+    "name_template": "{mod}{owner} 흐릿한 얼굴",
+    "owner": "묘지기의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 6,
+      "spd": 2,
+      "focus": 4
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_wraith"
+    ]
+  },
+  {
+    "id": "part_leg_wraith",
+    "name_template": "{mod}{owner} 뜬 발",
+    "owner": "묘지기의",
+    "slot": "leg",
+    "rarity": "rare",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 14,
+      "spd": 7,
+      "focus": 0
+    },
+    "skills": [
+      "sk_wr_touch",
+      "sk_wr_wail"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_wraith"
+    ]
+  },
+  {
+    "id": "part_body_gravemass",
+    "name_template": "{mod}{owner} 뒤엉킨 몸통",
+    "owner": "합장체의",
+    "slot": "body",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 330,
+      "atk": 2,
+      "def": 10,
+      "eva": -1,
+      "spd": -1,
+      "focus": 0
+    },
+    "skills": [
+      "sk_gm_crush"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gravemass"
+    ],
+    "def_element": "타격"
+  },
+  {
+    "id": "part_arm_gravemass",
+    "name_template": "{mod}{owner} 여럿의 팔",
+    "owner": "합장체의",
+    "slot": "arm",
+    "rarity": "common",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 9,
+      "def": 2,
+      "eva": 0,
+      "spd": 1,
+      "focus": 0
+    },
+    "skills": [
+      "sk_gm_grab"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_gravemass"
+    ]
+  },
+  {
+    "id": "part_head_ashpriest",
+    "name_template": "{mod}{owner} 재 덮인 두건",
+    "owner": "사제의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 2,
+      "def": 1,
+      "eva": 0,
+      "spd": 0,
+      "focus": 5
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_ashpriest"
+    ]
+  },
+  {
+    "id": "part_arm_ashpriest",
+    "name_template": "{mod}{owner} 향로팔",
+    "owner": "사제의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 5,
+    "stats": {
+      "hp": 0,
+      "atk": 10,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 3
+    },
+    "skills": [
+      "sk_ap_pyre",
+      "sk_ap_censer"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ashpriest"
+    ]
+  },
+  {
+    "id": "part_body_pallbearer",
+    "name_template": "{mod}{owner} 굽은 등",
+    "owner": "관 나르는 자의",
+    "slot": "body",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 340,
+      "atk": 3,
+      "def": 13,
+      "eva": 0,
+      "spd": -1,
+      "focus": 0
+    },
+    "skills": [
+      "sk_pb_lift"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_pallbearers"
+    ],
+    "def_element": "참격"
+  },
+  {
+    "id": "part_leg_pallbearer",
+    "name_template": "{mod}{owner} 맞춘 걸음",
+    "owner": "관 나르는 자의",
+    "slot": "leg",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 20,
+      "atk": 0,
+      "def": 5,
+      "eva": 4,
+      "spd": 9,
+      "focus": 1
+    },
+    "skills": [
+      "sk_pb_march"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_pallbearers"
+    ]
+  },
+  {
+    "id": "part_head_weaver_prime",
+    "name_template": "{mod}{owner} 꿰맨 얼굴",
+    "owner": "완전체의",
+    "slot": "head",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 10,
+      "atk": 2,
+      "def": 1,
+      "eva": 2,
+      "spd": 0,
+      "focus": 8
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_weaver_prime"
+    ]
+  },
+  {
+    "id": "part_arm_weaver_prime",
+    "name_template": "{mod}{owner} 바늘 손",
+    "owner": "완전체의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 8,
+    "stats": {
+      "hp": 0,
+      "atk": 13,
+      "def": 0,
+      "eva": 2,
+      "spd": 2,
+      "focus": 5
+    },
+    "skills": [
+      "sk_wp_mimic",
+      "sk_wp_flay"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_weaver_prime"
+    ]
+  },
+  {
+    "id": "part_body_sentinel",
+    "name_template": "{mod}{owner} 각인 흉갑",
+    "owner": "파수병의",
+    "slot": "body",
+    "rarity": "rare",
+    "integrity": 8,
+    "stats": {
+      "hp": 350,
+      "atk": 2,
+      "def": 15,
+      "eva": 0,
+      "spd": 0,
+      "focus": 2
+    },
+    "skills": [
+      "sk_se_shift"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_sentinel"
+    ],
+    "def_element": "타격"
+  },
+  {
+    "id": "part_arm_sentinel",
+    "name_template": "{mod}{owner} 각인 팔",
+    "owner": "파수병의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 8,
+    "stats": {
+      "hp": 0,
+      "atk": 12,
+      "def": 3,
+      "eva": 0,
+      "spd": 0,
+      "focus": 3
+    },
+    "skills": [
+      "sk_se_strike"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_sentinel"
+    ]
+  },
+  {
+    "id": "part_head_mirror",
+    "name_template": "{mod}{owner} 비친 얼굴",
+    "owner": "잔상의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 0,
+      "eva": 7,
+      "spd": 3,
+      "focus": 5
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_mirror"
+    ]
+  },
+  {
+    "id": "part_leg_mirror",
+    "name_template": "{mod}{owner} 어긋난 걸음",
+    "owner": "잔상의",
+    "slot": "leg",
+    "rarity": "rare",
+    "integrity": 4,
+    "stats": {
+      "hp": 0,
+      "atk": 0,
+      "def": 1,
+      "eva": 12,
+      "spd": 10,
+      "focus": 2
+    },
+    "skills": [
+      "sk_mi_echo",
+      "sk_mi_shatter"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_mirror"
+    ]
+  },
+  {
+    "id": "part_head_scribe",
+    "name_template": "{mod}{owner} 눈 없는 머리",
+    "owner": "필경사의",
+    "slot": "head",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 1,
+      "def": 1,
+      "eva": 0,
+      "spd": 0,
+      "focus": 7
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_scribe"
+    ]
+  },
+  {
+    "id": "part_arm_scribe",
+    "name_template": "{mod}{owner} 붓대 팔",
+    "owner": "필경사의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 11,
+      "def": 0,
+      "eva": 2,
+      "spd": 3,
+      "focus": 4
+    },
+    "skills": [
+      "sk_sc_erase",
+      "sk_sc_ink"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_scribe"
+    ]
+  },
+  {
+    "id": "part_body_hunger",
+    "name_template": "{mod}{owner} 굶주린 몸통",
+    "owner": "굶주림의",
+    "slot": "body",
+    "rarity": "rare",
+    "integrity": 7,
+    "stats": {
+      "hp": 320,
+      "atk": 4,
+      "def": 12,
+      "eva": 2,
+      "spd": 2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_hu_maw"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_hunger"
+    ],
+    "def_element": "부패"
+  },
+  {
+    "id": "part_leg_hunger",
+    "name_template": "{mod}{owner} 끈질긴 다리",
+    "owner": "굶주림의",
+    "slot": "leg",
+    "rarity": "rare",
+    "integrity": 7,
+    "stats": {
+      "hp": 0,
+      "atk": 1,
+      "def": 3,
+      "eva": 6,
+      "spd": 11,
+      "focus": 0
+    },
+    "skills": [
+      "sk_hu_pursue"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_hunger"
+    ]
+  },
+  {
+    "id": "part_arm_prototype",
+    "name_template": "{mod}{owner} 실패한 팔",
+    "owner": "시작품의",
+    "slot": "arm",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 0,
+      "atk": 15,
+      "def": 2,
+      "eva": 0,
+      "spd": -1,
+      "focus": 2
+    },
+    "skills": [
+      "sk_pr_copy",
+      "sk_pr_overload"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_prototype"
+    ]
+  },
+  {
+    "id": "part_leg_prototype",
+    "name_template": "{mod}{owner} 어긋난 무릎",
+    "owner": "시작품의",
+    "slot": "leg",
+    "rarity": "rare",
+    "integrity": 6,
+    "stats": {
+      "hp": 24,
+      "atk": 0,
+      "def": 6,
+      "eva": 5,
+      "spd": 7,
+      "focus": 0
+    },
+    "skills": [
+      "sk_pr_brace"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_prototype"
+    ]
+  },
+  {
+    "id": "part_head_janu",
+    "name_template": "{mod}{owner} 두 얼굴",
+    "owner": "문지기의",
+    "slot": "head",
+    "rarity": "unique",
+    "integrity": 9,
+    "stats": {
+      "hp": 20,
+      "atk": 4,
+      "def": 2,
+      "eva": 0,
+      "spd": 0,
+      "focus": 7
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_janu"
+    ]
+  },
+  {
+    "id": "part_body_janu",
+    "name_template": "{mod}{owner} 문짝 흉갑",
+    "owner": "문지기의",
+    "slot": "body",
+    "rarity": "unique",
+    "integrity": 9,
+    "stats": {
+      "hp": 400,
+      "atk": 3,
+      "def": 17,
+      "eva": 0,
+      "spd": -1,
+      "focus": 2
+    },
+    "skills": [
+      "sk_ja_turn"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_janu"
+    ],
+    "def_element": "신성"
+  },
+  {
+    "id": "part_body_labyrinth",
+    "name_template": "{mod}{owner} 벽조각 흉갑",
+    "owner": "미궁의",
+    "slot": "body",
+    "rarity": "unique",
+    "integrity": 9,
+    "stats": {
+      "hp": 460,
+      "atk": 4,
+      "def": 20,
+      "eva": -2,
+      "spd": -2,
+      "focus": 0
+    },
+    "skills": [
+      "sk_la_wall"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_labyrinth"
+    ],
+    "def_element": "타격"
+  },
+  {
+    "id": "part_leg_labyrinth",
+    "name_template": "{mod}{owner} 옮겨지는 발",
+    "owner": "미궁의",
+    "slot": "leg",
+    "rarity": "unique",
+    "integrity": 9,
+    "stats": {
+      "hp": 30,
+      "atk": 0,
+      "def": 7,
+      "eva": 7,
+      "spd": 10,
+      "focus": 2
+    },
+    "skills": [
+      "sk_la_shift"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_labyrinth"
+    ]
+  },
+  {
+    "id": "part_head_ornel",
+    "name_template": "{mod}{owner} 첫 번째 두개골",
+    "owner": "오르넬의",
+    "slot": "head",
+    "rarity": "unique",
+    "integrity": 10,
+    "stats": {
+      "hp": 25,
+      "atk": 5,
+      "def": 2,
+      "eva": 0,
+      "spd": 2,
+      "focus": 9
+    },
+    "skills": [],
+    "passive": null,
+    "drop_from": [
+      "m_ornel"
+    ]
+  },
+  {
+    "id": "part_arm_ornel",
+    "name_template": "{mod}{owner} 최초의 손",
+    "owner": "오르넬의",
+    "slot": "arm",
+    "rarity": "unique",
+    "integrity": 10,
+    "stats": {
+      "hp": 0,
+      "atk": 18,
+      "def": 2,
+      "eva": 0,
+      "spd": 1,
+      "focus": 5
+    },
+    "skills": [
+      "sk_or_edict",
+      "sk_or_wither"
+    ],
+    "passive": null,
+    "drop_from": [
+      "m_ornel"
+    ]
+  }
 ]

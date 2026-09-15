@@ -1,0 +1,217 @@
+{
+  "$comment": "3부 9단계 캠페인 (§7-A). 1단계 = 3층짜리 런 한 번, 마지막 층 보스방에 그 단계의 보스.",
+  "parts": [
+    {
+      "id": 1,
+      "name": "시궁 아래",
+      "place": "하수도",
+      "hazard": "flood",
+      "hazardName": "범람",
+      "hazardText": "방을 열 때마다 수위가 오른다. 무릎을 넘기면 다리가 젖어 무거워진다.",
+      "intro": "시체골이 버리는 것들은 전부 이 아래로 흘러든다.",
+      "stages": [
+        {
+          "id": "1-1",
+          "name": "젖은 입구",
+          "floors": 3,
+          "boss": "m_ratking",
+          "monsters": [
+            "m_goblin",
+            "m_bonehound"
+          ],
+          "elite": "m_goblin",
+          "modTier": 1,
+          "hazardRate": 0,
+          "reward": {
+            "soulAsh": 80,
+            "silver": 200
+          },
+          "desc": "물이 발목까지 온다. 아직은 걸을 만하다."
+        },
+        {
+          "id": "1-2",
+          "name": "무너진 수로",
+          "floors": 3,
+          "boss": "m_sluicewarden",
+          "monsters": [
+            "m_goblin",
+            "m_bonehound",
+            "m_leech",
+            "m_drowned"
+          ],
+          "elite": "m_gulper",
+          "modTier": 1,
+          "hazardRate": 1,
+          "reward": {
+            "soulAsh": 120,
+            "silver": 300
+          },
+          "desc": "수문이 부서진 뒤로 물이 멈추지 않는다."
+        },
+        {
+          "id": "1-3",
+          "name": "산란장",
+          "floors": 3,
+          "boss": "m_bloatmother",
+          "monsters": [
+            "m_drowned",
+            "m_leech",
+            "m_rustdoll",
+            "m_bonehound"
+          ],
+          "elite": "m_gulper",
+          "modTier": 2,
+          "hazardRate": 2,
+          "reward": {
+            "soulAsh": 180,
+            "silver": 450,
+            "core": "core_iron"
+          },
+          "desc": "물이 미지근하다. 무언가 여기서 태어나고 있다."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "버려진 공동묘지",
+      "place": "공동묘지",
+      "hazard": "gaze",
+      "hazardName": "망자의 시선",
+      "hazardText": "방을 열 때마다 시선이 쌓인다. 너무 오래 뒤지면 묻힌 것들이 일어난다.",
+      "intro": "하수도의 시체들은 떠내려온 것이었다. 위에 묘지가 있다.",
+      "stages": [
+        {
+          "id": "2-1",
+          "name": "무너진 담장",
+          "floors": 3,
+          "boss": "m_pallbearers",
+          "monsters": [
+            "m_carrion",
+            "m_fungal",
+            "m_gravemass"
+          ],
+          "elite": "m_weaver",
+          "modTier": 1,
+          "hazardRate": 1,
+          "reward": {
+            "soulAsh": 220,
+            "silver": 500
+          },
+          "desc": "이름이 지워진 비석들이 줄지어 있다."
+        },
+        {
+          "id": "2-2",
+          "name": "화장터",
+          "floors": 3,
+          "boss": "m_weaver_prime",
+          "monsters": [
+            "m_fungal",
+            "m_gravemass",
+            "m_ashpriest",
+            "m_carrion"
+          ],
+          "elite": "m_ogre",
+          "modTier": 2,
+          "hazardRate": 2,
+          "reward": {
+            "soulAsh": 280,
+            "silver": 650
+          },
+          "desc": "아직도 연기가 오른다. 태울 것이 남아 있다는 뜻이다."
+        },
+        {
+          "id": "2-3",
+          "name": "군주의 뜰",
+          "floors": 3,
+          "boss": "m_gravelord",
+          "monsters": [
+            "m_wraith",
+            "m_gravemass",
+            "m_ashpriest",
+            "m_fungal"
+          ],
+          "elite": "m_ogre",
+          "modTier": 2,
+          "hazardRate": 3,
+          "reward": {
+            "soulAsh": 360,
+            "silver": 800,
+            "core": "core_soul"
+          },
+          "desc": "여기 묻힌 자들의 이름을 전부 아는 것이 있다."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "미궁",
+      "place": "미궁",
+      "hazard": "shift",
+      "hazardName": "재배치",
+      "hazardText": "방을 나서면 아직 가지 않은 곳의 연결이 바뀐다. 지도를 다 믿지 마라.",
+      "intro": "빈 무덤 아래에 누가 왜 지었는지 모를 것이 있다.",
+      "stages": [
+        {
+          "id": "3-1",
+          "name": "첫 번째 문",
+          "floors": 3,
+          "boss": "m_janu",
+          "monsters": [
+            "m_sentinel",
+            "m_mirror",
+            "m_wraith"
+          ],
+          "elite": "m_prototype",
+          "modTier": 2,
+          "hazardRate": 1,
+          "reward": {
+            "soulAsh": 420,
+            "silver": 900
+          },
+          "desc": "문 앞에 선 것은 당신을 기다린 적이 없다."
+        },
+        {
+          "id": "3-2",
+          "name": "돌아오는 회랑",
+          "floors": 3,
+          "boss": "m_labyrinth",
+          "monsters": [
+            "m_sentinel",
+            "m_mirror",
+            "m_scribe",
+            "m_hunger"
+          ],
+          "elite": "m_prototype",
+          "modTier": 2,
+          "hazardRate": 2,
+          "reward": {
+            "soulAsh": 520,
+            "silver": 1100
+          },
+          "desc": "같은 자리를 세 번 지났는데 처음 보는 곳이다."
+        },
+        {
+          "id": "3-3",
+          "name": "원형의 방",
+          "floors": 3,
+          "boss": "m_ornel",
+          "monsters": [
+            "m_scribe",
+            "m_hunger",
+            "m_mirror",
+            "m_sentinel"
+          ],
+          "elite": "m_prototype",
+          "modTier": 2,
+          "hazardRate": 3,
+          "reward": {
+            "soulAsh": 700,
+            "silver": 1500,
+            "core": "core_gravelord"
+          },
+          "desc": "여기서부터는 당신이 하던 일을 먼저 한 사람의 자리다."
+        }
+      ]
+    }
+  ]
+}

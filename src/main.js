@@ -3,8 +3,10 @@ import {
   DB, loadData, makeRng, makePart, partName, partStats, partSkills,
   assembleGolem, SLOTS, SLOT_LABEL, SLOT_KIND, SKILL_CAP,
   rollMonster, rollElite, rollBoss, rollLoot, syncUidSeq, skillElement, AIM, RAW_WEAR,
+  stageOf, partOf,
 } from './core.js';
 import { Combat } from './combat.js';
+import * as CP from './campaign.js';
 import { generateFloor, roomAt, exitsOf, ROOM_LABEL, ROOM_ICON, FLAVOR, DIR_KEY } from './dungeon.js';
 import {
   rollQuests, advanceQuests, questsAllDone, claimQuests, resetQuests,
@@ -45,6 +47,8 @@ function newSave() {
     quests: { active: rollQuests(r), resets: 0 },
     town: { stock: rollStock(r), smithy: [] },
     seen: {}, run: null,
+    // 캠페인 — 어디까지 왔는가 (§7-A). stage는 '다음에 도전할 단계'
+    campaign: { stage: '1-1', cleared: {}, story: {}, ending: null },
     ossuary: (() => { const o = O.newOssuary(); o.built.forge = true; return o; })(),
     unlocks: { vaultStart: 1, necroSlots: 3 },
     modSamples: {},
@@ -62,6 +66,11 @@ function save() {
  */
 function migrate(s) {
   s.cores ??= [];
+  s.campaign ??= { stage: '1-1', cleared: {}, story: {}, ending: null };
+  s.campaign.cleared ??= {};
+  s.campaign.story ??= {};
+  s.campaign.stage ??= '1-1';
+  s.campaign.ending ??= null;
   s.modSamples ??= {};
   s.unlocks ??= { vaultStart: 1, necroSlots: 3 };
   s.unlocks.vaultStart ??= 1;
@@ -272,9 +281,12 @@ function town(intro = true) {
     UI.logLine('젖은 흙과 초의 냄새. 아무도 당신이 무엇을 하는지 묻지 않는 마을이다.', 'narrate');
     if (questsAllDone(S)) UI.logLine('의뢰소 게시판이 비었다. 보상을 받을 때가 됐다.', 'good');
   }
+  // 목표 한 줄 — 이것이 늘 보이는 것이 캠페인의 8할이다 (§7-A.5)
+  UI.logLine(`▸ 지금 할 일 — ${CP.objective(S)}`, 'necro');
   UI.choices([
     { label: '🦴 뼈 수습꾼 바르그', cls: S.golem.core ? 'ghost' : 'primary',
-      meta: S.golem.core ? '잡담' : '골렘이 없다', on: scavengerScreen },
+      meta: S.golem.core ? `목표 ${CP.progress(S).done}/${CP.progress(S).total}` : '골렘이 없다',
+      on: scavengerScreen },
     { label: '납골당', meta: ossuaryBadge(), on: ossuaryScreen },
     { label: '의뢰소', meta: questsAllDone(S) ? '수령 가능' : `${S.quests.active.filter((q) => q.done).length}/3`, on: questScreen },
     { label: '썩은 손수레', meta: '상점', on: shopScreen },
@@ -282,7 +294,8 @@ function town(intro = true) {
     { label: '강령술사 조합', meta: '술법', on: conclaveScreen },
     { label: '골렘 정비', on: golemScreen },
     { label: '소지품', on: () => inventoryScreen(town) },
-    { label: '무덤으로 내려간다', cls: 'primary', on: startRun },
+    { label: '무덤으로 내려간다', cls: 'primary',
+      meta: CP.nextStage(S) ? stageOf(CP.nextStage(S)).name : '아홉 단계 완료', on: startRun },
     { label: '저장', cls: 'ghost', on: () => { save(); UI.logLine('기록을 남겼다.', 'dim'); } },
   ]);
   save();
@@ -293,6 +306,52 @@ function ossuaryBadge() {
   const busy = o.dissection.slots.length + o.forge.slots.length + o.laborBay.dispatch.length;
   if (o.rotVat.stored >= O.vatCap(o)) return '통이 가득';
   return busy ? `작업 ${busy}건` : '비어 있음';
+}
+
+/* ── 메인 퀘스트 — 바르그가 전담한다 (§7-A.5) ────────── */
+function mainQuestScreen() {
+  UI.topbar(S, '시체골 · 바르그의 부탁');
+  const pr = CP.progress(S);
+  const next = CP.nextStage(S);
+
+  UI.listPanel('걸어온 길', (DB.campaign?.parts ?? []).flatMap((pt) =>
+    pt.stages.map((st) => {
+      const done = CP.isCleared(S, st.id);
+      const open = CP.isOpen(S, st.id);
+      return UI.rowHTML(st.id,
+        open ? UI.esc(st.name) : '<span class="empty">아직 모르는 곳</span>',
+        done ? '완료' : open ? (st.id === next ? '◀ 지금' : '열림') : '', !open);
+    })), `<p class="note">${pr.done}/${pr.total} 단계.</p>`);
+
+  UI.logHead('지금 할 일');
+  if (!next) {
+    UI.logLine(S.campaign.ending
+      ? '"자네가 무얼 골랐는지는 묻지 않겠네."'
+      : '"미궁 끝까지 갔다면서. 남은 건 자네가 정할 일이야."', 'narrate');
+  } else {
+    const st = stageOf(next);
+    const pt = partOf(next);
+    UI.logLine(`"${pt.name}. ${st.name}."`, 'necro');
+    UI.logLine(st.desc, 'narrate');
+    const hz = CP.hazardOf(next);
+    if (hz) UI.logLine(`【${hz.name}】 ${hz.text}`, 'bad');
+    UI.logLine(`${st.floors}층 끝에 ${DB.monstersBy[st.boss]?.name ?? '무언가'}이(가) 있다.`, '');
+  }
+
+  // 들은 이야기는 언제든 다시 읽을 수 있다 — 한 번 흘려보내면 끝인 것이 가장 나쁘다
+  const heard = Object.keys(S.campaign.story).filter((k) => k !== 'opening' && DB.story.beats[k]);
+  UI.choices([
+    ...heard.map((id) => ({
+      label: `다시 듣는다 — ${DB.story.beats[id].title}`, cls: 'ghost', meta: id,
+      on: () => {
+        UI.logHead(DB.story.beats[id].title);
+        for (const l of DB.story.beats[id].lines) UI.logLine(l.t, l.c ?? '');
+        mainQuestScreen();
+      },
+    })),
+    { label: '돌아간다', cls: 'ghost', on: scavengerScreen },
+  ]);
+  save();
 }
 
 /* ── 뼈 수습꾼 바르그 (구제 · 안내 NPC) ── */
@@ -310,6 +369,12 @@ function scavengerScreen() {
       날것은 기술이 불발되므로 여기서는 쓸 수 있는 부속으로 세지 않는다.</p>`);
 
   UI.logHead('뼈 수습꾼 바르그');
+  // 처음 만나면 왜 내려가는지부터 말한다 (§7-A.6)
+  if (!S.campaign.story.opening) {
+    S.campaign.story.opening = true;
+    for (const l of DB.story.opening.lines) UI.logLine(l.t, l.c ?? '');
+    save();
+  }
   const times = S.log.handouts ?? 0;
   if (!S.golem.core || settledParts() < MIN_PARTS) {
     UI.logLine(times === 0
@@ -327,7 +392,9 @@ function scavengerScreen() {
   const lowParts = settledParts() < MIN_PARTS;
   const needsHelp = noCore || lowParts;
   UI.choices([
-    { label: needsHelp ? '도움을 받는다' : '도움을 청한다', cls: 'primary',
+    { label: '지금 할 일을 묻는다', cls: 'primary', meta: `${CP.progress(S).done}/${CP.progress(S).total} 단계`,
+      on: mainQuestScreen },
+    { label: needsHelp ? '도움을 받는다' : '도움을 청한다',
       meta: needsHelp ? '무료' : '아직 쓸 만하다',
       disabled: !needsHelp,
       on: () => { giveHandout(); scavengerScreen(); } },
@@ -1423,6 +1490,48 @@ function inventoryScreen(back = town) {
 }
 
 /* ── 런 시작 ────────────────────────────── */
+/* ── 단계 선택 — 어디로 내려갈 것인가 (§7-A) ────────── */
+function stageSelect() {
+  UI.topbar(S, '시체골 · 무덤 입구');
+  const pr = CP.progress(S);
+  const next = CP.nextStage(S);
+
+  UI.listPanel('캠페인', (DB.campaign?.parts ?? []).map((pt) => {
+    const done = pt.stages.filter((x) => CP.isCleared(S, x.id)).length;
+    const open = pt.stages.some((x) => CP.isOpen(S, x.id));
+    return UI.rowHTML(`${pt.id}부`, open ? UI.esc(pt.name) : '<span class="empty">잠김</span>',
+      open ? `${done}/${pt.stages.length}` : '', !open);
+  }), `<p class="note">단계 ${pr.done}/${pr.total} 완료.<br>
+      깬 단계는 다시 갈 수 있다 — 보상은 절반이지만 재료와 부속은 그대로 나온다.</p>`);
+
+  UI.logHead('어디로 내려가는가');
+  if (next) {
+    const st = stageOf(next);
+    UI.logLine(`다음 목표: ${partOf(next).name} · ${st.name}`, 'necro');
+    UI.logLine(st.desc, 'narrate');
+  } else {
+    UI.logLine('아홉 단계를 전부 지났다.', 'good');
+  }
+
+  const list = [];
+  for (const pt of DB.campaign?.parts ?? []) {
+    for (const st of pt.stages) {
+      if (!CP.isOpen(S, st.id)) continue;
+      const cleared = CP.isCleared(S, st.id);
+      const hz = CP.hazardOf(st.id);
+      list.push({
+        label: `${st.id} ${st.name}${cleared ? ' <span class="eff-down">클리어</span>' : ''}`,
+        meta: `${pt.place} · ${st.floors}층 · ${hz ? hz.name : '평온'}`,
+        cls: st.id === next ? 'primary' : 'ghost',
+        on: () => beginStage(st.id),
+      });
+    }
+  }
+  list.push({ label: '돌아간다', cls: 'ghost', on: () => town(false) });
+  UI.choices(list);
+  save();
+}
+
 function startRun() {
   if (!S.golem.core) {
     UI.logLine('골렘 핵이 없다. 핵 없이는 골렘이 서지 못한다.', 'bad');
@@ -1435,6 +1544,12 @@ function startRun() {
     UI.logLine('골렘 정비에서 더 끼우거나, 뼈 수습꾼에게 부속을 얻어라.', 'dim');
     return;
   }
+  stageSelect();
+}
+
+function beginStage(stageId) {
+  const st = stageOf(stageId);
+  const pt = partOf(stageId);
   const vault = S.ossuary.vault;
   if (vault.parts.length) {
     const bring = vault.parts.slice(0, S.unlocks.vaultStart);
@@ -1450,53 +1565,169 @@ function startRun() {
   S.run = {
     seed, floor: 1, golemHp: S.golem.coreHp ?? g.stats.hp, rooms: 0,
     noLoss: true, kills: 0, summons: 0, cleanWins: 0,
+    stage: stageId, hazard: 0,
     floorData: null,
   };
   S.run.floorData = generateFloor(seed, 1);
   S.log.runs++;
   UI.clearLog();
-  UI.logHead('무덤 1층');
-  UI.logLine('사다리가 끝나는 곳에서 흙냄새가 올라온다. 골렘이 먼저 발을 디딘다.', 'narrate');
+  UI.logHead(`${pt.name} · ${st.name} — 1층`);
+  UI.logLine(st.desc, 'narrate');
+  const hz = CP.hazardOf(stageId);
+  if (hz) UI.logLine(`${hz.name} — ${hz.text}`, 'bad');
   enterRoom(roomAt(S.run.floorData, S.run.floorData.pos), true);
 }
 
 function nextFloor() {
+  const st = stageOf(S.run.stage);
   S.run.floor++;
-  if (S.run.floor > 3) { runComplete(); return; }
+  if (S.run.floor > (st?.floors ?? 3)) { runComplete(); return; }
   S.run.floorData = generateFloor(S.run.seed + S.run.floor * 104729, S.run.floor);
-  UI.logHead(`무덤 ${S.run.floor}층`);
+  UI.logHead(`${partOf(S.run.stage)?.name ?? '무덤'} · ${st?.name ?? ''} — ${S.run.floor}층`);
   UI.logLine('계단이 더 깊은 어둠으로 이어진다. 공기가 차가워졌다.', 'narrate');
   enterRoom(roomAt(S.run.floorData, S.run.floorData.pos), true);
 }
 
+/** 단계를 끝까지 봤다 — 보상과 해금, 그리고 이야기 */
 function runComplete() {
-  const ash = 60 + S.run.kills * 4;
+  const id = S.run.stage ?? '1-1';
+  const st = stageOf(id);
+  const res = CP.clearStage(S, id);
+
+  const ash = res.reward.soulAsh + S.run.kills * 4;
   S.soulAsh += ash;
-  S.silver += 150;
+  S.silver += res.reward.silver;
+  if (res.reward.core) S.cores.push(res.reward.core);
+
   UI.logHead('귀환');
-  UI.logLine('무덤 바닥을 보았다. 골렘은 아직 서 있다.', 'narrate');
-  UI.logLine(`영혼재 ${ash}, 은화 150을 가지고 돌아왔다.`, 'good');
+  UI.logLine(`${st?.name ?? '그곳'}의 바닥을 보았다. 골렘은 아직 서 있다.`, 'narrate');
+  UI.logLine(`영혼재 ${ash}, 은화 ${res.reward.silver}을 가지고 돌아왔다.`, 'good');
+  if (res.reward.core) UI.logLine(`${DB.coresBy[res.reward.core].name}을(를) 주웠다.`, 'necro');
+  if (!res.first) UI.logLine('이미 지난 곳이라 보상은 절반이다.', 'dim');
+
   S.run = null;
   S.town.stock = rollStock(rng);
+  save();
+
+  // 이야기는 처음 깰 때만. 재도전에 같은 대사를 세 번 읽히지 않는다
+  if (res.beat) { storyScreen(id, res); return; }
+  afterStage(res);
+}
+
+function afterStage(res) {
+  if (res.openedPart) {
+    UI.logHead('길이 열렸다');
+    UI.logLine(`${res.openedPart.id}부 · ${res.openedPart.name}이(가) 열렸다.`, 'necro');
+    UI.logLine(res.openedPart.intro, 'narrate');
+  }
+  const next = CP.nextStage(S);
+  if (next) UI.logLine(`다음 목표: ${partOf(next).name} · ${stageOf(next).name}`, 'good');
+  UI.choices([{ label: '마을로', cls: 'primary', on: () => settleAndReport(() => town()) }]);
+  save();
+}
+
+/** 바르그의 이야기 비트 — 한 번에 4~6줄, 길게 늘어놓지 않는다 */
+function storyScreen(id, res) {
+  const beat = DB.story.beats[id];
+  UI.topbar(S, '시체골 · 뼈 수습꾼');
+  UI.listPanel('이야기', [
+    UI.rowHTML('장', UI.esc(beat.title), id),
+  ], `<p class="note">단계를 처음 지날 때만 들을 수 있다.</p>`);
+  UI.logHead(beat.title);
+  for (const l of beat.lines) UI.logLine(l.t, l.c ?? '');
+  if (beat.unlockText) UI.logLine(beat.unlockText, 'good');
+
+  if (beat.ending) { UI.choices([{ label: '손을 뻗는다…', cls: 'primary', on: endingScreen }]); save(); return; }
+  UI.choices([{ label: '…듣는다', cls: 'primary', on: () => afterStage(res) }]);
+  save();
+}
+
+/** 마지막 선택 — 되살릴 것인가, 놓아줄 것인가 (§7-A.6) */
+function endingScreen() {
+  UI.topbar(S, '미궁 · 원형의 방');
+  UI.logHead('원형의 방');
+  UI.logLine('작업대 위의 것은 아직 아무것도 아니다. 당신이 정하는 대로 될 것이다.', 'narrate');
+  UI.choices([
+    { label: '일으킨다', cls: 'primary', meta: '여기까지 온 이유', on: () => finishEnding('raise') },
+    { label: '놓아준다', meta: '오르넬이 하지 못한 것', on: () => finishEnding('release') },
+  ]);
+}
+
+function finishEnding(kind) {
+  const e = DB.story.endings[kind];
+  S.campaign.ending = kind;
+  UI.logHead(e.title);
+  for (const l of e.lines) UI.logLine(l.t, l.c ?? '');
+  UI.logLine('— 끝 —', 'necro');
+  UI.logLine('시체골은 그대로 남아 있다. 언제든 다시 내려갈 수 있다.', 'dim');
   UI.choices([{ label: '마을로', cls: 'primary', on: () => settleAndReport(() => town()) }]);
   save();
 }
 
 /* ── 방 진입 ────────────────────────────── */
+/* ── 환경 규칙 — 방을 열수록 대가가 커진다 (§7-A.2) ────── */
+function tickHazard() {
+  const hz = CP.hazardOf(S.run.stage);
+  if (!hz) return;
+  const was = CP.hazardTier(S.run.hazard ?? 0);
+  S.run.hazard = (S.run.hazard ?? 0) + CP.hazardStep(hz.rate);
+  const now = CP.hazardTier(S.run.hazard);
+  if (now > was) {
+    UI.logLine(`【${hz.name}】 ${CP.HAZARD_TEXT[hz.kind][now]}`, 'bad');
+    if (hz.kind === 'gaze' && now >= 3) S.run.gazeAmbush = true;
+  }
+  // 재배치는 단수가 오를 때가 아니라 방을 옮길 때마다 조금씩 어긋난다
+  if (hz.kind === 'shift' && now >= 2) reshuffleUnseen(now);
+}
+
+/**
+ * 미궁의 재배치. 연결 자체를 끊으면 층을 완주할 수 없게 되므로
+ * **아직 가지 않은 방의 성격만** 다시 굴린다 — 지도는 남지만 지도가 하는 말이 달라진다.
+ * 3단에서는 아직 안 간 방의 표시 자체가 지워진다.
+ */
+function reshuffleUnseen(tier) {
+  const fd = S.run.floorData;
+  const SWAP = ['battle', 'bones', 'event', 'trap', 'rest'];
+  let moved = 0;
+  for (const r of fd.rooms) {
+    if (r.visited || r.cleared) continue;
+    if (!SWAP.includes(r.type)) continue;      // 보스·시작·봉인실은 건드리지 않는다
+    if (!rng.chance(25)) continue;
+    r.type = rng.pick(SWAP);
+    moved++;
+    if (tier >= 3) r.seen = false;
+  }
+  if (moved) UI.logLine('【재배치】 지나온 적 없는 곳들이 자리를 바꾼 것 같다.', 'dim');
+}
+
+/** 지금 걸려 있는 규칙의 단수 (0~3) */
+const hazardNow = () => CP.hazardTier(S.run?.hazard ?? 0);
+
 function enterRoom(room, first = false) {
   const fd = S.run.floorData;
   fd.pos = room.id;
-  if (!room.visited) { room.visited = true; S.run.rooms++; notifyQuests({ kind: 'progress', rooms: S.run.rooms }); }
+  if (!room.visited) {
+    room.visited = true; S.run.rooms++;
+    notifyQuests({ kind: 'progress', rooms: S.run.rooms });
+    tickHazard();                     // 방을 열 때마다 파트의 규칙이 한 칸 찬다 (§7-A.2)
+  }
   room.seen = true;
   for (const { room: nb } of exitsOf(fd, room.id)) nb.seen = true;
 
-  UI.topbar(S, `무덤 ${fd.floor}층 · ${ROOM_LABEL[room.type]}`);
+  UI.topbar(S, `${partOf(S.run.stage)?.place ?? '무덤'} ${fd.floor}층 · ${ROOM_LABEL[room.type]}`);
   UI.dungeonPanel(S, fd);
 
   if (!first) UI.logLine(`${ROOM_ICON[room.type]} ${ROOM_LABEL[room.type]}에 들어섰다.`, 'dim');
   if (!room.cleared) {
     const f = FLAVOR[room.type];
     if (f) UI.logLine(rng.pick(f), 'narrate');
+  }
+
+  // 망자의 시선: 너무 오래 뒤지면 묻힌 것들이 길을 막는다 (§7-A.2)
+  if (S.run.gazeAmbush && !room.cleared && room.type !== 'boss') {
+    S.run.gazeAmbush = false;
+    UI.logLine('【망자의 시선】 흙을 밀어내며 무언가 일어선다. 길이 막혔다.', 'bad');
+    room.type = 'battle';
   }
 
   if (!room.cleared) {
@@ -1771,17 +2002,25 @@ function bossPrompt(room) {
 /* ── 전투 ───────────────────────────────── */
 function startBattle(room, elite, isBoss = false) {
   const r = makeRng(S.run.seed + room.x * 977 + room.y * 131 + S.run.floor);
-  const mon = isBoss ? rollBoss(S.run.floor, r)
-    : elite ? rollElite(S.run.floor, r)
-    : rollMonster(S.run.floor, r);
+  const sid = S.run.stage ?? '1-1';
+  const mon = isBoss ? rollBoss(sid, S.run.floor, r)
+    : elite ? rollElite(sid, S.run.floor, r)
+    : rollMonster(sid, S.run.floor, r);
   cb = new Combat(S, mon, r);
   cb.room = room;
+  const hzNow = CP.hazardOf(S.run.stage);
+  if (hzNow?.kind === 'flood' && hazardNow() >= 3) {
+    cb.golem.ranks.spd = (cb.golem.ranks.spd ?? 0) - 1;
+    cb.say('물이 허리까지 찼다. 발을 떼기가 무겁다. (속도 -1)', 'bad');
+  }
   if (S.run.curse) {
     cb.golem.ranks.atk = -1;
     cb.say('영혼의 소용돌이가 아직 골렘에 감겨 있다. (공격 -1)', 'bad');
     S.run.curse = false;
   }
-  UI.logHead(isBoss ? '층의 주인' : elite ? '엘리트 전투' : '전투');
+  const lastFloor = (stageOf(S.run.stage)?.floors ?? 3);
+  const stageBoss = isBoss && S.run.floor >= lastFloor;
+  UI.logHead(stageBoss ? `${stageOf(S.run.stage)?.name ?? ''}의 주인` : isBoss ? '층의 주인' : elite ? '엘리트 전투' : '전투');
   UI.logAll(cb.log);
   if (!S.log.hintAim) {
     S.log.hintAim = true;
@@ -1871,7 +2110,10 @@ function winBattle() {
     for (const uid of cb.usedParts) {
       const p = findPart(uid);
       if (!p) continue;
-      p.integrity -= p.raw ? RAW_WEAR : 1;
+      // 범람: 무릎까지 물이 차면 다리가 젖어 두 배로 상한다 (§7-A.2)
+      const flooded = CP.hazardOf(S.run.stage)?.kind === 'flood' && hazardNow() >= 2
+        && DB.partsBy[p.defId].slot === 'leg';
+      p.integrity -= (p.raw ? RAW_WEAR : 1) * (flooded ? 2 : 1);
       if (p.integrity <= 0) destroyPart(p);
       else if (p.integrity <= 2) UI.logLine(`⚠ ${partName(p)}의 내구도가 ${p.integrity}밖에 남지 않았다.`, 'bad');
     }

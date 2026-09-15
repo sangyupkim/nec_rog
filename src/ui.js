@@ -1,7 +1,8 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
 import { DB, SLOTS, SLOT_LABEL, partName, assembleGolem, SKILL_CAP, josa,
-         shieldMax, shieldNow } from './core.js';
+         shieldMax, shieldNow, partOf } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
+import * as CP from './campaign.js';
 
 const $ = (id) => document.getElementById(id);
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
@@ -249,8 +250,18 @@ export function dungeonPanel(save, floorData) {
   const g = assembleGolem(save);
   const risky = g.worn.filter(({ part }) => part.integrity <= 2);
 
+  // 지금 어디에 있고, 무엇이 목을 조이는가 (§7-A)
+  const place = partOf(save.run?.stage)?.place ?? '무덤';
+  const hz = CP.hazardOf(save.run?.stage);
+  const tier = CP.hazardTier(save.run?.hazard ?? 0);
+  const hazardHtml = hz
+    ? `<p class="hz${tier ? ` t${tier}` : ''}">【${esc(hz.name)}】 ${tier
+        ? esc(CP.HAZARD_TEXT[hz.kind][tier]) : '아직은 조용하다.'}</p>`
+    : '';
+
   panel(`
-    <p class="pt">무덤 ${floorData.floor}층 · 방 ${visited}/${floorData.rooms.length}</p>
+    <p class="pt">${esc(place)} ${floorData.floor}층 · 방 ${visited}/${floorData.rooms.length}</p>
+    ${hazardHtml}
     <div class="map" style="grid-template-columns:repeat(${cols},2.2rem)">${grid}</div>
     <div class="legend">
       <span>▣ 현재 위치 · 점선 = 미탐험</span>

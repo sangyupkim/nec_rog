@@ -86,29 +86,54 @@ const survivalTurns = (golem, mon) => {
 
 const TARGET = { normal: [4, 6], elite: [8, 12], boss: [15, 20] };
 
-const BUILDS = {
-  '1층 시작': [['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'], 'core_scrap'],
-  '2층 중반': [['part_head_goblin_skull', 'part_body_goblin_torso', 'part_arm_goblin_claw',
-                'part_arm_bone_spike', 'part_leg_hound_legs'], 'core_iron'],
-  '3층 후반': [['part_head_fungal_cap', 'part_body_ogre_hide', 'part_arm_rusted_axe',
-                'part_arm_bone_spike', 'part_leg_ogre_stump'], 'core_gravelord'],
-};
 /**
- * 각 몬스터가 '처음 등장하는' 층. 목표 턴수는 이 조합에서만 검사한다.
- * 이전 층 몬스터가 나중에 빨리 죽는 것은 성장이 체감되는 정상 동작이다.
+ * 단계별 참조 빌드 (§7-A). 캠페인이 9단계가 되면서, 단계가 올라가는데
+ * 파츠 풀이 못 따라가면 후반이 그대로 벽이 된다. 그것을 여기서 잡는다.
+ * 빌드는 "그 단계까지 정직하게 플레이했다면 들고 있을 법한 것"으로 잡는다.
  */
-const EXPECTED = {
-  '1층 시작': ['m_goblin', 'm_bonehound'],
-  '2층 중반': ['m_fungal', 'm_carrion', 'm_weaver'],
-  '3층 후반': ['m_ogre', 'm_gravelord'],
+const BUILDS = {
+  '1-1': [['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'], 'core_scrap'],
+  '1-2': [['part_head_goblin_skull', 'part_body_goblin_torso', 'part_arm_goblin_claw',
+           'part_arm_bone_spike', 'part_leg_hound_legs'], 'core_scrap'],
+  '1-3': [['part_head_goblin_skull', 'part_body_hound_ribcage', 'part_arm_piston',
+           'part_arm_bone_spike', 'part_leg_hound_legs'], 'core_iron'],
+  '2-1': [['part_head_ratking', 'part_body_sluice', 'part_arm_ratking',
+           'part_arm_piston', 'part_leg_bloatmother'], 'core_iron'],
+  '2-2': [['part_head_fungal_cap', 'part_body_sluice', 'part_arm_rusted_axe',
+           'part_arm_ratking', 'part_leg_bloatmother'], 'core_iron'],
+  '2-3': [['part_head_weaver_hood', 'part_body_ogre_hide', 'part_arm_rusted_axe',
+           'part_arm_ashpriest', 'part_leg_ogre_stump'], 'core_soul'],
+  '3-1': [['part_head_weaver_prime', 'part_body_pallbearer', 'part_arm_weaver_prime',
+           'part_arm_ogre_tomb', 'part_leg_pallbearer'], 'core_soul'],
+  '3-2': [['part_head_janu', 'part_body_janu', 'part_arm_weaver_prime',
+           'part_arm_prototype', 'part_leg_pallbearer'], 'core_soul'],
+  '3-3': [['part_head_janu', 'part_body_labyrinth', 'part_arm_ornel',
+           'part_arm_prototype', 'part_leg_labyrinth'], 'core_gravelord'],
 };
+
+/** 각 단계에서 '처음 마주치는' 것들. 목표 턴수는 이 조합에서만 검사한다. */
+const campaign = L('campaign');
+const EXPECTED = {};
+const seen = new Set();
+for (const part of campaign.parts) {
+  for (const st of part.stages) {
+    const fresh = [...(st.monsters ?? []), st.elite, st.boss]
+      .filter((id) => id && !seen.has(id));
+    fresh.forEach((id) => seen.add(id));
+    EXPECTED[st.id] = fresh;
+  }
+}
 
 let warnings = 0;
 for (const [label, [ids, coreId]] of Object.entries(BUILDS)) {
   const g = assemble(ids, coreId);
-  console.log(`\n[${label}]  핵 ${g.stats.hp} + 방어도 ${g.shield} = 유효 ${g.effective}`
+  const stName = campaign.parts.flatMap((p) => p.stages).find((x) => x.id === label);
+  console.log(`\n[${label} ${stName ? stName.name : ''}]  핵 ${g.stats.hp} + 방어도 ${g.shield} = 유효 ${g.effective}`
     + ` · atk ${g.stats.atk} · def ${g.stats.def} · 방어속성 ${g.defElement}`);
+  const stage = campaign.parts.flatMap((p) => p.stages).find((x) => x.id === label);
+  const appear = new Set([...(stage?.monsters ?? []), stage?.elite, stage?.boss].filter(Boolean));
   for (const m of monsters) {
+    if (!appear.has(m.id)) continue;
     const { turns, dpt } = turnsToKill(g, m);
     const surv = survivalTurns(g, m);
     const expected = EXPECTED[label].includes(m.id);

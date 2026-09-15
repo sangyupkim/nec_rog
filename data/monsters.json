@@ -1,311 +1,1087 @@
 [
- {
-  "id": "m_goblin",
-  "name": "시궁쥐 고블린",
-  "tier": "normal",
-  "acts": [
-   1
-  ],
-  "hp": 110,
-  "def_element": "참격",
-  "stats": {
-   "atk": 8,
-   "def": 6,
-   "eva": 5,
-   "spd": 12,
-   "focus": 3
-  },
-  "skills": [
-   "sk_gob_slash",
-   "sk_gob_double",
-   "sk_gob_guard"
-  ],
-  "ai": {
-   "type": "weighted",
-   "weights": {
-    "sk_gob_slash": 60,
-    "sk_gob_double": 25,
-    "sk_gob_guard": 15
-   },
-   "rules": [
-    {
-     "if": "hp_below",
-     "value": 30,
-     "prefer": "sk_gob_double"
+  {
+    "id": "m_goblin",
+    "name": "시궁쥐 고블린",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 105,
+    "def_element": "참격",
+    "stats": {
+      "atk": 8,
+      "def": 6,
+      "eva": 5,
+      "spd": 12,
+      "focus": 3
     },
-    {
-     "no_repeat_over": 2
-    }
-   ]
-  },
-  "drops": [
-   "part_head_goblin_skull",
-   "part_body_goblin_torso",
-   "part_arm_goblin_claw",
-   "part_leg_goblin_hop",
-   "part_arm_twin"
-  ],
-  "flavor": "시궁창 냄새를 달고 다니는 작은 포식자."
- },
- {
-  "id": "m_bonehound",
-  "name": "뼈사냥개",
-  "tier": "normal",
-  "acts": [
-   1
-  ],
-  "hp": 160,
-  "def_element": "타격",
-  "stats": {
-   "atk": 8,
-   "def": 4,
-   "eva": 10,
-   "spd": 20,
-   "focus": 4
-  },
-  "skills": [
-   "sk_hound_bite",
-   "sk_hound_rush"
-  ],
-  "ai": {
-   "type": "weighted",
-   "weights": {
-    "sk_hound_bite": 65,
-    "sk_hound_rush": 35
-   },
-   "rules": [
-    {
-     "no_repeat_over": 3
-    }
-   ]
-  },
-  "drops": [
-   "part_head_hound_skull",
-   "part_arm_bone_spike",
-   "part_leg_hound_legs",
-   "part_head_ember_skull",
-   "part_body_hound_ribcage",
-   "part_arm_ice",
-   "part_leg_frost"
-  ],
-  "flavor": "살점 없이 달리는 것들은 지치지 않는다."
- },
- {
-  "id": "m_fungal",
-  "name": "곰팡이 시체",
-  "tier": "normal",
-  "acts": [
-   1
-  ],
-  "hp": 150,
-  "def_element": "부패",
-  "stats": {
-   "atk": 7,
-   "def": 11,
-   "eva": 2,
-   "spd": 5,
-   "focus": 2
-  },
-  "skills": [
-   "sk_fungal_spore",
-   "sk_fungal_slam"
-  ],
-  "ai": {
-   "type": "weighted",
-   "weights": {
-    "sk_fungal_spore": 55,
-    "sk_fungal_slam": 45
-   },
-   "rules": [
-    {
-     "no_repeat_over": 2
-    }
-   ]
-  },
-  "drops": [
-   "part_head_fungal_cap",
-   "part_body_fungal_ribcage",
-   "part_arm_fungal_limb",
-   "part_head_whisper_skull",
-   "part_body_frost_ribcage",
-   "part_arm_flame",
-   "part_arm_venom",
-   "part_leg_fungal"
-  ],
-  "flavor": "죽은 뒤에도 자라는 것이 있다."
- },
- {
-  "id": "m_ogre",
-  "name": "무덤파괴자 오우거",
-  "tier": "elite",
-  "acts": [
-   1
-  ],
-  "hp": 380,
-  "def_element": "타격",
-  "stats": {
-   "atk": 26,
-   "def": 14,
-   "eva": 0,
-   "spd": 6,
-   "focus": 3
-  },
-  "skills": [
-   "sk_ogre_smash",
-   "sk_gob_guard",
-   "sk_ogre_roar"
-  ],
-  "ai": {
-   "type": "pattern",
-   "pattern": [
-    "sk_ogre_roar",
-    "sk_gob_guard",
-    "sk_ogre_smash"
-   ],
-   "rules": []
-  },
-  "drops": [
-   "part_body_ogre_hide",
-   "part_arm_rusted_axe",
-   "part_leg_ogre_stump",
-   "part_head_ogre_skull",
-   "part_arm_hammer",
-   "part_arm_shatter",
-   "part_leg_iron",
-   "part_arm_ogre_tomb"
-  ],
-  "flavor": "묘비를 뽑아 든다. 그것이 그의 무기다."
- },
- {
-  "id": "m_carrion",
-  "name": "시체까마귀 떼",
-  "tier": "normal",
-  "acts": [
-   1
-  ],
-  "hp": 190,
-  "def_element": "참격",
-  "stats": {
-   "atk": 9,
-   "def": 3,
-   "eva": 25,
-   "spd": 22,
-   "focus": 5
-  },
-  "skills": [
-   "sk_crow_peck",
-   "sk_crow_swarm"
-  ],
-  "ai": {
-   "type": "weighted",
-   "weights": {
-    "sk_crow_peck": 70,
-    "sk_crow_swarm": 30
-   },
-   "rules": [
-    {
-     "no_repeat_over": 2
-    }
-   ]
-  },
-  "drops": [
-   "part_head_carrion_skull",
-   "part_body_carrion_frame",
-   "part_arm_holy",
-   "part_arm_needle",
-   "part_leg_carrion"
-  ],
-  "flavor": "하나를 쫓으면 스물이 달려든다."
- },
- {
-  "id": "m_weaver",
-  "name": "살가죽 직조공",
-  "tier": "elite",
-  "acts": [
-   1
-  ],
-  "hp": 300,
-  "def_element": "부패",
-  "stats": {
-   "atk": 14,
-   "def": 9,
-   "eva": 6,
-   "spd": 11,
-   "focus": 6
-  },
-  "skills": [
-   "sk_weaver_bind",
-   "sk_weaver_flay",
-   "sk_weaver_stitch"
-  ],
-  "ai": {
-   "type": "weighted",
-   "weights": {
-    "sk_weaver_bind": 30,
-    "sk_weaver_flay": 45,
-    "sk_weaver_stitch": 25
-   },
-   "rules": [
-    {
-     "if": "hp_below",
-     "value": 40,
-     "prefer": "sk_weaver_flay"
+    "skills": [
+      "sk_gob_slash",
+      "sk_gob_double",
+      "sk_gob_guard"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_gob_slash": 60,
+        "sk_gob_double": 25,
+        "sk_gob_guard": 15
+      },
+      "rules": [
+        {
+          "if": "hp_below",
+          "value": 30,
+          "prefer": "sk_gob_double"
+        },
+        {
+          "no_repeat_over": 2
+        }
+      ]
     },
-    {
-     "no_repeat_over": 2
-    }
-   ]
+    "drops": [
+      "part_head_goblin_skull",
+      "part_body_goblin_torso",
+      "part_arm_goblin_claw",
+      "part_leg_goblin_hop",
+      "part_arm_twin"
+    ],
+    "flavor": "시궁창 냄새를 달고 다니는 작은 포식자."
   },
-  "drops": [
-   "part_head_weaver_hood",
-   "part_body_weaver_hide",
-   "part_body_martyr_chest",
-   "part_arm_hook",
-   "part_arm_rot",
-   "part_leg_weaver",
-   "part_arm_weaver_needle"
-  ],
-  "flavor": "벗겨낸 가죽을 이어 붙여 무언가를 짓고 있다."
- },
- {
-  "id": "m_gravelord",
-  "name": "무덤군주",
-  "tier": "boss",
-  "acts": [
-   1
-  ],
-  "hp": 560,
-  "def_element": "부패",
-  "stats": {
-   "atk": 22,
-   "def": 16,
-   "eva": 4,
-   "spd": 9,
-   "focus": 8
+  {
+    "id": "m_bonehound",
+    "name": "뼈사냥개",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 155,
+    "def_element": "타격",
+    "stats": {
+      "atk": 8,
+      "def": 4,
+      "eva": 10,
+      "spd": 20,
+      "focus": 4
+    },
+    "skills": [
+      "sk_hound_bite",
+      "sk_hound_rush"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_hound_bite": 65,
+        "sk_hound_rush": 35
+      },
+      "rules": [
+        {
+          "no_repeat_over": 3
+        }
+      ]
+    },
+    "drops": [
+      "part_head_hound_skull",
+      "part_arm_bone_spike",
+      "part_leg_hound_legs",
+      "part_head_ember_skull",
+      "part_body_hound_ribcage",
+      "part_arm_ice",
+      "part_leg_frost"
+    ],
+    "flavor": "살점 없이 달리는 것들은 지치지 않는다."
   },
-  "skills": [
-   "sk_lord_summon",
-   "sk_lord_sweep",
-   "sk_lord_decree",
-   "sk_gravelord_edict"
-  ],
-  "ai": {
-   "type": "pattern",
-   "pattern": [
-    "sk_lord_summon",
-    "sk_lord_sweep",
-    "sk_lord_decree",
-    "sk_lord_sweep",
-    "sk_gravelord_edict"
-   ],
-   "rules": []
+  {
+    "id": "m_fungal",
+    "name": "곰팡이 시체",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 160,
+    "def_element": "부패",
+    "stats": {
+      "atk": 7,
+      "def": 11,
+      "eva": 2,
+      "spd": 5,
+      "focus": 2
+    },
+    "skills": [
+      "sk_fungal_spore",
+      "sk_fungal_slam"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_fungal_spore": 55,
+        "sk_fungal_slam": 45
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_fungal_cap",
+      "part_body_fungal_ribcage",
+      "part_arm_fungal_limb",
+      "part_head_whisper_skull",
+      "part_body_frost_ribcage",
+      "part_arm_flame",
+      "part_arm_venom",
+      "part_leg_fungal"
+    ],
+    "flavor": "죽은 뒤에도 자라는 것이 있다."
   },
-  "drops": [
-   "part_head_gravelord_crown",
-   "part_body_gravelord",
-   "part_arm_gravelord",
-   "part_leg_gravelord"
-  ],
-  "flavor": "무덤은 그의 집이고, 묻힌 모든 것이 그의 것이다."
- }
+  {
+    "id": "m_ogre",
+    "name": "무덤파괴자 오우거",
+    "tier": "elite",
+    "acts": [
+      1
+    ],
+    "hp": 625,
+    "def_element": "타격",
+    "stats": {
+      "atk": 26,
+      "def": 14,
+      "eva": 0,
+      "spd": 6,
+      "focus": 3
+    },
+    "skills": [
+      "sk_ogre_smash",
+      "sk_gob_guard",
+      "sk_ogre_roar"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_ogre_roar",
+        "sk_gob_guard",
+        "sk_ogre_smash"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_body_ogre_hide",
+      "part_arm_rusted_axe",
+      "part_leg_ogre_stump",
+      "part_head_ogre_skull",
+      "part_arm_hammer",
+      "part_arm_shatter",
+      "part_leg_iron",
+      "part_arm_ogre_tomb"
+    ],
+    "flavor": "묘비를 뽑아 든다. 그것이 그의 무기다."
+  },
+  {
+    "id": "m_carrion",
+    "name": "시체까마귀 떼",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 285,
+    "def_element": "참격",
+    "stats": {
+      "atk": 9,
+      "def": 3,
+      "eva": 25,
+      "spd": 22,
+      "focus": 5
+    },
+    "skills": [
+      "sk_crow_peck",
+      "sk_crow_swarm"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_crow_peck": 70,
+        "sk_crow_swarm": 30
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_carrion_skull",
+      "part_body_carrion_frame",
+      "part_arm_holy",
+      "part_arm_needle",
+      "part_leg_carrion"
+    ],
+    "flavor": "하나를 쫓으면 스물이 달려든다."
+  },
+  {
+    "id": "m_weaver",
+    "name": "살가죽 직조공",
+    "tier": "elite",
+    "acts": [
+      1
+    ],
+    "hp": 375,
+    "def_element": "부패",
+    "stats": {
+      "atk": 14,
+      "def": 9,
+      "eva": 6,
+      "spd": 11,
+      "focus": 6
+    },
+    "skills": [
+      "sk_weaver_bind",
+      "sk_weaver_flay",
+      "sk_weaver_stitch"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_weaver_bind": 30,
+        "sk_weaver_flay": 45,
+        "sk_weaver_stitch": 25
+      },
+      "rules": [
+        {
+          "if": "hp_below",
+          "value": 40,
+          "prefer": "sk_weaver_flay"
+        },
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_weaver_hood",
+      "part_body_weaver_hide",
+      "part_body_martyr_chest",
+      "part_arm_hook",
+      "part_arm_rot",
+      "part_leg_weaver",
+      "part_arm_weaver_needle"
+    ],
+    "flavor": "벗겨낸 가죽을 이어 붙여 무언가를 짓고 있다."
+  },
+  {
+    "id": "m_gravelord",
+    "name": "무덤군주",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 970,
+    "def_element": "부패",
+    "stats": {
+      "atk": 22,
+      "def": 16,
+      "eva": 4,
+      "spd": 9,
+      "focus": 8
+    },
+    "skills": [
+      "sk_lord_summon",
+      "sk_lord_sweep",
+      "sk_lord_decree",
+      "sk_gravelord_edict"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_lord_summon",
+        "sk_lord_sweep",
+        "sk_lord_decree",
+        "sk_lord_sweep",
+        "sk_gravelord_edict"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_head_gravelord_crown",
+      "part_body_gravelord",
+      "part_arm_gravelord",
+      "part_leg_gravelord"
+    ],
+    "flavor": "무덤은 그의 집이고, 묻힌 모든 것이 그의 것이다."
+  },
+  {
+    "id": "m_drowned",
+    "name": "부푼 익사체",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 160,
+    "def_element": "냉기",
+    "stats": {
+      "atk": 9,
+      "def": 11,
+      "eva": 2,
+      "spd": 5,
+      "focus": 2
+    },
+    "skills": [
+      "sk_dr_bloat",
+      "sk_dr_burst"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_dr_bloat": 50,
+        "sk_dr_burst": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_body_drowned_bloat",
+      "part_leg_drowned"
+    ],
+    "flavor": "물을 먹고 부푼 채 떠다닌다. 건드리면 터진다."
+  },
+  {
+    "id": "m_leech",
+    "name": "하수 거머리 무리",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 135,
+    "def_element": "독",
+    "stats": {
+      "atk": 10,
+      "def": 5,
+      "eva": 8,
+      "spd": 13,
+      "focus": 2
+    },
+    "skills": [
+      "sk_le_swarm",
+      "sk_le_drain"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_le_swarm": 50,
+        "sk_le_drain": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_arm_leech",
+      "part_head_leech"
+    ],
+    "flavor": "하나씩은 우습지만 떼로는 골렘을 녹인다."
+  },
+  {
+    "id": "m_rustdoll",
+    "name": "녹슨 자동인형",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 120,
+    "def_element": "타격",
+    "stats": {
+      "atk": 11,
+      "def": 14,
+      "eva": 0,
+      "spd": 6,
+      "focus": 3
+    },
+    "skills": [
+      "sk_ru_piston",
+      "sk_ru_repair"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_ru_piston": 75,
+        "sk_ru_repair": 25
+      },
+      "rules": [
+        {
+          "if": "hp_below",
+          "value": 40,
+          "prefer": "sk_ru_repair"
+        },
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_arm_piston",
+      "part_body_rust_frame"
+    ],
+    "flavor": "배관을 돌보던 것. 돌볼 배관은 오래전에 사라졌다."
+  },
+  {
+    "id": "m_gulper",
+    "name": "하수관 포식자",
+    "tier": "elite",
+    "acts": [
+      1
+    ],
+    "hp": 230,
+    "def_element": "부패",
+    "stats": {
+      "atk": 17,
+      "def": 13,
+      "eva": 3,
+      "spd": 8,
+      "focus": 5
+    },
+    "skills": [
+      "sk_gu_swallow",
+      "sk_gu_acid",
+      "sk_gu_coil"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_gu_swallow": 33,
+        "sk_gu_acid": 33,
+        "sk_gu_coil": 33
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_gulper",
+      "part_arm_gulper"
+    ],
+    "flavor": "관 속에서 무엇이든 삼키며 자랐다."
+  },
+  {
+    "id": "m_ratking",
+    "name": "시궁쥐 왕 골드락",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 340,
+    "def_element": "참격",
+    "stats": {
+      "atk": 16,
+      "def": 10,
+      "eva": 7,
+      "spd": 14,
+      "focus": 5
+    },
+    "skills": [
+      "sk_rk_call",
+      "sk_rk_swarm",
+      "sk_rk_gnaw",
+      "sk_rk_frenzy"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_rk_call",
+        "sk_rk_swarm",
+        "sk_rk_gnaw",
+        "sk_rk_swarm",
+        "sk_rk_frenzy"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_head_ratking",
+      "part_arm_ratking"
+    ],
+    "flavor": "하수도의 모든 쥐가 그의 백성이다."
+  },
+  {
+    "id": "m_sluicewarden",
+    "name": "수문지기 그라브",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 565,
+    "def_element": "타격",
+    "stats": {
+      "atk": 20,
+      "def": 17,
+      "eva": 2,
+      "spd": 8,
+      "focus": 6
+    },
+    "skills": [
+      "sk_sw_slam",
+      "sk_sw_gate",
+      "sk_sw_chain",
+      "sk_sw_flood"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_sw_slam",
+        "sk_sw_chain",
+        "sk_sw_gate",
+        "sk_sw_slam",
+        "sk_sw_flood"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_body_sluice",
+      "part_arm_sluice"
+    ],
+    "flavor": "수문을 지키라는 명령을 받은 뒤로 아무도 그를 해임하지 않았다."
+  },
+  {
+    "id": "m_bloatmother",
+    "name": "부푼 어머니",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 500,
+    "def_element": "부패",
+    "stats": {
+      "atk": 21,
+      "def": 16,
+      "eva": 1,
+      "spd": 7,
+      "focus": 7
+    },
+    "skills": [
+      "sk_bm_spawn",
+      "sk_bm_spew",
+      "sk_bm_crush",
+      "sk_bm_wail"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_bm_spawn",
+        "sk_bm_spew",
+        "sk_bm_crush",
+        "sk_bm_spew",
+        "sk_bm_wail"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_body_bloatmother",
+      "part_leg_bloatmother"
+    ],
+    "flavor": "하수도의 익사체들은 전부 그녀에게서 나왔다."
+  },
+  {
+    "id": "m_wraith",
+    "name": "묘지기의 유령",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 210,
+    "def_element": "신성",
+    "stats": {
+      "atk": 13,
+      "def": 6,
+      "eva": 22,
+      "spd": 12,
+      "focus": 6
+    },
+    "skills": [
+      "sk_wr_touch",
+      "sk_wr_wail"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_wr_touch": 50,
+        "sk_wr_wail": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_wraith",
+      "part_leg_wraith"
+    ],
+    "flavor": "무덤을 지키던 자는 죽어서도 자리를 뜨지 않았다."
+  },
+  {
+    "id": "m_gravemass",
+    "name": "뒤엉킨 합장체",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 310,
+    "def_element": "타격",
+    "stats": {
+      "atk": 12,
+      "def": 10,
+      "eva": 1,
+      "spd": 6,
+      "focus": 2
+    },
+    "skills": [
+      "sk_gm_crush",
+      "sk_gm_grab"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_gm_crush": 50,
+        "sk_gm_grab": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_body_gravemass",
+      "part_arm_gravemass"
+    ],
+    "flavor": "한 구덩이에 너무 많이 묻으면 이렇게 된다."
+  },
+  {
+    "id": "m_ashpriest",
+    "name": "재의 사제",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 220,
+    "def_element": "화염",
+    "stats": {
+      "atk": 14,
+      "def": 7,
+      "eva": 4,
+      "spd": 9,
+      "focus": 7
+    },
+    "skills": [
+      "sk_ap_pyre",
+      "sk_ap_censer"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_ap_pyre": 50,
+        "sk_ap_censer": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_ashpriest",
+      "part_arm_ashpriest"
+    ],
+    "flavor": "태워야 할 것이 아직 많다고 믿는다."
+  },
+  {
+    "id": "m_pallbearers",
+    "name": "관 나르는 자, 셋",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 950,
+    "def_element": "참격",
+    "stats": {
+      "atk": 22,
+      "def": 15,
+      "eva": 4,
+      "spd": 10,
+      "focus": 6
+    },
+    "skills": [
+      "sk_pb_lift",
+      "sk_pb_march",
+      "sk_pb_drop",
+      "sk_pb_dirge"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_pb_march",
+        "sk_pb_lift",
+        "sk_pb_drop",
+        "sk_pb_dirge",
+        "sk_pb_march"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_body_pallbearer",
+      "part_leg_pallbearer"
+    ],
+    "flavor": "셋이 한 몸처럼 움직인다. 하나가 쓰러지면 남은 둘이 더 빨라진다."
+  },
+  {
+    "id": "m_weaver_prime",
+    "name": "살가죽 직조공, 완전체",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 595,
+    "def_element": "부패",
+    "stats": {
+      "atk": 23,
+      "def": 16,
+      "eva": 8,
+      "spd": 11,
+      "focus": 10
+    },
+    "skills": [
+      "sk_wp_suture",
+      "sk_wp_mimic",
+      "sk_wp_flay"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_wp_flay",
+        "sk_wp_mimic",
+        "sk_wp_suture",
+        "sk_wp_mimic",
+        "sk_wp_flay"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_head_weaver_prime",
+      "part_arm_weaver_prime"
+    ],
+    "flavor": "당신이 입힌 것을 그대로 입고 나타난다."
+  },
+  {
+    "id": "m_sentinel",
+    "name": "각인된 파수병",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 320,
+    "def_element": "타격",
+    "stats": {
+      "atk": 15,
+      "def": 15,
+      "eva": 2,
+      "spd": 8,
+      "focus": 6
+    },
+    "skills": [
+      "sk_se_strike",
+      "sk_se_shift"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_se_strike": 50,
+        "sk_se_shift": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_body_sentinel",
+      "part_arm_sentinel"
+    ],
+    "flavor": "최초의 골렘. 아직도 명령을 기다린다."
+  },
+  {
+    "id": "m_mirror",
+    "name": "거울 잔상",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 335,
+    "def_element": "참격",
+    "stats": {
+      "atk": 16,
+      "def": 8,
+      "eva": 18,
+      "spd": 14,
+      "focus": 5
+    },
+    "skills": [
+      "sk_mi_echo",
+      "sk_mi_shatter"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_mi_echo": 50,
+        "sk_mi_shatter": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_mirror",
+      "part_leg_mirror"
+    ],
+    "flavor": "당신이 한 것을 그대로 한다. 조금 늦게."
+  },
+  {
+    "id": "m_scribe",
+    "name": "끝없는 필경사",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 260,
+    "def_element": "냉기",
+    "stats": {
+      "atk": 16,
+      "def": 10,
+      "eva": 6,
+      "spd": 10,
+      "focus": 9
+    },
+    "skills": [
+      "sk_sc_erase",
+      "sk_sc_ink"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_sc_erase": 50,
+        "sk_sc_ink": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_head_scribe",
+      "part_arm_scribe"
+    ],
+    "flavor": "무엇을 적는지는 아무도 읽지 못한다."
+  },
+  {
+    "id": "m_hunger",
+    "name": "회랑의 굶주림",
+    "tier": "normal",
+    "acts": [
+      1
+    ],
+    "hp": 255,
+    "def_element": "부패",
+    "stats": {
+      "atk": 17,
+      "def": 11,
+      "eva": 5,
+      "spd": 12,
+      "focus": 4
+    },
+    "skills": [
+      "sk_hu_maw",
+      "sk_hu_pursue"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_hu_maw": 50,
+        "sk_hu_pursue": 50
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_body_hunger",
+      "part_leg_hunger"
+    ],
+    "flavor": "문을 닫아도 다음 방에 먼저 와 있다."
+  },
+  {
+    "id": "m_prototype",
+    "name": "뒤틀린 시작품",
+    "tier": "elite",
+    "acts": [
+      1
+    ],
+    "hp": 550,
+    "def_element": "참격",
+    "stats": {
+      "atk": 20,
+      "def": 16,
+      "eva": 6,
+      "spd": 11,
+      "focus": 6
+    },
+    "skills": [
+      "sk_pr_copy",
+      "sk_pr_overload",
+      "sk_pr_brace"
+    ],
+    "ai": {
+      "type": "weighted",
+      "weights": {
+        "sk_pr_copy": 33,
+        "sk_pr_overload": 33,
+        "sk_pr_brace": 33
+      },
+      "rules": [
+        {
+          "no_repeat_over": 2
+        }
+      ]
+    },
+    "drops": [
+      "part_arm_prototype",
+      "part_leg_prototype"
+    ],
+    "flavor": "누군가 당신보다 먼저 이 일을 했고, 이렇게 실패했다."
+  },
+  {
+    "id": "m_janu",
+    "name": "문지기 야누",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 880,
+    "def_element": "신성",
+    "stats": {
+      "atk": 24,
+      "def": 18,
+      "eva": 5,
+      "spd": 12,
+      "focus": 9
+    },
+    "skills": [
+      "sk_ja_open",
+      "sk_ja_close",
+      "sk_ja_turn",
+      "sk_ja_judge"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_ja_open",
+        "sk_ja_turn",
+        "sk_ja_close",
+        "sk_ja_open",
+        "sk_ja_judge"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_head_janu",
+      "part_body_janu"
+    ],
+    "flavor": "앞뒤로 얼굴이 있어 어느 쪽으로도 속일 수 없다."
+  },
+  {
+    "id": "m_labyrinth",
+    "name": "미궁 그 자체",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 1260,
+    "def_element": "타격",
+    "stats": {
+      "atk": 25,
+      "def": 21,
+      "eva": 0,
+      "spd": 9,
+      "focus": 8
+    },
+    "skills": [
+      "sk_la_wall",
+      "sk_la_shift",
+      "sk_la_crush",
+      "sk_la_silence"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_la_wall",
+        "sk_la_shift",
+        "sk_la_silence",
+        "sk_la_wall",
+        "sk_la_crush"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_body_labyrinth",
+      "part_leg_labyrinth"
+    ],
+    "flavor": "적이 방 안에 있는 것이 아니라, 방이 곧 적이다."
+  },
+  {
+    "id": "m_ornel",
+    "name": "최초의 네크로맨서 오르넬",
+    "tier": "boss",
+    "acts": [
+      1
+    ],
+    "hp": 1035,
+    "def_element": "신성",
+    "stats": {
+      "atk": 27,
+      "def": 19,
+      "eva": 6,
+      "spd": 13,
+      "focus": 12
+    },
+    "skills": [
+      "sk_or_raise",
+      "sk_or_edict",
+      "sk_or_wither",
+      "sk_or_first"
+    ],
+    "ai": {
+      "type": "pattern",
+      "pattern": [
+        "sk_or_raise",
+        "sk_or_wither",
+        "sk_or_edict",
+        "sk_or_wither",
+        "sk_or_first"
+      ],
+      "rules": []
+    },
+    "drops": [
+      "part_head_ornel",
+      "part_arm_ornel"
+    ],
+    "flavor": "그도 되살리고 싶은 것이 있었다."
+  }
 ]

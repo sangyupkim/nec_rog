@@ -3,7 +3,8 @@
 export const DB = {};
 
 const FILES = ['elements', 'skills', 'parts', 'monsters', 'modifiers',
-               'necro_skills', 'summons', 'items', 'attachments', 'quests', 'cores'];
+               'necro_skills', 'summons', 'items', 'attachments', 'quests', 'cores',
+               'campaign', 'story'];
 
 export async function loadData() {
   const loaded = await Promise.all(
@@ -13,6 +14,13 @@ export async function loadData() {
     })),
   );
   FILES.forEach((f, i) => { DB[f] = loaded[i]; });
+  // 캠페인은 단계 id로 바로 찾을 수 있어야 한다 (§7-A)
+  DB.stagesBy = {};
+  DB.partOfStage = {};
+  for (const part of DB.campaign.parts) {
+    for (const st of part.stages) { DB.stagesBy[st.id] = st; DB.partOfStage[st.id] = part; }
+  }
+  DB.stageOrder = DB.campaign.parts.flatMap((p) => p.stages.map((s2) => s2.id));
   for (const key of ['skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
                      'summons', 'items', 'attachments', 'cores']) {
     DB[`${key}By`] = Object.fromEntries(DB[key].map((x) => [x.id, x]));
@@ -258,32 +266,34 @@ export function makeMonster(defId, modId, rng) {
   };
 }
 
-/** 그 층에서 나올 만한 몬스터를 뽑는다 */
-export function rollMonster(floor, rng) {
-  const byFloor = {
-    1: ['m_goblin', 'm_bonehound'],
-    2: ['m_goblin', 'm_bonehound', 'm_fungal', 'm_carrion'],
-    3: ['m_bonehound', 'm_fungal', 'm_carrion'],
-  };
-  const id = rng.pick(byFloor[floor] ?? byFloor[3]);
-  const modChance = 25 + floor * 10;
-  let mod = null;
-  if (rng.chance(modChance)) {
-    const tierCap = floor >= 3 ? 2 : 1;
-    const pool = DB.modifiers.filter((m) => m.tier <= tierCap);
-    mod = rng.weighted(pool.map((m) => [m.id, m.weight]));
-  }
-  return makeMonster(id, mod, rng);
+/* ── 캠페인 단계별 몬스터 (§7-A) ──────────────────────
+   층이 아니라 '단계'가 무엇이 나오는지를 정한다. 같은 3층이라도
+   1부 1단계의 3층과 3부 3단계의 3층은 전혀 다른 곳이다. */
+
+export const stageOf = (id) => DB.stagesBy?.[id] ?? null;
+export const partOf = (id) => DB.partOfStage?.[id] ?? null;
+
+/** 모디파이어는 단계의 상한과 층 깊이를 함께 본다 */
+function rollMod(stage, floor, rng) {
+  const chance = 25 + floor * 10;
+  if (!rng.chance(chance)) return null;
+  const cap = floor >= 3 ? (stage?.modTier ?? 1) : Math.min(1, stage?.modTier ?? 1);
+  const pool = DB.modifiers.filter((m) => m.tier <= cap);
+  return rng.weighted(pool.map((m) => [m.id, m.weight]));
 }
 
-/** 층별 엘리트. 전용 엘리트가 없는 층은 일반 몬스터를 승격시켜 쓴다. */
-const ELITE_BY_FLOOR = { 1: 'm_goblin', 2: 'm_weaver', 3: 'm_ogre' };
+/** 그 단계에서 나올 만한 몬스터를 뽑는다 */
+export function rollMonster(stageId, floor, rng) {
+  const stage = stageOf(stageId);
+  const pool = stage?.monsters?.length ? stage.monsters : ['m_goblin', 'm_bonehound'];
+  return makeMonster(rng.pick(pool), rollMod(stage, floor, rng), rng);
+}
 
-export function rollElite(floor, rng) {
-  const id = ELITE_BY_FLOOR[floor] ?? 'm_ogre';
-  const pool = DB.modifiers.filter((x) => x.tier <= (floor >= 3 ? 2 : 1));
-  const modId = rng.weighted(pool.map((x) => [x.id, x.weight]));
-  const m = makeMonster(id, modId, rng);
+/** 단계의 엘리트. 전용 엘리트가 아니면 일반 몬스터를 승격시켜 쓴다. */
+export function rollElite(stageId, floor, rng) {
+  const stage = stageOf(stageId);
+  const id = stage?.elite ?? 'm_ogre';
+  const m = makeMonster(id, rollMod(stage, floor, rng), rng);
   if (DB.monstersBy[id].tier !== 'elite') {
     m.maxHp = Math.round(m.maxHp * 2.2);
     m.hp = m.maxHp;
@@ -295,13 +305,14 @@ export function rollElite(floor, rng) {
   return m;
 }
 
-/** 층 보스. 마지막 층은 전용 보스, 그 전은 엘리트를 승격시켜 쓴다. */
-export function rollBoss(floor, rng) {
-  if (floor >= 3) {
-    const pool = DB.modifiers.filter((x) => x.tier <= 2);
-    return makeMonster('m_gravelord', rng.weighted(pool.map((x) => [x.id, x.weight])), rng);
+/** 층 보스. 마지막 층에만 그 단계의 전용 보스가 선다. */
+export function rollBoss(stageId, floor, rng) {
+  const stage = stageOf(stageId);
+  const last = stage?.floors ?? 3;
+  if (floor >= last && stage?.boss) {
+    return makeMonster(stage.boss, rollMod(stage, floor, rng), rng);
   }
-  const m = rollElite(floor, rng);
+  const m = rollElite(stageId, floor, rng);
   m.maxHp = Math.round(m.maxHp * 1.2);
   m.hp = m.maxHp;
   m.name = `층의 주인 ${m.name}`;
