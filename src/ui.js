@@ -1,5 +1,6 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
-import { DB, SLOTS, SLOT_LABEL, partName, assembleGolem, SKILL_CAP, josa } from './core.js';
+import { DB, SLOTS, SLOT_LABEL, partName, assembleGolem, SKILL_CAP, josa,
+         shieldMax, shieldNow } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 
 const $ = (id) => document.getElementById(id);
@@ -112,9 +113,12 @@ export function combatPanel(cb, save) {
           <span class="rt ${part.integrity <= 2 ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</span>
         </div>
         <div class="bar tiny ${low ? 'low' : ''}"><i style="width:${f?.down ? 0 : pct}%"></i></div>
-        ${f?.down ? '<div class="downtag">기능 정지</div>' : ''}
+        ${f?.down ? '<div class="downtag">방어 무너짐 — 기술 사용 불가</div>' : ''}
       </div>`;
     }).join('');
+
+  const shieldSum = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.hp, 0);
+  const shieldCap = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.max, 0);
 
   const MON_SLOT = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
   const monParts = Object.values(cb.monFrames ?? {}).map((f) => {
@@ -136,16 +140,20 @@ export function combatPanel(cb, save) {
       <div class="bar small"><i style="width:${(cb.summon.hp / cb.summon.maxHp) * 100}%"></i></div>
       <div class="hpnum">HP ${cb.summon.hp} / ${cb.summon.maxHp}</div>
     </div>` : ''}
-    <p class="pt">골렘</p>
+    <p class="pt">골렘 — 핵</p>
     <div class="unit">
       <h3>누더기 골렘 <span class="tag" ${elColor(g.defElement)}>${g.defElement}</span></h3>
       ${bar(g.hp, g.maxHp)}
       ${statusChips(g)}
-      <div class="chips"><span class="chip good">영력 ${cb.will}/10</span></div>
+      <div class="chips">
+        <span class="chip good">영력 ${cb.will}/10</span>
+        <span class="chip">방어도 ${shieldSum}/${shieldCap}</span>
+      </div>
     </div>
-    <p class="pt">부위 상태 · 내구도</p>
+    <p class="pt">방어도 · 내구도</p>
     <div class="frames">${worn}</div>
-    <p class="note">막대 = 부위 체력. 0이 되면 그 부속의 기술을 쓸 수 없다.</p>`);
+    <p class="note">막대 = 방어도. 피해는 방어도를 먼저 깎고, 다 닳아야 핵에 닿는다.
+      방어도는 포션으로 돌아오지 않는다.</p>`);
 }
 
 /** 던전 탐험 중 왼쪽 패널 */
@@ -177,8 +185,11 @@ export function dungeonPanel(save, floorData) {
       ${sealed.map((r) => `<span>🔒 ${esc(r.seal.label)} 필요</span>`).join('')}
     </div>
     <hr class="sep">
-    <p class="pt">골렘</p>
+    <p class="pt">핵 · 방어도</p>
     ${bar(save.run.golemHp, g.stats.hp)}
+    <div class="chips">
+      <span class="chip ${g.shieldNowTotal < g.shieldTotal ? 'warn' : ''}">방어도 ${g.shieldNowTotal}/${g.shieldTotal}</span>
+    </div>
     ${risky.length ? `<div class="chips">${risky.map(({ slot, part }) =>
       `<span class="chip warn">⚠ ${esc(partName(part))} ${part.integrity}</span>`).join('')}</div>` : ''}
     <div class="statgrid">
@@ -229,24 +240,29 @@ export function golemPanel(save) {
     const warn = p.integrity <= 2;
     const tags = (p.raw ? '<span class="chip warn">날것</span> ' : '<span class="chip good">정착</span> ')
       + (p.integrity <= 0 ? '<span class="chip warn">부패</span> ' : '');
+    const sMax = shieldMax(p, slot);
+    const sNow = shieldNow(p, slot);
     return `<div class="row"><span class="lb">${SLOT_LABEL[slot]}</span>
-      <span class="vl">${tags}${esc(partName(p))}</span>
+      <span class="vl">${tags}${esc(partName(p))}
+        <span class="chip ${sNow < sMax ? 'warn' : ''}">방어 ${sNow}/${sMax}</span></span>
       <span class="rt ${warn ? 'warn' : ''}">${p.integrity}/${p.maxIntegrity}</span></div>`;
   }).join('');
 
   const att = (save.golem.attachments ?? []).map((id) => DB.attachmentsBy[id]?.name).filter(Boolean);
 
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
+  const coreHp = save.golem.coreHp ?? g.stats.hp;
   panel(`
     <p class="pt">골렘 구성</p>
     <div class="rows">
       <div class="row"><span class="lb">핵</span>
         <span class="vl">${core ? esc(core.name) : '<span class="empty">없음 — 골렘이 서지 못한다</span>'}</span>
-        <span class="rt ${core ? '' : 'warn'}">${core ? core.rarity : '!'}</span></div>
+        <span class="rt ${coreHp < g.stats.hp ? 'warn' : ''}">${core ? `${coreHp}/${g.stats.hp}` : '!'}</span></div>
       ${rows}
     </div>
     <div class="statgrid">
-      <div><span>최대HP</span> <b>${g.stats.hp}</b></div>
+      <div><span>핵 체력</span> <b>${g.stats.hp}</b></div>
+      <div><span>방어도</span> <b>${g.shieldNowTotal}/${g.shieldTotal}</b></div>
       <div><span>공격</span> <b>${g.stats.atk}</b></div>
       <div><span>방어</span> <b>${g.stats.def}</b></div>
       <div><span>회피</span> <b>${g.stats.eva}</b></div>

@@ -23,17 +23,28 @@ export const damage = (power, atk, def, atkEl, defEl) => {
   return Math.max(1, Math.floor(reduced * elemMul(atkEl, defEl)));
 };
 
-const assemble = (ids) => {
+/* 핵 = 체력, 파츠 = 방어도 (§5.7) */
+const cores = Object.fromEntries(L('cores').map((c) => [c.id, c]));
+const SHIELD_BASE = { head: 80, body: 160, arm: 110, leg: 110 };
+const shieldOf = (p) => Math.max(30,
+  Math.round(SHIELD_BASE[p.slot] + p.stats.def * 6 + p.stats.hp / 6));
+
+const assemble = (ids, coreId = 'core_scrap') => {
   const stats = { hp: 0, atk: 0, def: 0, eva: 0, spd: 0, focus: 0 };
   let defElement = null;
   const skillIds = [];
+  let shield = 0;
+  const core = cores[coreId];
+  stats.hp = core.hp;
+  for (const [k, v] of Object.entries(core.stats)) stats[k] += v;
   for (const id of ids) {
     const p = parts[id];
-    for (const k of Object.keys(stats)) stats[k] += p.stats[k];
+    for (const k of Object.keys(stats)) if (k !== 'hp') stats[k] += p.stats[k];
+    shield += shieldOf(p);
     if (p.def_element) defElement = p.def_element;
     skillIds.push(...p.skills);
   }
-  return { stats, defElement, skills: [...new Set(skillIds)] };
+  return { stats, defElement, shield, effective: stats.hp + shield, skills: [...new Set(skillIds)] };
 };
 
 /** 충전을 고려해 최선의 스킬을 순서대로 쓴다고 가정한 턴수 */
@@ -70,17 +81,17 @@ const survivalTurns = (golem, mon) => {
     return sum + damage(s.power, mon.stats.atk, golem.stats.def, s.element, golem.defElement) * (s.hits ?? 1);
   }, 0) / mon.skills.length;
   return { best: Math.round(best), avg: Math.round(avg),
-           turns: avg > 0 ? Math.ceil(golem.stats.hp / avg) : Infinity };
+           turns: avg > 0 ? Math.ceil(golem.effective / avg) : Infinity };
 };
 
 const TARGET = { normal: [4, 6], elite: [8, 12], boss: [15, 20] };
 
 const BUILDS = {
-  '1층 시작': ['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'],
-  '2층 중반': ['part_head_goblin_skull', 'part_body_goblin_torso', 'part_arm_goblin_claw',
-               'part_arm_bone_spike', 'part_leg_hound_legs'],
-  '3층 후반': ['part_head_fungal_cap', 'part_body_ogre_hide', 'part_arm_rusted_axe',
-               'part_arm_bone_spike', 'part_leg_ogre_stump'],
+  '1층 시작': [['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'], 'core_scrap'],
+  '2층 중반': [['part_head_goblin_skull', 'part_body_goblin_torso', 'part_arm_goblin_claw',
+                'part_arm_bone_spike', 'part_leg_hound_legs'], 'core_iron'],
+  '3층 후반': [['part_head_fungal_cap', 'part_body_ogre_hide', 'part_arm_rusted_axe',
+                'part_arm_bone_spike', 'part_leg_ogre_stump'], 'core_gravelord'],
 };
 /**
  * 각 몬스터가 '처음 등장하는' 층. 목표 턴수는 이 조합에서만 검사한다.
@@ -93,9 +104,10 @@ const EXPECTED = {
 };
 
 let warnings = 0;
-for (const [label, ids] of Object.entries(BUILDS)) {
-  const g = assemble(ids);
-  console.log(`\n[${label}]  HP ${g.stats.hp} · atk ${g.stats.atk} · def ${g.stats.def} · 방어속성 ${g.defElement}`);
+for (const [label, [ids, coreId]] of Object.entries(BUILDS)) {
+  const g = assemble(ids, coreId);
+  console.log(`\n[${label}]  핵 ${g.stats.hp} + 방어도 ${g.shield} = 유효 ${g.effective}`
+    + ` · atk ${g.stats.atk} · def ${g.stats.def} · 방어속성 ${g.defElement}`);
   for (const m of monsters) {
     const { turns, dpt } = turnsToKill(g, m);
     const surv = survivalTurns(g, m);
@@ -114,21 +126,22 @@ for (const [label, ids] of Object.entries(BUILDS)) {
  * 전투 1회를 버티는 것과 한 층(전투 4~6회)을 버티는 것은 다른 문제다.
  * 회복 수단이 제한된 상태에서 층 전체를 완주할 수 있는지 검사한다. */
 const BATTLES_PER_FLOOR = 5;
-const HEAL_BUDGET = 1.9;   // 최대HP 100% + 물약 2개 60% + 안치실 휴식 30%
+// 유효 체력 100% + 물약·휴식으로 돌아오는 핵 몫만. 방어도는 포션으로 안 돌아온다 (§5.7)
+const HEAL_BUDGET = 1.25;
 const perBattleCap = HEAL_BUDGET / BATTLES_PER_FLOOR;
 
 console.log('\n── 층 누적 소모 ──────────────────────────');
 console.log(`한 층 전투 ${BATTLES_PER_FLOOR}회 · 회복 예산 ${Math.round(HEAL_BUDGET * 100)}%`
   + ` → 전투당 ${Math.round(perBattleCap * 100)}% 이하여야 함`);
 
-for (const [label, ids] of Object.entries(BUILDS)) {
-  const g = assemble(ids);
+for (const [label, [ids, coreId]] of Object.entries(BUILDS)) {
+  const g = assemble(ids, coreId);
   for (const mid of EXPECTED[label]) {
     const m = monsters.find((x) => x.id === mid);
     if (m.tier !== 'normal') continue;
     const { turns } = turnsToKill(g, m);
     const surv = survivalTurns(g, m);
-    const spend = (surv.avg * (turns - 1)) / g.stats.hp;
+    const spend = (surv.avg * (turns - 1)) / g.effective;
     const off = spend > perBattleCap;
     if (off) warnings++;
     console.log(`  ${off ? '⚠ ' : '✓ '}${label} vs ${m.name.padEnd(11)}`

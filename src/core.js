@@ -98,8 +98,15 @@ export function makePart(defId, modId = null) {
   const def = DB.partsBy[defId];
   const mod = modId ? DB.modifiersBy[modId] : null;
   const integrity = Math.max(1, Math.round(def.integrity * (mod?.integrity_multiplier ?? 1)));
-  return { uid: nextUid(), defId, mod: modId, integrity, maxIntegrity: integrity };
+  // shield(현재 방어도)는 파츠에 붙어 다닌다. 전투를 넘어, 런을 넘어 남는다.
+  return { uid: nextUid(), defId, mod: modId, integrity, maxIntegrity: integrity, shield: null };
 }
+
+/** 현재 방어도. null이면 아직 닳지 않은 것으로 본다 */
+export const shieldNow = (part, slot) => {
+  const max = shieldMax(part, slot);
+  return part.shield == null ? max : Math.max(0, Math.min(part.shield, max));
+};
 
 export function partName(p) {
   const def = DB.partsBy[p.defId];
@@ -159,17 +166,21 @@ export function assembleGolem(save) {
   const worn = [];
 
   // 핵이 없으면 골렘은 서지 못한다 (§3.5)
+  // 체력은 오직 핵에서 나온다. 파츠의 hp 스탯은 방어도로 간다 (§5.7)
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
-  if (core) for (const [k, v] of Object.entries(core.stats)) stats[k] += v;
+  if (core) {
+    stats.hp = core.hp;
+    for (const [k, v] of Object.entries(core.stats)) stats[k] += v;
+  }
 
   for (const slot of SLOTS) {
     const uid = save.golem[slot];
     if (!uid) continue;
     const p = save.inventory.find((x) => x.uid === uid);
     if (!p) continue;
-    worn.push({ slot, part: p });
+    worn.push({ slot, part: p, shieldMax: shieldMax(p, slot), shield: shieldNow(p, slot) });
     const st = partStats(p);
-    for (const k of Object.keys(stats)) stats[k] += st[k] ?? 0;
+    for (const k of Object.keys(stats)) if (k !== 'hp') stats[k] += st[k] ?? 0;
     const def = DB.partsBy[p.defId];
     if (def.def_element) defElement = def.def_element;
     for (const sid of partSkills(p)) if (!skills.includes(sid)) skills.push(sid);
@@ -181,7 +192,7 @@ export function assembleGolem(save) {
     const a = DB.attachmentsBy[aid];
     if (!a) continue;
     if (a.effect.op === 'stats') {
-      for (const [k, v] of Object.entries(a.effect.stats)) stats[k] += v;
+      for (const [k, v] of Object.entries(a.effect.stats)) stats[k] += v;   // 부착물은 체력도 올린다
     } else if (a.effect.op === 'wear_half') traits.wearHalf = true;
     else if (a.effect.op === 'lifetap') traits.lifetap += a.effect.value;
   }
@@ -190,8 +201,10 @@ export function assembleGolem(save) {
   const active = skills.filter((s) => !banned.includes(s));
   stats.eva = Math.min(60, stats.eva);
   stats.hp = Math.max(1, stats.hp);
+  const shieldTotal = worn.reduce((n, w) => n + w.shieldMax, 0);
+  const shieldNowTotal = worn.reduce((n, w) => n + w.shield, 0);
 
-  return { stats, defElement, skills, active, worn, traits, core,
+  return { stats, defElement, skills, active, worn, traits, core, shieldTotal, shieldNowTotal,
            standing: Boolean(core && save.golem.body),
            over: active.length > SKILL_CAP };
 }
@@ -201,13 +214,19 @@ export function skillElement(save, skillId) {
   return save.golem.retuned?.[skillId] ?? DB.skillsBy[skillId].element;
 }
 
-/* ── 부위 체력 (§5.7) ───────────────────────────────── */
-const FRAME_BASE = { head: 60, body: 140, armL: 70, armR: 70, leg: 70 };
-/** 부위가 버티는 양. 파츠가 튼튼할수록(체력·방어) 오래 버틴다 */
-export function frameMax(part, slot) {
+/* ── 파츠 방어도 (§5.7) ─────────────────────────────
+ * 핵이 골렘의 체력이고, 파츠는 그 앞을 막아서는 방어도다.
+ * 피해는 방어도를 먼저 깎고, 방어도가 다 닳아야 핵에 닿는다.
+ * 방어도는 전투가 끝나도 회복되지 않는다 — 수리해야 돌아온다.
+ */
+// 방어도는 한 층(전투 4~6회)을 버틸 양이어야 한다.
+// 포션으로 돌아오지 않으므로, 한 전투에 소진되면 그 뒤로는 핵이 직접 맞는다.
+const SHIELD_BASE = { head: 80, body: 160, armL: 110, armR: 110, leg: 110 };
+export function shieldMax(part, slot) {
   const st = partStats(part);
-  return Math.max(24, Math.round(FRAME_BASE[slot] + st.hp / 6 + st.def * 2));
+  return Math.max(30, Math.round(SHIELD_BASE[slot] + st.def * 6 + st.hp / 6));
 }
+export const frameMax = shieldMax;   // 옛 이름 호환
 
 /** 몬스터의 부위별 내구 비율 — 처치보다 부위 파괴가 먼저 오지 않도록 넉넉하게 */
 export const MON_FRAME_RATIO = { head: 0.45, body: 0.85, arm: 0.55, leg: 0.48 };

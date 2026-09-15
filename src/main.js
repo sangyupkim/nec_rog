@@ -72,6 +72,8 @@ function migrate(s) {
   s.town.smithy ??= [];
   s.golem ??= {};
   s.golem.core ??= (s.golem.body ? 'core_scrap' : null);  // 예전 골렘에는 핵을 끼워 준다
+  s.golem.coreHp ??= null;                                // null = 가득
+  for (const p of s.inventory ?? []) p.shield ??= null;   // null = 닳지 않음
   s.golem.attachments ??= [];
   s.golem.banned ??= [];
   s.golem.retuned ??= {};
@@ -299,6 +301,8 @@ function ossuaryScreen() {
   if (o.built.forge) list.push({ label: '🕯 접합로', meta: `${o.forge.slots.length}/${O.forgeSlots(o)}칸`, on: forgeJobScreen });
   if (o.built.laborBay) list.push({ label: '⛓ 사역 골렘 안치소', meta: `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸`, on: laborScreen });
   const cs = O.crewSpeed(S);
+  const oh = o.overhaul ?? [];
+  list.push({ label: '🔧 정비대', meta: oh.length ? `${oh.length}건 진행 중` : '방어도 · 핵', on: overhaulScreen });
   list.push({ label: '🛠 작업반', meta: cs.cut ? `작업 ${Math.round(cs.cut * 100)}% 단축` : '배치 없음', on: crewScreen });
   list.push({ label: '🕯 제단 — 영구 해금', cls: 'primary', on: altarScreen });
   list.push({ label: '돌아간다', cls: 'ghost', on: () => town(false) });
@@ -409,6 +413,59 @@ function vaultScreen() {
         vaultScreen();
       },
     })),
+    { label: '돌아간다', cls: 'ghost', on: ossuaryScreen },
+  ]);
+  save();
+}
+
+/* ── 정비대: 방어도·핵 회복 ─────────────── */
+function overhaulScreen() {
+  const o = S.ossuary;
+  o.overhaul ??= [];
+  const g = assembleGolem(S);
+  UI.topbar(S, '납골당 · 정비대');
+
+  const coreHp = S.golem.coreHp ?? g.stats.hp;
+  const rows = [
+    UI.rowHTML('핵', g.core ? UI.esc(g.core.name) : '<span class="empty">없음</span>',
+      `${coreHp}/${g.stats.hp}`, coreHp < g.stats.hp),
+    ...g.worn.map(({ slot, part, shieldMax: max, shield }) =>
+      UI.rowHTML(SLOT_LABEL[slot], UI.esc(partName(part)), `${shield}/${max}`, shield < max)),
+  ];
+  UI.listPanel('정비 대상', rows,
+    `<p class="note">방어도는 포션으로 돌아오지 않는다. 작업대나 여기서만 되돌릴 수 있다.<br>
+     핵 체력도 런을 넘어 남는다 — 반쯤 깎인 채로 다시 내려가면 그만큼 불리하다.</p>`);
+
+  UI.logHead('정비대');
+  UI.logLine('부서진 것을 원래대로 돌리는 자리. 오래 걸리고 재료를 먹는다.', 'narrate');
+  for (const j of o.overhaul) {
+    UI.logLine(`${O.OVERHAUL[j.kind].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
+  }
+
+  const costText = (c) => Object.entries(c).map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
+  const afford = (c) => Object.entries(c).every(([k, v]) => (S[k] ?? 0) >= v);
+  const running = (kind) => o.overhaul.some((j) => j.kind === kind);
+  const shieldGap = g.worn.some((w) => w.shield < w.shieldMax);
+  const coreGap = coreHp < g.stats.hp;
+
+  UI.choices([
+    ...Object.entries(O.OVERHAUL).map(([kind, r]) => {
+      const need = kind === 'shield' ? shieldGap : coreGap;
+      const ms = O.jobDuration(S, r.ms);
+      return {
+        label: r.name,
+        meta: running(kind) ? '진행 중'
+          : !need ? '온전하다'
+          : `${costText(r.cost)} · ${Math.round(ms / 60000)}분`,
+        disabled: running(kind) || !need || !afford(r.cost),
+        on: () => {
+          for (const [k, v] of Object.entries(r.cost)) S[k] -= v;
+          o.overhaul.push({ kind, startedAt: Date.now(), durationMs: ms });
+          UI.logLine(`${r.name}을(를) 맡겼다. ${Math.round(ms / 60000)}분 뒤에 끝난다.`, 'good');
+          overhaulScreen();
+        },
+      };
+    }),
     { label: '돌아간다', cls: 'ghost', on: ossuaryScreen },
   ]);
   save();
@@ -1192,7 +1249,7 @@ function startRun() {
   const g = assembleGolem(S);
   const seed = Math.floor(Math.random() * 1e9);
   S.run = {
-    seed, floor: 1, golemHp: g.stats.hp, rooms: 0,
+    seed, floor: 1, golemHp: S.golem.coreHp ?? g.stats.hp, rooms: 0,
     noLoss: true, kills: 0, summons: 0, cleanWins: 0,
     floorData: null,
   };
@@ -1272,6 +1329,7 @@ function roomChoices(room) {
 
   if (room.type === 'workshop') {
     list.push({ label: '작업대에서 정비', cls: 'primary', on: () => golemScreen(backToRoom, true) });
+    list.push({ label: '방어도 수리', cls: 'primary', meta: '시체 조각', on: repairScreen });
   }
   list.push({ label: '골렘 상태', cls: 'ghost', on: () => golemScreen(backToRoom, false) });
   list.push({ label: '소지품', cls: 'ghost', on: () => inventoryScreen(backToRoom) });
@@ -1285,6 +1343,49 @@ function roomChoices(room) {
   UI.choices(list);
   // 선택지를 그린 뒤에 켜야 한다 (choices가 매번 초기화한다)
   setArrowMoves(Object.fromEntries(exits.map((e) => [e.dir, () => enterRoom(e.room)])));
+  save();
+}
+
+/** 작업대 방에서 방어도를 즉석 수리한다. 재료를 먹고 시간은 걸리지 않는다 */
+function repairScreen() {
+  const g = assembleGolem(S);
+  const fd = S.run.floorData;
+  UI.topbar(S, `무덤 ${fd.floor}층 · 방어도 수리`);
+  UI.dungeonPanel(S, fd);
+  UI.logHead('방어도 수리');
+  UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도를 조금은 되돌릴 수 있다.', 'narrate');
+
+  const COST_PER = 1;          // 방어도 15당 시체 조각 1
+  const rows = g.worn.map(({ slot, part, shieldMax: max, shield: cur }) => {
+    const missing = max - cur;
+    const cost = Math.max(1, Math.ceil((missing / 15) * COST_PER));
+    return { slot, part, max, cur, missing, cost };
+  }).filter((r) => r.missing > 0);
+
+  if (!rows.length) UI.logLine('모든 부위의 방어도가 온전하다.', 'dim');
+
+  UI.choices([
+    ...rows.map((r) => ({
+      label: `${SLOT_LABEL[r.slot]} — ${partName(r.part)}`,
+      meta: `${r.cur}/${r.max} · 조각 ${r.cost}`,
+      disabled: S.scrap < r.cost,
+      on: () => {
+        S.scrap -= r.cost;
+        r.part.shield = r.max;
+        UI.logLine(`${partName(r.part)}의 방어도를 ${r.max}까지 되돌렸다.`, 'good');
+        repairScreen();
+      },
+    })),
+    rows.length > 1 ? { label: '전부 수리', cls: 'primary',
+      meta: `조각 ${rows.reduce((n, r) => n + r.cost, 0)}`,
+      disabled: S.scrap < rows.reduce((n, r) => n + r.cost, 0),
+      on: () => {
+        for (const r of rows) { S.scrap -= r.cost; r.part.shield = r.max; }
+        UI.logLine('모든 부위의 방어도를 되돌렸다.', 'good');
+        repairScreen();
+      } } : null,
+    { label: '돌아간다', cls: 'ghost', on: backToRoom },
+  ]);
   save();
 }
 
@@ -1343,10 +1444,11 @@ function restRoom(room) {
   UI.logLine('벽감의 초에 불을 붙인다. 잠시 숨을 돌릴 수 있다.', 'narrate');
   const damaged = g.worn.filter(({ part }) => part.integrity < part.maxIntegrity);
   UI.choices([
-    { label: '휴식 — HP 30% 회복', on: () => {
+    { label: '휴식 — 핵 체력 30% 회복', on: () => {
       const amt = Math.round(g.stats.hp * 0.3);
       S.run.golemHp = Math.min(g.stats.hp, S.run.golemHp + amt);
-      UI.logLine(`골렘의 이음새를 조였다. (+${amt})`, 'good');
+      S.golem.coreHp = S.run.golemHp;
+      UI.logLine(`핵의 박동이 고르게 돌아온다. (+${amt})`, 'good');
       room.cleared = true; UI.dungeonPanel(S, S.run.floorData); roomChoices(room);
     } },
     ...damaged.slice(0, 4).map(({ part }) => ({
@@ -1538,6 +1640,8 @@ function resolve(action) {
     notifyQuests({ kind: 'summon', count: cb.summonCount - before });
   }
   S.run.golemHp = cb.golem.hp;
+  S.golem.coreHp = cb.golem.hp;      // 핵 체력은 런을 넘어 남는다
+  cb.commitShields();                 // 방어도도 파츠에 새겨진다
   if (!cb.over) { combatTurn(); return; }
   if (cb.result === 'win') winBattle();
   else loseRun();

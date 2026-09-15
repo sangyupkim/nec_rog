@@ -55,6 +55,7 @@ export function newOssuary() {
     laborBay: { level: 1, dispatch: [] },
     vault: { capacity: 3, parts: [], lostRecords: [] },
     crew: { parts: [] },      // 작업반 — 배치하면 해체·접합 작업이 빨라진다
+    overhaul: [],             // 정비대 — 방어도·핵 회복 작업
     pending: null,       // 복귀 정산 화면에서 보여줄 내역
   };
 }
@@ -90,6 +91,14 @@ export const DISSECT = {
   unique: { ms: 120 * 60_000, scrap: [20, 20], ichor: 3, boneMeal: 2 },
 };
 
+/* ── 정비대: 방어도·핵 회복 (§9.3-⑦) ───────────── */
+export const OVERHAUL = {
+  shield: { name: '방어도 재건', ms: 40 * 60_000, desc: '모든 부위의 방어도를 상한까지 되돌린다.',
+            cost: { scrap: 40, boneMeal: 4 } },
+  core:   { name: '핵 안정화', ms: 60 * 60_000, desc: '핵의 체력을 가득 채운다.',
+            cost: { ichor: 5, boneMeal: 4 } },
+};
+
 /* ── 대장간 강화 (§10.4) ───────────────────────── */
 export const UPGRADE_MAX = 3;
 export const upgradeCost = (lv) => ({
@@ -121,8 +130,30 @@ export function settle(save, now = Date.now()) {
   settleForge(save, o, now, rng, lines);
   settleLabor(save, o, elapsed, rng, lines);
   settleSmithy(save, now, lines);
+  settleOverhaul(save, now, lines);
 
   return { elapsed, capped, lines };
+}
+
+/** 정비대에 맡긴 방어도·핵 회복이 끝났는지 본다 */
+function settleOverhaul(save, now, lines) {
+  const jobs = save.ossuary?.overhaul;
+  if (!jobs?.length) return;
+  const done = [];
+  save.ossuary.overhaul = jobs.filter((j) => {
+    if (now < j.startedAt + j.durationMs) return true;
+    done.push(j);
+    return false;
+  });
+  for (const j of done) {
+    if (j.kind === 'shield') {
+      for (const p of save.inventory) p.shield = null;   // null = 상한까지 회복
+      lines.push({ facility: '정비대', text: '방어도 재건 완료 — 모든 부위가 온전해졌다' });
+    } else {
+      save.golem.coreHp = null;                          // null = 가득
+      lines.push({ facility: '정비대', text: '핵 안정화 완료 — 박동이 고르다' });
+    }
+  }
 }
 
 /** 대장간에 맡긴 강화가 끝났는지 본다 */

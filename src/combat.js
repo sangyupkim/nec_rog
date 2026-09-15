@@ -2,7 +2,7 @@
 import {
   DB, damage, elemMul, rankMul, addStatus, hasStatus,
   assembleGolem, skillElement, partSkills, partName,
-  frameMax, MON_FRAME_RATIO, AIM, RAW_FAIL_CHANCE, SLOT_LABEL,
+  MON_FRAME_RATIO, AIM, RAW_FAIL_CHANCE, SLOT_LABEL,
 } from './core.js';
 
 const WILL_START = 3, WILL_MAX = 10, WILL_GAIN = 1;
@@ -56,12 +56,11 @@ export class Combat {
       }
     }
 
-    // ── 부위 체력 (§5.7) ──
+    // ── 파츠 방어도 (§5.7) — 전투가 끝나도 회복되지 않는다 ──
     this.aim = 'random';
     this.frames = {};
-    for (const { slot, part } of g.worn) {
-      const max = frameMax(part, slot);
-      this.frames[slot] = { slot, part, hp: max, max, down: false };
+    for (const { slot, part, shieldMax: max, shield } of g.worn) {
+      this.frames[slot] = { slot, part, hp: shield, max, down: shield <= 0 };
     }
     this.monFrames = {};
     for (const [slot, ratio] of Object.entries(MON_FRAME_RATIO)) {
@@ -328,9 +327,17 @@ export class Combat {
     if (hasStatus(to, '균열')) dmg = Math.floor(dmg * 1.5);
     if (this.rng.chance(5)) { dmg = Math.floor(dmg * 1.5); this.say('급소에 들어갔다!', 'good'); }
 
-    to.hp -= dmg;
-    this.say(`${this.nameOf(to)}이(가) ${dmg}의 피해를 입는다.`, to === this.mon ? 'good' : 'bad');
-    this.hitFrame(to, dmg);
+    if (to === this.golem) {
+      const leak = this.absorb(dmg);
+      if (leak > 0) {
+        to.hp -= leak;
+        this.say(`핵이 ${leak}의 피해를 입는다.`, 'bad');
+      }
+    } else {
+      to.hp -= dmg;
+      this.say(`${this.nameOf(to)}이(가) ${dmg}의 피해를 입는다.`, to === this.mon ? 'good' : 'bad');
+      this.hitFrame(to, dmg);
+    }
 
     if (hasStatus(to, '가시')) {
       const thorn = 3;
@@ -340,7 +347,34 @@ export class Combat {
     return dmg;
   }
 
-  /** 피해의 일부가 조준된 부위에 누적된다. 0이 되면 그 부위는 멈춘다 (§5.7) */
+  /**
+   * 골렘이 받은 피해를 방어도로 막는다. 막지 못한 만큼만 핵으로 넘어간다 (§5.7).
+   * @returns 핵에 닿은 피해
+   */
+  absorb(dmg) {
+    let left = dmg;
+    // 조준된 부위가 먼저 맞고, 모자라면 남은 부위가 이어 받는다
+    const first = this.pickFrame(this.frames, 'slots');
+    const order = [first, ...Object.values(this.frames).filter((f) => f && f !== first && !f.down)]
+      .filter(Boolean);
+    for (const f of order) {
+      if (left <= 0) break;
+      if (f.down) continue;
+      const taken = Math.min(f.hp, left);
+      f.hp -= taken;
+      left -= taken;
+      if (f.hp <= 0) {
+        f.hp = 0; f.down = true;
+        this.say(`${partName(f.part)}의 방어가 무너졌다. 연결된 기술을 쓸 수 없다.`, 'bad');
+        this.brokenGolemSlots ??= [];
+        this.brokenGolemSlots.push(f.slot);
+      }
+    }
+    if (left < dmg) this.say(`방어도가 ${dmg - left}을(를) 받아냈다.`, 'dim');
+    return left;
+  }
+
+  /** 몬스터 부위에 피해가 누적된다. 0이 되면 그 부위는 망가진다 (§5.7) */
   hitFrame(to, dmg) {
     const conf = AIM[this.aim];
     if (to === this.mon) {
@@ -353,19 +387,6 @@ export class Combat {
       this.say(`${this.mon.name}의 ${MON_SLOT_LABEL[f.slot]}이(가) 짓뭉개졌다. 부속으로 쓸 수 없다.`, 'bad');
       this.applyMonBreak(f.slot);
       return;
-    }
-    if (to !== this.golem) return;       // 소환수는 부위가 없다
-    const f = this.pickFrame(this.frames, 'slots');
-    if (!f) return;
-    f.hp -= dmg;
-    if (f.hp > 0) return;
-    f.hp = 0; f.down = true;
-    this.say(`${partName(f.part)}이(가) 기능을 멈췄다. 연결된 기술을 쓸 수 없다.`, 'bad');
-    this.brokenGolemSlots ??= [];
-    this.brokenGolemSlots.push(f.slot);
-    if (f.slot === 'body') {
-      this.golem.ranks.def = Math.max(-4, this.golem.ranks.def - 2);
-      this.say('흉곽이 내려앉아 방어가 무너진다.', 'bad');
     }
   }
 
@@ -393,8 +414,14 @@ export class Combat {
     return DB.summonsBy[u.id]?.name ?? '무언가';
   }
 
+  /** 회복은 핵에만 닿는다. 방어도는 수리해야 돌아온다 (§5.7) */
   healGolem(n) {
     this.golem.hp = Math.min(this.golem.maxHp, this.golem.hp + n);
+  }
+
+  /** 남은 방어도를 파츠에 새긴다. 수리하기 전까지 이대로 남는다 */
+  commitShields() {
+    for (const f of Object.values(this.frames)) f.part.shield = f.hp;
   }
 
   /* ── 네크로맨서 ───────────────────────────────────── */
@@ -572,14 +599,14 @@ export class Combat {
       this.golem.hp = 0;
       this.over = true;
       this.result = 'lose';
-      this.say('골렘이 무너져 내린다. 이음새가 전부 끊어졌다.', 'bad');
+      this.say('핵이 쪼개진다. 골렘이 무너져 내린다.', 'bad');
       return true;
     }
     const frames = Object.values(this.frames);
     if (frames.length && frames.every((f) => f.down)) {
       this.over = true;
       this.result = 'lose';
-      this.say('모든 부위가 멈췄다. 골렘은 더 이상 움직이지 못한다.', 'bad');
+      this.say('모든 부위의 방어가 무너졌다. 골렘은 더 이상 움직이지 못한다.', 'bad');
       return true;
     }
     return false;
