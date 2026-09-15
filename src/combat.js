@@ -257,12 +257,62 @@ export class Combat {
     }
     const weights = ai.weights ?? {};
     let entries = known.map((id) => [id, weights[id] ?? 20]);
+
+    // 데이터로 적은 규칙 — 체력이 낮으면 특정 기술을 선호한다
+    const hpPct = (this.mon.hp / this.mon.maxHp) * 100;
+    for (const r of ai.rules ?? []) {
+      if (r.if === 'hp_below' && hpPct <= r.value && r.prefer && known.includes(r.prefer)) {
+        entries = entries.map(([id, w]) => [id, id === r.prefer ? w * 3 : w]);
+      }
+    }
+
+    // 적이 내 상태를 읽는다 (§5.1). 이게 없으면 조준도 방어도 관리도 팽팽해지지 않는다
+    entries = entries.map(([id, w]) => [id, w * this.intentBonus(id)]);
+
     // 같은 스킬을 너무 반복하지 않는다
     const cap = ai.rules?.find((r) => r.no_repeat_over)?.no_repeat_over ?? 2;
     if (this.mon.repeats >= cap) entries = entries.filter(([id]) => id !== this.mon.lastSkill);
     if (!entries.length) entries = known.map((id) => [id, 1]);
     return this.rng.weighted(entries);
   }
+
+  /**
+   * 골렘의 지금 상태를 보고 기술 가중치를 조정한다.
+   * 무작위로 때리는 적은 조준도 방어도 관리도 의미 없게 만든다.
+   */
+  intentBonus(sid) {
+    const s = DB.skillsBy[sid];
+    if (!s) return 1;
+    let mul = 1;
+
+    // 핵이 얼마 안 남았으면 마무리를 노린다 — 회복·보조기를 접고 화력을 든다
+    const corePct = (this.golem.hp / this.golem.maxHp) * 100;
+    if (corePct <= 35) mul *= s.power > 0 ? 1.6 : 0.3;
+
+    // 방어도가 거의 다 벗겨졌으면 한 방이 큰 쪽으로 — 이제 넘치는 만큼 핵에 닿는다
+    const frames = Object.values(this.frames);
+    const shieldLeft = frames.reduce((n, f) => n + f.hp, 0);
+    const shieldMaxAll = frames.reduce((n, f) => n + f.max, 0) || 1;
+    if (shieldLeft / shieldMaxAll <= 0.25 && (s.hits ?? 1) === 1 && s.power > 0) mul *= 1.4;
+
+    // 아직 두껍게 남아 있으면 여러 번 때리는 쪽이 방어도를 빨리 깎는다
+    if (shieldLeft / shieldMaxAll > 0.6 && (s.hits ?? 1) > 1) mul *= 1.3;
+
+    // 내 방어 속성에 유리한 속성을 골라 든다 — 몸통 선택이 실제 결정이 된다
+    const m = elemMul(s.element, this.golem.defElement);
+    if (s.power > 0) mul *= m >= 1.5 ? 1.5 : m <= 0.5 ? 0.5 : 1;
+
+    // 이미 걸린 상태이상을 또 거는 데 턴을 쓰지 않는다
+    const adds = (s.effects ?? []).filter((e) => e.op === 'status').map((e) => e.id);
+    if (adds.length && adds.every((id) => this.golem.statuses[id])) mul *= 0.35;
+
+    // 자기 회복기는 멀쩡할 때 쓰지 않는다
+    const heals = (s.effects ?? []).some((e) => e.op === 'status' && e.id === '재생' && e.target === 'self');
+    if (heals) mul *= (this.mon.hp / this.mon.maxHp) > 0.7 ? 0.4 : 1.8;
+
+    return mul;
+  }
+
 
   monsterAct() {
     if (hasStatus(this.mon, '마비') && this.rng.chance(25)) {
@@ -374,7 +424,7 @@ export class Combat {
       left -= taken;
       if (f.hp <= 0) {
         f.hp = 0; f.down = true;
-        this.say(`${partName(f.part)}의 방어가 무너졌다. 연결된 기술을 쓸 수 없다.`, 'bad');
+        this.say(`${partName(f.part)}의 방어가 무너졌다. 연결된 기술을 쓸 수 없다.`, 'bad', { broke: true });
         this.brokenGolemSlots ??= [];
         this.brokenGolemSlots.push(f.slot);
       }
@@ -607,14 +657,14 @@ export class Combat {
       this.mon.hp = 0;
       this.over = true;
       this.result = 'win';
-      this.say(`${this.mon.name}이(가) 쓰러진다.`, 'good');
+      this.say(`${this.mon.name}이(가) 쓰러진다.`, 'good', { win: true });
       return true;
     }
     if (this.golem.hp <= 0) {
       this.golem.hp = 0;
       this.over = true;
       this.result = 'lose';
-      this.say('핵이 쪼개진다. 골렘이 무너져 내린다.', 'bad');
+      this.say('핵이 쪼개진다. 골렘이 무너져 내린다.', 'bad', { defeat: true, big: true });
       return true;
     }
     const frames = Object.values(this.frames);

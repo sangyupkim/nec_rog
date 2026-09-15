@@ -3,6 +3,7 @@ import { DB, SLOTS, SLOT_LABEL, partName, assembleGolem, SKILL_CAP, josa,
          shieldMax, shieldNow, partOf } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 import * as CP from './campaign.js';
+import { SFX, unlock as soundUnlock, isOn as soundOn, toggle as soundToggle } from './sound.js';
 
 const $ = (id) => document.getElementById(id);
 export const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
@@ -59,7 +60,14 @@ export function logPlay(lines) {
 
     function emit(l, quiet) {
       logLine(l.text, `${l.cls ?? ''}${l.big ? ' big' : ''}`);
-      if (!quiet && l.hit) shake(l.hit);
+      if (quiet) return;
+      if (l.hit) shake(l.hit);
+      if (l.big) SFX.big();
+      else if (l.hit === 'mon') SFX.hitMon();
+      else if (l.hit === 'golem') SFX.hitGolem();
+      else if (l.broke) SFX.broke();
+      if (l.win) SFX.win();
+      if (l.defeat) SFX.lose();
     }
 
     function step() {
@@ -98,6 +106,7 @@ export function topbar(save, where) {
   $('topbar').innerHTML = `
     <span class="where">${esc(where)}</span>
     <button id="uiscale" type="button" title="글자 크기"></button>
+    <button id="uisound" type="button" title="소리">${soundOn() ? '♪' : '♪̸'}</button>
     <span class="res">
       <span><b>은화</b> ${save.silver}</span>
       <span><b>영혼재</b> ${save.soulAsh}</span>
@@ -107,6 +116,13 @@ export function topbar(save, where) {
     </span>`;
   const btn = $('uiscale');
   btn.addEventListener('click', () => window.toggleUiScale?.());
+  const snd = $('uisound');
+  snd.addEventListener('click', () => {
+    soundUnlock();
+    snd.textContent = soundToggle() ? '♪' : '♪̸';
+    snd.classList.toggle('off', !soundOn());
+  });
+  snd.classList.toggle('off', !soundOn());
   window.applyUiScale?.();
 }
 
@@ -130,7 +146,18 @@ export function choices(list) {
       + (c.meta ? `<span class="meta">${c.meta}</span>` : ''));
     // 인자를 넘기지 않는다. 그대로 넘기면 클릭 이벤트가 첫 인자로 들어가
     // golemScreen(back) 같은 기본 인자를 덮어써 버린다.
-    if (!c.disabled && c.on) b.addEventListener('click', () => c.on());
+    if (!c.disabled && c.on) {
+      b.addEventListener('click', () => { soundUnlock(); SFX.tap(); c.on(); });
+    }
+    // 미리보기 — 마우스는 올리면, 손가락은 길게 누르면 뜬다
+    if (!c.disabled && c.hover) {
+      b.addEventListener('pointerenter', () => c.hover());
+      b.addEventListener('focus', () => c.hover());
+      if (c.unhover) {
+        b.addEventListener('pointerleave', () => c.unhover());
+        b.addEventListener('blur', () => c.unhover());
+      }
+    }
     box.append(b);
   }
 }
@@ -142,14 +169,80 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ── 글상자 — 세이브를 주고받는 자리 ──────────────────
+   아티팩트 샌드박스에서는 파일 다운로드가 막힌다. 링크로 내려받게 하면
+   조용히 아무 일도 일어나지 않으므로, 텍스트를 직접 보여 주고 받는다. */
+function textBox(title, value, readOnly, onOk) {
+  const box = $('choices');
+  box.replaceChildren();
+  keyHandlers = [];
+
+  const wrap = document.createElement('div');
+  wrap.className = 'textbox';
+  const lb = document.createElement('p');
+  lb.className = 'tb-title';
+  lb.textContent = title;
+  const ta = document.createElement('textarea');
+  ta.value = value ?? '';
+  ta.readOnly = readOnly;
+  ta.spellcheck = false;
+  ta.setAttribute('aria-label', title);
+  const row = document.createElement('div');
+  row.className = 'tb-row';
+
+  const mk = (text, cls, fn) => {
+    const b = document.createElement('button');
+    b.className = `btn ${cls}`;
+    b.textContent = text;
+    b.addEventListener('click', fn);
+    return b;
+  };
+  if (readOnly) {
+    row.append(mk('전체 선택', 'primary', () => { ta.focus(); ta.select(); }));
+  } else {
+    row.append(mk('가져오기', 'primary', () => onOk?.(ta.value)));
+  }
+  row.append(mk('닫기', 'ghost', () => onOk?.(readOnly ? null : undefined, true)));
+
+  wrap.append(lb, ta, row);
+  box.append(wrap);
+  if (readOnly) { ta.focus(); ta.select(); }
+}
+
+export function showText(title, value) {
+  textBox(title, value, true, () => { for (const fn of onTextClosed) fn(); });
+}
+export function askText(title, onOk) {
+  textBox(title, '', false, (v, closed) => {
+    for (const fn of onTextClosed) fn();
+    if (!closed) onOk(v);
+  });
+}
+/** 글상자를 닫았을 때 원래 화면으로 돌아가기 위한 갈고리 */
+export const onTextClosed = [];
+
 /* ── 왼쪽 패널 ──────────────────────────── */
 export const panel = (html) => { $('left').innerHTML = josa(html); };
 
-export const bar = (cur, max, foe = false) => {
+/**
+ * 체력 바. key를 주면 직전 값을 기억해 **깎인 만큼을 잔상으로 남긴다** —
+ * 숫자만 바뀌면 무엇이 얼마나 줄었는지 눈이 못 따라간다.
+ */
+const lastBar = new Map();
+export const bar = (cur, max, foe = false, key = null) => {
   const pct = Math.max(0, Math.min(100, (cur / max) * 100));
-  return `<div class="bar ${foe ? 'foe' : ''}"><i style="width:${pct}%"></i></div>
+  let ghost = '';
+  if (key) {
+    const prev = lastBar.get(key);
+    lastBar.set(key, pct);
+    // 늘어난 경우(회복·새 전투)에는 잔상을 남기지 않는다
+    if (prev != null && prev > pct) ghost = `<u style="left:${pct}%;width:${prev - pct}%"></u>`;
+  }
+  return `<div class="bar ${foe ? 'foe' : ''}"><i style="width:${pct}%"></i>${ghost}</div>
           <div class="hpnum">HP ${Math.max(0, Math.round(cur))} / ${max}</div>`;
 };
+/** 전투가 끝나면 잔상 기억을 비운다 */
+export const resetBars = () => lastBar.clear();
 
 const elColor = (el) => `style="color:var(--el-${el})"`;
 
@@ -203,7 +296,7 @@ export function combatPanel(cb, save) {
     <p class="pt">적</p>
     <div class="unit">
       <h3>${esc(mon.name)} <span class="tag" ${seen ? elColor(mon.defElement) : ''}>${seen ? mon.defElement : '???'}</span></h3>
-      ${bar(mon.hp, mon.maxHp, true)}
+      ${bar(mon.hp, mon.maxHp, true, 'mon')}
       ${statusChips(mon)}
       <div class="chips">${monParts}</div>
     </div>
@@ -216,7 +309,7 @@ export function combatPanel(cb, save) {
     <p class="pt">골렘 — 핵</p>
     <div class="unit">
       <h3>누더기 골렘 <span class="tag" ${elColor(g.defElement)}>${g.defElement}</span></h3>
-      ${bar(g.hp, g.maxHp)}
+      ${bar(g.hp, g.maxHp, false, 'golem')}
       ${statusChips(g)}
       <div class="chips">
         <span class="chip good">영력 ${cb.will}/10</span>

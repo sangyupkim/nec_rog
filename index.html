@@ -69,18 +69,22 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 @media (min-width:660px){
   #topbar .res{flex:1 1 auto;justify-content:flex-end;order:1}
   #uiscale{order:2}
+  #uisound{order:3}
 }
 /* 좁은 화면에서는 재화가 둘째 줄로 내려간다 */
 @media (max-width:659px){
   #topbar .res{flex:1 0 100%;order:2}
   #uiscale{order:1;margin-left:auto}
+  #uisound{order:1}
 }
-#uiscale{
+#uiscale,#uisound{
   flex:0 0 auto;font-family:var(--mono);font-size:.74rem;color:var(--muted);
   border:1px solid var(--line);border-radius:2px;padding:.1rem .4rem;margin-left:.2rem;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;
 }
-#uiscale:hover{color:var(--ink);border-color:var(--accent-dim)}
+#uiscale:hover,#uisound:hover{color:var(--ink);border-color:var(--accent-dim)}
+#uisound{min-width:1.6rem}
+#uisound.off{opacity:.45}
 
 /* 글자 크기 조절바 */
 /* ID 선택자가 브라우저 기본 [hidden] 규칙을 이기므로 직접 눌러 준다 */
@@ -237,6 +241,40 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   .line,.line.big,#app.hit-mon,#app.hit-golem,.waiting{animation:none}
   #app.hit-golem::after{display:none}
 }
+
+/* 체력·방어도 바 — 줄어드는 게 눈에 보여야 로그의 박자가 산다 */
+.bar > i{transition:width .38s cubic-bezier(.2,.8,.2,1)}
+.bar{position:relative;overflow:hidden}
+/* 방금 깎인 만큼이 잠깐 남았다가 따라 내려간다 */
+.bar > u{
+  position:absolute;top:0;bottom:0;display:block;background:var(--danger);opacity:.5;
+  transition:width .5s ease-out .12s,opacity .5s ease-out .12s;
+}
+@media (prefers-reduced-motion:reduce){
+  .bar > i,.bar > u{transition:none}
+}
+
+/* 속성 상성표 */
+.aftable{overflow-x:auto;margin:.3rem 0 .5rem}
+.aftable table{border-collapse:collapse;font-size:.68rem;font-family:var(--mono)}
+.aftable th,.aftable td{border:1px solid var(--line-soft);padding:.22rem .3rem;text-align:center;white-space:nowrap}
+.aftable th{color:var(--muted);font-weight:400}
+.aftable th.afc{font-size:.6rem}
+.aftable .af1{color:var(--line)}
+.aftable .afup{color:var(--accent)}
+.aftable .afdown{color:var(--danger)}
+.aftable .afzero{color:var(--danger);font-weight:700}
+
+/* 글상자 — 세이브 내보내기·가져오기 */
+.textbox{display:flex;flex-direction:column;gap:.4rem;width:100%}
+.tb-title{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;color:var(--muted);margin:0}
+.textbox textarea{
+  width:100%;box-sizing:border-box;min-height:7rem;max-height:30dvh;resize:vertical;
+  font-family:var(--mono);font-size:.72rem;line-height:1.5;
+  color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:2px;padding:.5rem;
+}
+.tb-row{display:flex;gap:.4rem}
+.tb-row .btn{flex:1;justify-content:center}
 
 /* 환경 규칙 표시 — 단수가 오를수록 붉어진다 (§7-A.2) */
 .hz{font-size:.78rem;color:var(--muted);margin:.25rem 0 .5rem;line-height:1.4}

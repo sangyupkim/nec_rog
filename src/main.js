@@ -54,7 +54,8 @@ function newSave() {
     ossuary: (() => { const o = O.newOssuary(); o.built.forge = true; return o; })(),
     unlocks: { vaultStart: 1, necroSlots: 3, salvage: 0, partPool: 0, modTier: 0 },
     modSamples: {},
-    log: { runs: 0, kills: 0, lost: 0, handouts: 0, hintAim: false, hintRaw: false },
+    log: { runs: 0, kills: 0, lost: 0, handouts: 0,
+           hintAim: false, hintRaw: false, hintSwap: false, hintOssuary: false },
   };
 }
 
@@ -85,6 +86,8 @@ function migrate(s) {
   s.log.handouts ??= 0;
   s.log.hintAim ??= false;
   s.log.hintRaw ??= false;
+  s.log.hintSwap ??= false;
+  s.log.hintOssuary ??= false;
   s.town ??= {};
   s.town.smithy ??= [];
   s.golem ??= {};
@@ -310,9 +313,11 @@ function town(intro = true) {
     { label: '강령술사 조합', meta: '술법', on: conclaveScreen },
     { label: '골렘 정비', on: golemScreen },
     { label: '소지품', on: () => inventoryScreen(town) },
+    { label: '상성표', cls: 'ghost', meta: '속성 일곱', on: () => affinityScreen(() => town(false)) },
     { label: '무덤으로 내려간다', cls: 'primary',
       meta: CP.nextStage(S) ? stageOf(CP.nextStage(S)).name : '아홉 단계 완료', on: startRun },
     { label: '저장', cls: 'ghost', on: () => { save(); UI.logLine('기록을 남겼다.', 'dim'); } },
+    { label: '기록 보관', cls: 'ghost', meta: '내보내기 · 가져오기', on: backupScreen },
   ]);
   save();
 }
@@ -322,6 +327,155 @@ function ossuaryBadge() {
   const busy = o.dissection.slots.length + o.forge.slots.length + o.laborBay.dispatch.length;
   if (o.rotVat.stored >= O.vatCap(o)) return '통이 가득';
   return busy ? `작업 ${busy}건` : '비어 있음';
+}
+
+/* ── 파츠 비교 — "이게 나은가?"를 암산시키지 않는다 ──────── */
+const DIFF_KEYS = ['atk', 'def', 'eva', 'spd', 'focus'];
+
+/** 이 부속으로 갈아끼웠을 때 골렘 전체가 어떻게 변하는가 */
+function swapDelta(slot, part) {
+  const keep = S.golem[slot];
+  const before = assembleGolem(S);
+  S.golem[slot] = part.uid;
+  const after = assembleGolem(S);
+  S.golem[slot] = keep;
+
+  const stat = {};
+  for (const k of DIFF_KEYS) stat[k] = (after.stats[k] ?? 0) - (before.stats[k] ?? 0);
+  const curSkills = new Set(before.active);
+  return {
+    stat,
+    shield: after.shieldTotal - before.shieldTotal,
+    defElement: after.defElement !== before.defElement
+      ? { from: before.defElement, to: after.defElement } : null,
+    gained: after.active.filter((x) => !curSkills.has(x)),
+    lost: before.active.filter((x) => !after.active.includes(x)),
+  };
+}
+
+const sign = (n) => (n > 0 ? `+${n}` : `${n}`);
+
+/** 버튼 meta에 들어갈 한 줄 요약 — 변한 것만 적는다 */
+function diffText(slot, part) {
+  const d = swapDelta(slot, part);
+  const bits = DIFF_KEYS.filter((k) => d.stat[k]).map((k) => `${STAT_LABEL[k]}${sign(d.stat[k])}`);
+  if (d.shield) bits.push(`방어도${sign(d.shield)}`);
+  return bits.length ? bits.join(' ') : '변화 없음';
+}
+
+/** 왼쪽 패널에 띄우는 전후 비교 */
+function previewSwap(slot, part, before) {
+  const d = swapDelta(slot, part);
+  const cur = S.golem[slot] ? findPart(S.golem[slot]) : null;
+  const rows = [
+    UI.rowHTML('지금', cur ? UI.esc(partName(cur)) : '<span class="empty">비어 있음</span>', ''),
+    UI.rowHTML('바꾸면', UI.esc(partName(part)), part.raw ? '날것' : '정착', part.raw),
+  ];
+  for (const k of DIFF_KEYS) {
+    if (!d.stat[k]) continue;
+    rows.push(UI.rowHTML(STAT_LABEL[k],
+      `${before.stats[k] ?? 0} → ${(before.stats[k] ?? 0) + d.stat[k]}`,
+      sign(d.stat[k]), d.stat[k] < 0));
+  }
+  if (d.shield) {
+    rows.push(UI.rowHTML('방어도', `${before.shieldTotal} → ${before.shieldTotal + d.shield}`,
+      sign(d.shield), d.shield < 0));
+  }
+  if (d.defElement) {
+    rows.push(UI.rowHTML('방어 속성', `${d.defElement.from ?? '없음'} → ${d.defElement.to ?? '없음'}`, '바뀜', true));
+  }
+  const nm = (id) => DB.skillsBy[id]?.name ?? id;
+  if (d.gained.length) rows.push(UI.rowHTML('얻는 기술', d.gained.map(nm).map(UI.esc).join(', '), ''));
+  if (d.lost.length) rows.push(UI.rowHTML('잃는 기술', d.lost.map(nm).map(UI.esc).join(', '), '', true));
+
+  UI.listPanel('바꾸면 이렇게 된다', rows,
+    `<p class="note">${part.raw
+      ? '날것이라 성능은 60%만 나온다. 위 숫자는 그것을 반영한 값이다.'
+      : '숫자는 골렘 전체 기준이다.'}</p>`);
+}
+
+/* ── 속성 상성표 — 게임 안에서 볼 수 있어야 한다 ────────── */
+function affinityScreen(back) {
+  UI.topbar(S, '상성표');
+  const els = DB.elements.elements;
+  const cell = (a, d) => {
+    const m = DB.elements.matrix[a]?.[d] ?? DB.elements.default;
+    if (m === 1) return '<td class="af1">·</td>';
+    const cls = m > 1 ? 'afup' : m === 0 ? 'afzero' : 'afdown';
+    return `<td class="${cls}">${m === 0 ? '✕' : `×${m}`}</td>`;
+  };
+  UI.panel(`<p class="pt">속성 상성</p>
+    <div class="aftable"><table>
+      <tr><th class="afc">공↓ 방→</th>${els.map((d) => `<th>${d}</th>`).join('')}</tr>
+      ${els.map((a) => `<tr><th>${a}</th>${els.map((d) => cell(a, d)).join('')}</tr>`).join('')}
+    </table></div>
+    <p class="note">세로가 공격 속성, 가로가 상대의 방어 속성이다.<br>
+      방어 속성은 <b>몸통</b>이 혼자 정한다 (§5.3).</p>`);
+
+  UI.logHead('속성 상성');
+  UI.logLine('일곱 속성이 서로를 먹고 먹힌다. 외울 필요는 없다 — 여기서 언제든 볼 수 있다.', 'narrate');
+  UI.logLine('적의 방어 속성은 한 번 싸워 봐야 알 수 있다. 전투 중 \'관찰\'로도 알아낼 수 있다.', 'dim');
+  const mine = assembleGolem(S).defElement;
+  if (mine) {
+    const weak = els.filter((a) => (DB.elements.matrix[a]?.[mine] ?? 1) > 1);
+    UI.logLine(`지금 내 몸통은 ${mine}이다. ${weak.length ? `${weak.join(', ')}에 약하다.` : '특별히 약한 속성은 없다.'}`,
+      weak.length ? 'bad' : 'good');
+  }
+  UI.choices([{ label: '돌아간다', cls: 'ghost', on: back }]);
+}
+
+/* ── 기록 보관 — 세이브 내보내기·가져오기 ────────────────
+   세이브는 이 브라우저의 localStorage 한 곳에만 있다. 사이트 데이터를
+   지우면 전부 사라지고, 되돌릴 방법이 없다. 몇 줄이면 그 사고를 막는다.
+   샌드박스에서는 파일 다운로드가 막히므로 **텍스트를 직접 주고받는다.** */
+function backupScreen() {
+  UI.topbar(S, '시체골 · 기록 보관');
+  const pr = CP.progress(S);
+  UI.listPanel('지금 기록', [
+    UI.rowHTML('진행', `${pr.done}/${pr.total} 단계`, ''),
+    UI.rowHTML('탐험', `${S.log.runs}회`, `처치 ${S.log.kills}`),
+    UI.rowHTML('소지', `부속 ${S.inventory.length}개`, `핵 ${S.cores.length}`),
+  ], `<p class="note">세이브는 이 브라우저에만 있다. 브라우저가 사이트 데이터를 지우면
+      같이 사라지므로, 가끔 내보내 어딘가에 붙여 두는 편이 안전하다.</p>`);
+
+  UI.logHead('기록 보관');
+  UI.logLine('네크로맨서의 장부. 베껴 두면 잃어버려도 다시 쓸 수 있다.', 'narrate');
+  UI.choices([
+    { label: '내보내기', cls: 'primary', meta: '글상자에 띄운다', on: exportSave },
+    { label: '가져오기', meta: '붙여넣은 것으로 덮어쓴다', on: importSave },
+    { label: '돌아간다', cls: 'ghost', on: () => town(false) },
+  ]);
+}
+
+function exportSave() {
+  UI.onTextClosed.length = 0;
+  UI.onTextClosed.push(backupScreen);
+  save();
+  const text = JSON.stringify(S);
+  UI.logLine(`기록 ${text.length}자. 아래 상자의 내용을 통째로 복사해 두어라.`, 'good');
+  UI.showText('내보낸 기록', text);
+}
+
+function importSave() {
+  UI.onTextClosed.length = 0;
+  UI.onTextClosed.push(backupScreen);
+  UI.askText('가져올 기록을 붙여넣어라', (text) => {
+    if (!text?.trim()) { UI.logLine('아무것도 붙여넣지 않았다.', 'dim'); return; }
+    let parsed;
+    try { parsed = JSON.parse(text); } catch {
+      UI.logLine('기록을 읽을 수 없다. 복사가 중간에 끊긴 것 같다.', 'bad'); return;
+    }
+    if (!parsed || typeof parsed !== 'object' || !parsed.golem) {
+      UI.logLine('이 게임의 기록이 아니다.', 'bad'); return;
+    }
+    // 덮어쓰기 전에 지금 것을 한 칸 옆에 남긴다 — 되돌릴 수 없는 일은 만들지 않는다
+    try { localStorage.setItem(`${SAVE_KEY}.before-import`, JSON.stringify(S)); } catch { /* 무시 */ }
+    S = migrate(parsed);
+    syncUidSeq(S);
+    save();
+    UI.logLine('기록을 가져왔다. 이전 것은 한 칸 옆에 남겨 두었다.', 'good');
+    town(false);
+  });
 }
 
 /* ── 오늘의 일 — 하루 한 번 들를 이유 (§10.2-A) ──────── */
@@ -478,20 +632,45 @@ function giveHandout() {
   const given = [];
   if (!S.golem.core) { S.golem.core = 'core_scrap'; given.push(DB.coresBy.core_scrap.name); }
 
-  // 최하급 정착 부속. 날것만 남으면 기술이 불발돼 진행이 막히므로 이 둘은 정착 상태로 준다
-  const BASIC = ['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'];
-  let i = 0;
-  while (settledParts() < MIN_PARTS) {
-    const p = makePart(BASIC[Math.min(i++, BASIC.length - 1)]);
-    p.raw = false;                       // 바르그의 수레에서 나온 것은 이미 손이 갔다
-    S.inventory.push(p);
-    given.push(partName(p));
-    if (i > BASIC.length + 2) break;     // 안전장치
+  // 최하급 정착 부속. 날것만 남으면 기술이 넷 중 하나꼴로 불발돼 진행이 막히므로
+  // 이 부속들은 정착 상태로 준다.
+  //
+  // 주의: '소지 개수'가 아니라 **빈 슬롯**을 보고 채워야 한다.
+  // 몸통만 두 개 쥐여 주면 개수는 늘어도 골렘은 여전히 한 자리밖에 못 채운다.
+  const BASIC_BY_KIND = {
+    body: 'part_body_goblin_torso',
+    arm: 'part_arm_goblin_claw',
+    leg: 'part_leg_goblin_hop',
+    head: 'part_head_goblin_skull',
+  };
+  const FILL_ORDER = ['body', 'armL', 'leg', 'armR', 'head'];
+
+  const equippedNow = () => new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
+  /** 이 슬롯에 지금 끼울 수 있는 정착 부속이 소지품에 있는가 */
+  const spareFor = (slot) => {
+    const worn = equippedNow();
+    const kind = SLOT_KIND[slot];
+    return S.inventory.find((p) => !worn.has(p.uid) && !p.raw && DB.partsBy[p.defId].slot === kind);
+  };
+
+  for (const slot of FILL_ORDER) {
+    if (wornCount() >= MIN_PARTS) break;
+    if (S.golem[slot]) continue;
+    let part = spareFor(slot);
+    if (!part) {
+      const defId = BASIC_BY_KIND[SLOT_KIND[slot]];
+      if (!defId) continue;
+      part = makePart(defId);
+      part.raw = false;                    // 바르그의 수레에서 나온 것은 이미 손이 갔다
+      S.inventory.push(part);
+      given.push(partName(part));
+    }
+    S.golem[slot] = part.uid;
   }
 
-  // 비어 있는 자리에 알아서 끼워 준다 — 빈손으로 내보내지 않는다.
-  // 정착된 것을 먼저 쓴다. 날것이 자동으로 끼워져 기술이 불발되는 일을 막는다
-  const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
+  // 남은 빈 자리도 마저 채운다. 정착된 것을 먼저 쓴다 —
+  // 날것이 자동으로 끼워져 기술이 불발되는 일을 막는다
+  const equipped = equippedNow();
   for (const slot of SLOTS) {
     if (S.golem[slot]) continue;
     const kind = SLOT_KIND[slot];
@@ -522,6 +701,15 @@ function ossuaryScreen() {
   const o = S.ossuary;
   UI.logHead('납골당');
   UI.logLine('네크로맨서의 작업장. 여기서는 시간이 재료를 만든다.', 'narrate');
+  if (!S.log.hintOssuary) {
+    S.log.hintOssuary = true;
+    UI.logLine('— 여기서 하는 일은 셋이다 —', 'necro');
+    UI.logLine('① 접합로에서 날것 부속을 정착시킨다. 이걸 거쳐야 기술이 불발되지 않는다.', 'necro');
+    UI.logLine('② 정비대에서 방어도와 핵을 되돌린다. 포션으로는 방어도가 돌아오지 않는다.', 'necro');
+    UI.logLine('③ 나머지는 걸어 두고 나가면 시간이 알아서 한다. 걸어 두지 않으면 아무것도 안 돈다.', 'necro');
+    UI.logLine('조립대에서 여분 핵으로 세운 골렘을 작업반에 붙이면 그 시간이 짧아진다.', 'good');
+    save();
+  }
 
   const list = [
     { label: '🫗 부패조', meta: `${o.rotVat.stored}/${O.vatCap(o)}`, on: vatScreen },
@@ -1474,7 +1662,10 @@ function slotScreen(slot, back, canEdit = true) {
       const gain = partSkills(p).map((s) => DB.skillsBy[s].name).join(', ');
       return {
         label: partName(p),
-        meta: `${p.raw ? '날것 · ' : ''}공${st.atk >= 0 ? '+' : ''}${st.atk} 체${st.hp >= 0 ? '+' : ''}${st.hp} · ${p.integrity}/${p.maxIntegrity}`,
+        meta: `${p.raw ? '날것 · ' : ''}${diffText(slot, p)} · ${p.integrity}/${p.maxIntegrity}`,
+        // 버튼에 얹기만 해도 전후 비교가 왼쪽에 뜬다 — 암산을 시키지 않는다
+        hover: () => previewSwap(slot, p, before),
+        unhover: () => UI.golemPanel(S),
         on: () => {
           S.golem[slot] = p.uid;
           const after = assembleGolem(S);
@@ -1834,6 +2025,7 @@ function roomChoices(room) {
   }
   list.push({ label: '골렘 상태', cls: 'ghost', on: () => golemScreen(backToRoom, false) });
   list.push({ label: '소지품', cls: 'ghost', on: () => inventoryScreen(backToRoom) });
+  list.push({ label: '상성표', cls: 'ghost', on: () => affinityScreen(backToRoom) });
   if (S.consumables.it_sigil_return > 0) {
     list.push({ label: '귀환의 문양 사용', cls: 'ghost', on: () => {
       S.consumables.it_sigil_return--;
@@ -2072,6 +2264,7 @@ function bossPrompt(room) {
 
 /* ── 전투 ───────────────────────────────── */
 function startBattle(room, elite, isBoss = false) {
+  UI.resetBars();          // 새 전투에서 지난 전투의 잔상을 끌고 오지 않는다
   const r = makeRng(S.run.seed + room.x * 977 + room.y * 131 + S.run.floor);
   const sid = S.run.stage ?? '1-1';
   const mon = isBoss ? rollBoss(sid, S.run.floor, r, S.unlocks)
@@ -2215,6 +2408,13 @@ function winBattle() {
           UI.logLine('납골당 → 접합로 → 정착 (조각 8 + 진액 1, 20분)을 거치면 온전해진다.', 'necro');
         } else {
           UI.logLine('아직 날것이다. 납골당 정착대를 거쳐야 온전히 쓸 수 있다.', 'dim');
+        }
+        if (!S.log.hintSwap) {
+          S.log.hintSwap = true;
+          UI.logLine('— 부속을 왜 바꾸는가 —', 'necro');
+          UI.logLine('부속은 능력치만이 아니라 기술을 들고 온다. 팔을 바꾸면 쓸 수 있는 기술이 통째로 바뀐다.', 'necro');
+          UI.logLine('그래서 좋은 부속이 아니라 지금 빌드에 맞는 부속을 고르는 것이 이 게임의 결정이다.', 'necro');
+          UI.logLine('교체 화면에서 부속에 손을 얹으면 바꿨을 때 무엇이 오르내리는지 전부 보여 준다.', 'good');
         }
         notifyQuests({ kind: 'loot', slot: DB.partsBy[p.defId].slot, mod: p.mod });
         afterBattle(isBoss, room);
