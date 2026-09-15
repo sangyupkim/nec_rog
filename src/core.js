@@ -170,6 +170,36 @@ export const SLOT_KIND = { head: 'head', body: 'body', armL: 'arm', armR: 'arm',
 export const SKILL_CAP = 9;
 
 /** 장착 상태 + 부착물로부터 골렘의 실제 능력치를 계산한다 */
+/**
+ * 핵이 품은 마력. 대장간에서 강화한 만큼 늘어난다 (§3.7).
+ * 좋은 부속일수록 마력을 많이 먹으므로, 좋은 것을 쓰려면 더 좋은 핵을 구하거나
+ * 지금 핵을 키워야 한다 — 그 저울질이 요점이다.
+ */
+export const CORE_MANA_STEP = 3;
+export const CORE_MANA_MAX_LV = 5;
+export function coreMana(save) {
+  const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
+  if (!core) return 0;
+  const lv = save.coreUpgrades?.[save.golem.core] ?? 0;
+  return (core.mana ?? 0) + lv * CORE_MANA_STEP;
+}
+/** 이 부속이 요구하는 마력 */
+export const partMana = (part) => DB.partsBy[part.defId]?.mana ?? 0;
+
+/**
+ * 골렘이 무너질 때 소지품에서 흘리는 여분을 고른다 (§3.3).
+ * 순수 함수로 둔 이유: 확률이 걸린 규칙은 화면을 거치지 않고 바로 재볼 수 있어야 한다.
+ *
+ * @param {Array} spares  걸 수 있는 여분 (장착·표본실·조립대·파견은 빼고 넘긴다)
+ * @param {number} rate   하나당 잃을 확률(%)
+ * @param {{chance:(n:number)=>boolean}} rng
+ */
+export function rollSpareLoss(spares, rate, rng) {
+  const lost = [];
+  for (const p of spares) if (rng.chance(rate)) lost.push(p);
+  return lost;
+}
+
 export function assembleGolem(save) {
   const stats = { hp: 0, atk: 0, def: 0, eva: 0, spd: 0, focus: 0 };
   let defElement = '타격';
@@ -208,6 +238,10 @@ export function assembleGolem(save) {
     else if (a.effect.op === 'lifetap') traits.lifetap += a.effect.value;
   }
 
+  // 마력 — 핵이 감당할 수 있는 만큼만 부속을 붙인다 (§3.7)
+  const manaMax = core ? coreMana(save) : 0;
+  const manaUsed = worn.reduce((n, w) => n + (DB.partsBy[w.part.defId]?.mana ?? 0), 0);
+
   const banned = save.golem.banned ?? [];
   const active = skills.filter((s) => !banned.includes(s));
   stats.eva = Math.min(60, stats.eva);
@@ -216,6 +250,7 @@ export function assembleGolem(save) {
   const shieldNowTotal = worn.reduce((n, w) => n + w.shield, 0);
 
   return { stats, defElement, skills, active, worn, traits, core, shieldTotal, shieldNowTotal,
+           manaMax, manaUsed, manaOver: manaUsed > manaMax,
            standing: Boolean(core && save.golem.body),
            over: active.length > SKILL_CAP };
 }

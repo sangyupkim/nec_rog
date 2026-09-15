@@ -11,6 +11,15 @@ export const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
 
 let keyHandlers = [];
 
+/* ── 등급 ───────────────────────────────
+   부속 이름에 등급 색을 입힌다. 목록에서 값어치가 한눈에 갈리게 하는 것이 목적이다.
+   logLine은 textContent라 색이 먹지 않으므로, **HTML을 쓰는 자리에서만** 쓴다. */
+export const RARITY_LABEL = { common: '일반', rare: '희귀', unique: '유니크' };
+export const rarityOf = (part) => DB.partsBy[part.defId]?.rarity ?? 'common';
+/** 등급 색이 입혀진 부속 이름 (HTML) */
+export const partHTML = (part) =>
+  `<span class="rar ${rarityOf(part)}">${esc(partName(part))}</span>`;
+
 /* ── 로그 ───────────────────────────────── */
 export function logLine(text, cls = '') {
   const el = document.createElement('div');
@@ -484,6 +493,7 @@ export function golemPanel(save) {
     <div class="chips">
       <span class="chip" style="color:var(--el-${g.defElement})">방어 속성 ${g.defElement}</span>
       <span class="chip ${g.over ? 'warn' : ''}">스킬 ${g.active.length}/${SKILL_CAP}</span>
+      <span class="chip ${g.manaOver ? 'warn' : ''}">마력 ${g.manaUsed}/${g.manaMax}</span>
     </div>
     <hr class="sep">
     <p class="pt">부착물 ${att.length}/2</p>

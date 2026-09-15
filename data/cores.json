@@ -1,93 +1,98 @@
 [
- {
-  "id": "core_scrap",
-  "name": "주워 맞춘 핵",
-  "rarity": "common",
-  "price": 160,
-  "desc": "겨우 형태만 갖춘 핵. 골렘을 세울 수는 있다.",
-  "stats": {
-   "atk": 0,
-   "def": 0,
-   "eva": 0,
-   "spd": 0,
-   "focus": 0
+  {
+    "id": "core_scrap",
+    "name": "주워 맞춘 핵",
+    "rarity": "common",
+    "price": 160,
+    "desc": "겨우 형태만 갖춘 핵. 골렘을 세울 수는 있다.",
+    "stats": {
+      "atk": 0,
+      "def": 0,
+      "eva": 0,
+      "spd": 0,
+      "focus": 0
+    },
+    "source": [
+      "npc",
+      "shop"
+    ],
+    "hp": 120,
+    "mana": 14
   },
-  "source": [
-   "npc",
-   "shop"
-  ],
-  "hp": 120
- },
- {
-  "id": "core_iron",
-  "name": "무쇠 심장",
-  "rarity": "rare",
-  "price": 420,
-  "desc": "단단하게 벼려진 핵. 골렘이 더 오래 버틴다.",
-  "stats": {
-   "atk": 0,
-   "def": 4,
-   "eva": 0,
-   "spd": -2,
-   "focus": 0
+  {
+    "id": "core_iron",
+    "name": "무쇠 심장",
+    "rarity": "rare",
+    "price": 420,
+    "desc": "단단하게 벼려진 핵. 골렘이 더 오래 버틴다.",
+    "stats": {
+      "atk": 0,
+      "def": 4,
+      "eva": 0,
+      "spd": -2,
+      "focus": 0
+    },
+    "source": [
+      "shop"
+    ],
+    "hp": 190,
+    "mana": 22
   },
-  "source": [
-   "shop"
-  ],
-  "hp": 190
- },
- {
-  "id": "core_swift",
-  "name": "실낱 심장",
-  "rarity": "rare",
-  "price": 400,
-  "desc": "가늘게 뛰는 핵. 골렘이 가벼워진다.",
-  "stats": {
-   "atk": 0,
-   "def": 0,
-   "eva": 5,
-   "spd": 8,
-   "focus": 2
+  {
+    "id": "core_swift",
+    "name": "실낱 심장",
+    "rarity": "rare",
+    "price": 400,
+    "desc": "가늘게 뛰는 핵. 골렘이 가벼워진다.",
+    "stats": {
+      "atk": 0,
+      "def": 0,
+      "eva": 5,
+      "spd": 8,
+      "focus": 2
+    },
+    "source": [
+      "shop"
+    ],
+    "hp": 130,
+    "mana": 18
   },
-  "source": [
-   "shop"
-  ],
-  "hp": 130
- },
- {
-  "id": "core_soul",
-  "name": "영혼 응결핵",
-  "rarity": "unique",
-  "price": 900,
-  "desc": "층의 주인에게서 꺼낸 핵. 네크로맨서의 술법이 더 잘 통한다.",
-  "stats": {
-   "atk": 4,
-   "def": 2,
-   "eva": 0,
-   "spd": 0,
-   "focus": 6
+  {
+    "id": "core_soul",
+    "name": "영혼 응결핵",
+    "rarity": "unique",
+    "price": 900,
+    "desc": "층의 주인에게서 꺼낸 핵. 네크로맨서의 술법이 더 잘 통한다.",
+    "stats": {
+      "atk": 4,
+      "def": 2,
+      "eva": 0,
+      "spd": 0,
+      "focus": 6
+    },
+    "source": [
+      "boss"
+    ],
+    "hp": 210,
+    "mana": 32
   },
-  "source": [
-   "boss"
-  ],
-  "hp": 210
- },
- {
-  "id": "core_gravelord",
-  "name": "무덤군주의 핵",
-  "rarity": "unique",
-  "price": 1400,
-  "desc": "무덤 전체가 그의 몸이었다. 남은 것은 이 덩어리뿐이다.",
-  "stats": {
-   "atk": 8,
-   "def": 6,
-   "eva": 2,
-   "spd": 2,
-   "focus": 4
-  },
-  "source": [
-   "boss"
-  ],
-  "hp": 280
- }
+  {
+    "id": "core_gravelord",
+    "name": "무덤군주의 핵",
+    "rarity": "unique",
+    "price": 1400,
+    "desc": "무덤 전체가 그의 몸이었다. 남은 것은 이 덩어리뿐이다.",
+    "stats": {
+      "atk": 8,
+      "def": 6,
+      "eva": 2,
+      "spd": 2,
+      "focus": 4
+    },
+    "source": [
+      "boss"
+    ],
+    "hp": 280,
+    "mana": 44
+  }
 ]

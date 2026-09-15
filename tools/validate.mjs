@@ -110,6 +110,12 @@ for (const p of parts) {
     err(`[part ${p.id}] 몸통이 아닌 파츠에 def_element가 있습니다`);
   }
 
+  // 요구 마력은 등급에서 나온다 (§3.7)
+  const MANA_BY_RARITY = { common: 2, rare: 3, unique: 5 };
+  if (p.mana !== MANA_BY_RARITY[p.rarity]) {
+    err(`[part ${p.id}] 요구 마력이 등급과 어긋납니다: ${p.rarity}면 ${MANA_BY_RARITY[p.rarity]}이어야 하는데 ${p.mana}`);
+  }
+
   // 슬롯별 스킬 개수 상한 (§3.1)
   const cap = { head: 1, body: 2, arm: 2, leg: 2 }[p.slot];
   if ((p.skills ?? []).length > cap)

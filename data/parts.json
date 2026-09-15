@@ -20,7 +20,8 @@
     "passive": null,
     "drop_from": [
       "m_goblin"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_head_hound_skull",
@@ -41,7 +42,8 @@
     "passive": "start_spd_rank_1",
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_head_fungal_cap",
@@ -64,7 +66,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_fungal_ribcage",
@@ -88,7 +91,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_goblin_torso",
@@ -112,7 +116,8 @@
     "passive": null,
     "drop_from": [
       "m_goblin"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_ogre_hide",
@@ -137,7 +142,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_goblin_claw",
@@ -161,7 +167,8 @@
     "passive": null,
     "drop_from": [
       "m_goblin"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_rusted_axe",
@@ -184,7 +191,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_bone_spike",
@@ -207,7 +215,8 @@
     "passive": null,
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_fungal_limb",
@@ -231,7 +240,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_goblin_hop",
@@ -254,7 +264,8 @@
     "passive": null,
     "drop_from": [
       "m_goblin"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_hound_legs",
@@ -278,7 +289,8 @@
     "passive": null,
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_ogre_stump",
@@ -301,7 +313,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_carrion_skull",
@@ -324,7 +337,8 @@
     "passive": null,
     "drop_from": [
       "m_carrion"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_head_weaver_hood",
@@ -347,7 +361,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_ogre_skull",
@@ -370,7 +385,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_ember_skull",
@@ -393,7 +409,8 @@
     "passive": null,
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_head_whisper_skull",
@@ -416,7 +433,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_hound_ribcage",
@@ -440,7 +458,8 @@
     "passive": null,
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_carrion_frame",
@@ -464,7 +483,8 @@
     "passive": null,
     "drop_from": [
       "m_carrion"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_weaver_hide",
@@ -488,7 +508,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_body_frost_ribcage",
@@ -512,7 +533,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_body_martyr_chest",
@@ -536,7 +558,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_hook",
@@ -559,7 +582,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_hammer",
@@ -582,7 +606,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_twin",
@@ -605,7 +630,8 @@
     "passive": null,
     "drop_from": [
       "m_goblin"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_flame",
@@ -628,7 +654,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_ice",
@@ -651,7 +678,8 @@
     "passive": null,
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_venom",
@@ -674,7 +702,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_rot",
@@ -697,7 +726,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_holy",
@@ -720,7 +750,8 @@
     "passive": null,
     "drop_from": [
       "m_carrion"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_shatter",
@@ -743,7 +774,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_needle",
@@ -766,7 +798,8 @@
     "passive": null,
     "drop_from": [
       "m_carrion"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_carrion",
@@ -789,7 +822,8 @@
     "passive": null,
     "drop_from": [
       "m_carrion"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_weaver",
@@ -812,7 +846,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_fungal",
@@ -835,7 +870,8 @@
     "passive": null,
     "drop_from": [
       "m_fungal"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_frost",
@@ -858,7 +894,8 @@
     "passive": null,
     "drop_from": [
       "m_bonehound"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_leg_iron",
@@ -882,7 +919,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_gravelord_crown",
@@ -905,7 +943,8 @@
     "passive": null,
     "drop_from": [
       "m_gravelord"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_body_gravelord",
@@ -930,7 +969,8 @@
     "passive": null,
     "drop_from": [
       "m_gravelord"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_arm_gravelord",
@@ -953,7 +993,8 @@
     "passive": null,
     "drop_from": [
       "m_gravelord"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_leg_gravelord",
@@ -977,7 +1018,8 @@
     "passive": null,
     "drop_from": [
       "m_gravelord"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_arm_weaver_needle",
@@ -1000,7 +1042,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_arm_ogre_tomb",
@@ -1024,7 +1067,8 @@
     "passive": null,
     "drop_from": [
       "m_ogre"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_body_drowned_bloat",
@@ -1048,7 +1092,8 @@
     "drop_from": [
       "m_drowned"
     ],
-    "def_element": "냉기"
+    "def_element": "냉기",
+    "mana": 2
   },
   {
     "id": "part_leg_drowned",
@@ -1071,7 +1116,8 @@
     "passive": null,
     "drop_from": [
       "m_drowned"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_leech",
@@ -1095,7 +1141,8 @@
     "passive": null,
     "drop_from": [
       "m_leech"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_head_leech",
@@ -1116,7 +1163,8 @@
     "passive": null,
     "drop_from": [
       "m_leech"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_arm_piston",
@@ -1139,7 +1187,8 @@
     "passive": null,
     "drop_from": [
       "m_rustdoll"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_body_rust_frame",
@@ -1163,7 +1212,8 @@
     "drop_from": [
       "m_rustdoll"
     ],
-    "def_element": "타격"
+    "def_element": "타격",
+    "mana": 3
   },
   {
     "id": "part_head_gulper",
@@ -1184,7 +1234,8 @@
     "passive": null,
     "drop_from": [
       "m_gulper"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_gulper",
@@ -1208,7 +1259,8 @@
     "passive": null,
     "drop_from": [
       "m_gulper"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_ratking",
@@ -1229,7 +1281,8 @@
     "passive": null,
     "drop_from": [
       "m_ratking"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_arm_ratking",
@@ -1253,7 +1306,8 @@
     "passive": null,
     "drop_from": [
       "m_ratking"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_body_sluice",
@@ -1277,7 +1331,8 @@
     "drop_from": [
       "m_sluicewarden"
     ],
-    "def_element": "타격"
+    "def_element": "타격",
+    "mana": 5
   },
   {
     "id": "part_arm_sluice",
@@ -1301,7 +1356,8 @@
     "passive": null,
     "drop_from": [
       "m_sluicewarden"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_body_bloatmother",
@@ -1325,7 +1381,8 @@
     "drop_from": [
       "m_bloatmother"
     ],
-    "def_element": "부패"
+    "def_element": "부패",
+    "mana": 5
   },
   {
     "id": "part_leg_bloatmother",
@@ -1348,7 +1405,8 @@
     "passive": null,
     "drop_from": [
       "m_bloatmother"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_head_wraith",
@@ -1369,7 +1427,8 @@
     "passive": null,
     "drop_from": [
       "m_wraith"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_leg_wraith",
@@ -1393,7 +1452,8 @@
     "passive": null,
     "drop_from": [
       "m_wraith"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_body_gravemass",
@@ -1417,7 +1477,8 @@
     "drop_from": [
       "m_gravemass"
     ],
-    "def_element": "타격"
+    "def_element": "타격",
+    "mana": 2
   },
   {
     "id": "part_arm_gravemass",
@@ -1440,7 +1501,8 @@
     "passive": null,
     "drop_from": [
       "m_gravemass"
-    ]
+    ],
+    "mana": 2
   },
   {
     "id": "part_head_ashpriest",
@@ -1461,7 +1523,8 @@
     "passive": null,
     "drop_from": [
       "m_ashpriest"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_ashpriest",
@@ -1485,7 +1548,8 @@
     "passive": null,
     "drop_from": [
       "m_ashpriest"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_body_pallbearer",
@@ -1509,7 +1573,8 @@
     "drop_from": [
       "m_pallbearers"
     ],
-    "def_element": "참격"
+    "def_element": "참격",
+    "mana": 5
   },
   {
     "id": "part_leg_pallbearer",
@@ -1532,7 +1597,8 @@
     "passive": null,
     "drop_from": [
       "m_pallbearers"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_head_weaver_prime",
@@ -1553,7 +1619,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver_prime"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_arm_weaver_prime",
@@ -1577,7 +1644,8 @@
     "passive": null,
     "drop_from": [
       "m_weaver_prime"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_body_sentinel",
@@ -1601,7 +1669,8 @@
     "drop_from": [
       "m_sentinel"
     ],
-    "def_element": "타격"
+    "def_element": "타격",
+    "mana": 3
   },
   {
     "id": "part_arm_sentinel",
@@ -1624,7 +1693,8 @@
     "passive": null,
     "drop_from": [
       "m_sentinel"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_mirror",
@@ -1645,7 +1715,8 @@
     "passive": null,
     "drop_from": [
       "m_mirror"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_leg_mirror",
@@ -1669,7 +1740,8 @@
     "passive": null,
     "drop_from": [
       "m_mirror"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_scribe",
@@ -1690,7 +1762,8 @@
     "passive": null,
     "drop_from": [
       "m_scribe"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_scribe",
@@ -1714,7 +1787,8 @@
     "passive": null,
     "drop_from": [
       "m_scribe"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_body_hunger",
@@ -1738,7 +1812,8 @@
     "drop_from": [
       "m_hunger"
     ],
-    "def_element": "부패"
+    "def_element": "부패",
+    "mana": 3
   },
   {
     "id": "part_leg_hunger",
@@ -1761,7 +1836,8 @@
     "passive": null,
     "drop_from": [
       "m_hunger"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_arm_prototype",
@@ -1785,7 +1861,8 @@
     "passive": null,
     "drop_from": [
       "m_prototype"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_leg_prototype",
@@ -1808,7 +1885,8 @@
     "passive": null,
     "drop_from": [
       "m_prototype"
-    ]
+    ],
+    "mana": 3
   },
   {
     "id": "part_head_janu",
@@ -1829,7 +1907,8 @@
     "passive": null,
     "drop_from": [
       "m_janu"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_body_janu",
@@ -1853,7 +1932,8 @@
     "drop_from": [
       "m_janu"
     ],
-    "def_element": "신성"
+    "def_element": "신성",
+    "mana": 5
   },
   {
     "id": "part_body_labyrinth",
@@ -1877,7 +1957,8 @@
     "drop_from": [
       "m_labyrinth"
     ],
-    "def_element": "타격"
+    "def_element": "타격",
+    "mana": 5
   },
   {
     "id": "part_leg_labyrinth",
@@ -1900,7 +1981,8 @@
     "passive": null,
     "drop_from": [
       "m_labyrinth"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_head_ornel",
@@ -1921,7 +2003,8 @@
     "passive": null,
     "drop_from": [
       "m_ornel"
-    ]
+    ],
+    "mana": 5
   },
   {
     "id": "part_arm_ornel",
@@ -1945,6 +2028,7 @@
     "passive": null,
     "drop_from": [
       "m_ornel"
-    ]
+    ],
+    "mana": 5
   }
 ]
