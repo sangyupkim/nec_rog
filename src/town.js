@@ -253,3 +253,37 @@ export function buildingStatus(save) {
     conclave: learnable ? `배울 수 있는 술법 ${learnable}` : '지금은 배울 것이 없다',
   };
 }
+
+/* ── 상점 보급품 (§10.3-B) ─────────────────────────────
+   기본 재료는 수레가 늘 조금씩 받아 둔다. 시간이 지나면 차오르고,
+   위 칸이 차면 더는 쌓이지 않는다 — 은화로 시간을 사되, 무한히는 못 산다. */
+export const SUPPLY = [
+  { key: 'scrap',    name: '시체 조각', price: 9,  cap: 40, ms: 3 * 60000 },
+  { key: 'boneMeal', name: '골분',     price: 45, cap: 12, ms: 12 * 60000 },
+  { key: 'ichor',    name: '부패 진액', price: 70, cap: 8,  ms: 20 * 60000 },
+];
+
+export function newSupply(now = Date.now()) {
+  const s = {};
+  for (const d of SUPPLY) s[d.key] = { n: Math.floor(d.cap / 2), at: now };
+  return s;
+}
+
+/** 지난 시간만큼 재고를 채운다. 상한을 넘기지 않고, 남은 시간은 버리지 않는다. */
+export function tickSupply(save, now = Date.now()) {
+  save.town.supply ??= newSupply(now);
+  for (const d of SUPPLY) {
+    const st = (save.town.supply[d.key] ??= { n: 0, at: now });
+    if (st.n >= d.cap) { st.at = now; continue; }
+    const gain = Math.floor((now - st.at) / d.ms);
+    if (gain > 0) {
+      st.n = Math.min(d.cap, st.n + gain);
+      st.at = st.n >= d.cap ? now : st.at + gain * d.ms;
+    }
+  }
+  return save.town.supply;
+}
+
+/** 다음 한 개까지 남은 시간(ms). 가득 찼으면 0. */
+export const supplyRemain = (st, d, now = Date.now()) =>
+  (st.n >= d.cap ? 0 : Math.max(0, d.ms - (now - st.at)));

@@ -14,6 +14,7 @@ import {
   refreshDaily, advanceDaily, dailyAllDone, claimDaily,
   nextResetCost, rollStock, partPrice, sellPrice, canCraft, craft,
   canLearn, learn, buildingStatus, ATTACH_SLOTS,
+  SUPPLY, newSupply, tickSupply, supplyRemain,
 } from './town.js';
 import * as O from './ossuary.js';
 import * as UI from './ui.js';
@@ -54,7 +55,7 @@ function newSave() {
              equipped: ['nk_bonemend', 'nk_skeleton', 'nk_soulspear'] },
     quests: { active: rollQuests(r), resets: 0 },
     daily: null,          // 첫 진입에서 오늘 날짜로 채워진다
-    town: { stock: rollStock(r), smithy: [] },
+    town: { stock: rollStock(r), smithy: [], supply: newSupply() },
     seen: {}, run: null,
     // 캠페인 — 어디까지 왔는가 (§7-A). stage는 '다음에 도전할 단계'
     campaign: { stage: '1-1', cleared: {}, story: {}, ending: null },
@@ -123,6 +124,8 @@ function migrate(s) {
   s.log.hintVault ??= false;
   s.town ??= {};
   s.town.smithy ??= [];
+  s.town.supply ??= newSupply();                          // 상점 보급품 재고
+  s.coreHpBy ??= {};                                      // 핵마다 따로 기억하는 체력
   s.golem ??= {};
   s.golem.core ??= (s.golem.body ? 'core_scrap' : null);  // 예전 골렘에는 핵을 끼워 준다
   s.golem.coreHp ??= null;                                // null = 가득
@@ -1691,6 +1694,7 @@ function questScreen() {
 function shopScreen() {
   UI.topbar(S, '시체골 · 썩은 손수레');
   const stock = S.town.stock;
+  const supply = tickSupply(S);
   const rows = [
     ...(stock.cores ?? []).map((id) => {
       const c = DB.coresBy[id];
@@ -1703,7 +1707,16 @@ function shopScreen() {
     ...stock.parts.map((p) => UI.rowHTML(KIND_LABEL[DB.partsBy[p.defId].slot] ?? '파츠',
       UI.partHTML(p), money(partPrice(p)))),
   ];
-  UI.listPanel('오늘의 재고', rows, `<p class="note">쓰지 않는 파츠는 팔아서 은화로 바꿀 수 있다.</p>`);
+  const supRows = SUPPLY.map((d) => {
+    const st = supply[d.key];
+    const left = supplyRemain(st, d);
+    return UI.rowHTML('보급', UI.esc(d.name),
+      `${st.n}/${d.cap} · ${money(d.price)}` + (left ? ` · +1 ${O.remainText(Date.now(), left)}` : ''),
+      st.n === 0);
+  });
+  UI.listPanel('오늘의 재고', [...rows, ...supRows],
+    `<p class="note">쓰지 않는 파츠는 팔아서 은화로 바꿀 수 있다.<br>
+     보급품은 수레가 시간이 지나며 조금씩 받아 둔다 — 칸이 차면 더는 쌓이지 않는다.</p>`);
 
   UI.logHead('썩은 손수레');
   UI.logLine('수레 가득 잡동사니가 실려 있다. 주인은 당신과 눈을 마주치지 않는다.', 'narrate');
@@ -1738,10 +1751,32 @@ function shopScreen() {
       shopScreen();
     } });
   }
+  for (const d of SUPPLY) {
+    const st = supply[d.key];
+    const bulk = Math.min(st.n, Math.floor(S.silver / d.price), 10);
+    list.push({ label: `${d.name} 1개 구입`, meta: `${money(d.price)} · 재고 ${st.n}/${d.cap}`,
+      disabled: st.n < 1 || S.silver < d.price, on: () => buySupply(d, 1) });
+    if (bulk > 1) {
+      list.push({ label: `${d.name} ${bulk}개 구입`, cls: 'ghost', meta: money(d.price * bulk),
+        on: () => buySupply(d, bulk) });
+    }
+  }
   list.push({ label: '파츠 팔기', on: sellScreen });
   list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) });
   UI.choices(list);
   save();
+}
+
+function buySupply(d, n) {
+  const st = tickSupply(S)[d.key];
+  const take = Math.min(n, st.n, Math.floor(S.silver / d.price));
+  if (take < 1) { UI.logLine('수레에 남은 게 없다.', 'bad'); shopScreen(); return; }
+  if (st.n >= d.cap) st.at = Date.now();   // 가득 찬 칸에서 빼면 그때부터 다시 찬다
+  st.n -= take;
+  S.silver -= d.price * take;
+  S[d.key] = (S[d.key] ?? 0) + take;
+  UI.logLine(`${d.name} ${take}개를 샀다.`, 'good');
+  shopScreen();
 }
 
 function sellScreen() {
@@ -1988,9 +2023,18 @@ function coreScreen(back, canEdit = true) {
     ...S.cores.map((cid) => {
       const c = DB.coresBy[cid];
       return { label: `${c.name} 장착`, meta: statText(c), on: () => {
-        if (S.golem.core) S.cores.push(S.golem.core);
+        // 핵마다 체력을 따로 기억한다 — 새 핵은 온전한 채로 들어오고,
+        // 빼 둔 핵은 깎인 만큼을 그대로 안고 나간다
+        if (S.golem.core) {
+          S.coreHpBy[S.golem.core] = S.golem.coreHp;
+          S.cores.push(S.golem.core);
+        }
         S.cores = S.cores.filter((x) => x !== cid);
         S.golem.core = cid;
+        S.golem.coreHp = S.coreHpBy[cid] ?? null;   // 기록 없음 = 가득
+        delete S.coreHpBy[cid];
+        const max = assembleGolem(S).stats.hp;
+        if (S.golem.coreHp !== null) S.golem.coreHp = Math.min(S.golem.coreHp, max);
         UI.logLine(`${c.name}을(를) 골렘 가슴에 앉혔다.`, 'good');
         golemScreen(back, canEdit);
       } };
@@ -2970,6 +3014,8 @@ function dismantleGolem() {
 
   const brokenCore = S.golem.core;
   S.golem.core = null;
+  S.golem.coreHp = null;             // 쪼개진 핵의 상처는 다음 핵에 옮지 않는다
+  if (brokenCore) delete S.coreHpBy[brokenCore];
   S.golem.attachments = [];
   return { kept, lost, spareLost, rate, brokenCore };
 }
