@@ -1,5 +1,5 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
-import { DB, SLOTS, SLOT_LABEL, partName, assembleGolem, SKILL_CAP, josa,
+import { DB, SLOTS, SLOT_LABEL, partName, partSkills, assembleGolem, SKILL_CAP, josa,
          shieldMax, shieldNow, partOf } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 import * as CP from './campaign.js';
@@ -306,27 +306,69 @@ function statusChips(u) {
 }
 
 /** 전투 중 왼쪽 패널 */
+/** 전투 중 펼쳐 둔 부위. 턴이 바뀌어 패널을 다시 그려도 보던 자리를 유지한다. */
+let openSlot = null;
+export const resetBodyPick = () => { openSlot = null; };
+
+function bindBodyCells(cb) {
+  const box = $('bodydetail');
+  if (!box) return;
+
+  const show = (slot) => {
+    const w = cb.g.worn.find((x) => x.slot === slot);
+    if (!w) { box.innerHTML = '<span class="hint">비어 있는 자리다.</span>'; return; }
+    const f = cb.frames?.[slot];
+    const sk = partSkills(w.part).map((id) => DB.skillsBy[id]?.name).filter(Boolean);
+    box.innerHTML = `
+      <div class="bd-top">
+        <span class="rar ${DB.partsBy[w.part.defId]?.rarity ?? 'common'}">${esc(partName(w.part))}</span>
+        ${w.part.raw ? '<span class="chip warn">날것</span>' : ''}
+      </div>
+      <div class="bd-row">
+        <span>방어도 <b>${f ? Math.max(0, f.hp) : 0}/${f ? f.max : 0}</b></span>
+        <span>내구도 <b class="${w.part.integrity <= 2 ? 'warn' : ''}">${w.part.integrity}/${w.part.maxIntegrity}</b></span>
+      </div>
+      ${f?.down ? '<div class="bd-down">방어가 무너졌다 — 이 부속의 기술을 쓸 수 없다.</div>' : ''}
+      ${sk.length ? `<div class="bd-row"><span>기술 ${sk.map(esc).join(', ')}</span></div>` : ''}`;
+  };
+
+  for (const b of document.querySelectorAll('.bodymap .bcell[data-slot]')) {
+    b.addEventListener('click', () => {
+      const slot = b.dataset.slot;
+      openSlot = openSlot === slot ? null : slot;
+      for (const o of document.querySelectorAll('.bodymap .bcell')) o.classList.toggle('picked', o.dataset.slot === openSlot);
+      if (openSlot) show(openSlot);
+      else box.innerHTML = '<span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span>';
+    });
+  }
+  // 다시 그려도 보던 자리를 유지한다
+  if (openSlot && cb.g.worn.some((x) => x.slot === openSlot)) {
+    for (const o of document.querySelectorAll('.bodymap .bcell')) o.classList.toggle('picked', o.dataset.slot === openSlot);
+    show(openSlot);
+  }
+}
+
 export function combatPanel(cb, save) {
   const mon = cb.mon, g = cb.golem;
   const seen = save.seen?.[mon.defId];
   const summon = cb.summon ? DB.summonsBy[cb.summon.id] : null;
 
-  // 부위 상태 — 이 시스템이 보이지 않으면 조준의 의미를 알 수 없다 (§5.7)
-  const worn = cb.g.worn
-    .map(({ slot, part }) => {
-      const f = cb.frames?.[slot];
-      const pct = f ? Math.max(0, (f.hp / f.max) * 100) : 100;
-      const low = f && !f.down && pct <= 35;
-      return `<div class="frame ${f?.down ? 'down' : ''}">
-        <div class="frame-top">
-          <span class="lb">${SLOT_LABEL[slot]}</span>
-          <span class="vl">${part.raw ? '<span class="chip warn">날것</span> ' : ''}${esc(partName(part))}</span>
-          <span class="rt ${part.integrity <= 2 ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</span>
-        </div>
-        <div class="bar tiny ${low ? 'low' : ''}"><i style="width:${f?.down ? 0 : pct}%"></i></div>
-        ${f?.down ? '<div class="downtag">방어 무너짐 — 기술 사용 불가</div>' : ''}
-      </div>`;
-    }).join('');
+  /* 부위 상태 — 여섯 줄을 늘어놓으면 화면 절반을 먹고 정작 한눈에 안 들어온다.
+     사람 모양으로 세워 놓고 **숫자만** 보여 준다. 끼운 부속은 눌렀을 때 아래에 펼친다. */
+  const CELL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완', legL: '좌각', legR: '우각' };
+  const body = SLOTS.map((slot) => {
+    const w = cb.g.worn.find((x) => x.slot === slot);
+    if (!w) return `<div class="bcell empty" style="grid-area:${slot}"><span class="bl">${CELL[slot]}</span><span class="bv">—</span></div>`;
+    const f = cb.frames?.[slot];
+    const pct = f ? Math.max(0, Math.round((f.hp / f.max) * 100)) : 100;
+    const state = f?.down ? 'down' : pct <= 35 ? 'low' : pct <= 70 ? 'mid' : 'ok';
+    return `<button type="button" class="bcell ${state}" style="grid-area:${slot}"
+      data-slot="${slot}" aria-label="${CELL[slot]} ${pct}%">
+      <span class="bl">${CELL[slot]}</span>
+      <span class="bv">${f?.down ? '✕' : `${pct}%`}</span>
+      <span class="bfill" style="height:${f?.down ? 0 : pct}%"></span>
+    </button>`;
+  }).join('');
 
   const shieldSum = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.hp, 0);
   const shieldCap = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.max, 0);
@@ -358,29 +400,39 @@ export function combatPanel(cb, save) {
       ${statusChips(g)}
       <div class="chips">
         <span class="chip good">영력 ${cb.will}/10</span>
-        <span class="chip">방어도 ${shieldSum}/${shieldCap}</span>
       </div>
     </div>
-    <p class="pt">방어도 · 내구도</p>
-    <div class="frames">${worn}</div>
-    <p class="note">막대 = 방어도. 피해는 방어도를 먼저 깎고, 다 닳아야 핵에 닿는다.
-      방어도는 포션으로 돌아오지 않는다.</p>`);
+    <p class="pt">방어도 <span class="sub">${shieldSum}/${shieldCap}</span></p>
+    <div class="bodymap">${body}</div>
+    <div id="bodydetail" class="bodydetail"><span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span></div>`);
+
+  // 누르면 그 자리에 끼운 부속을 펼친다. 패널 전체를 다시 그리지 않는다
+  bindBodyCells(cb);
 }
 
 /** 던전 탐험 중 왼쪽 패널 */
 export function dungeonPanel(save, floorData) {
   const { cells } = minimapCells(floorData);
   const cur = floorData.pos;
+  /* 방 상태를 한눈에 — 이동을 십자키로 돌리면서 "갔던 방인지"를 알 길이 지도뿐이 됐다.
+     · 지금 자리  ▣ 강조 테두리
+     · 아직 안 가 봄  ? 초록 점선 — 갈 곳이 남았다는 신호
+     · 가 봤지만 안 끝남  아이콘 + 실선
+     · 끝난 방  아이콘 흐리게 */
   const grid = cells.map((row) => row.map((r) => {
     if (!r) return `<div class="cell"></div>`;
     if (!r.seen && !r.visited) return `<div class="cell"></div>`;
     const cls = ['cell', 'room'];
-    if (r.id === cur) cls.push('here');
-    else if (!r.visited) cls.push('seen');
-    else if (r.cleared) cls.push('done');
-    const icon = r.visited || r.type === 'start' ? ROOM_ICON[r.type] : '·';
-    return `<div class="cell ${cls.join(' ')}" title="${ROOM_LABEL[r.type] ?? ''}">${icon}</div>`;
+    let icon;
+    let title = ROOM_LABEL[r.type] ?? '';
+    if (r.id === cur) { cls.push('here'); icon = ROOM_ICON[r.type]; title += ' · 지금 자리'; }
+    else if (!r.visited) { cls.push('unseen'); icon = '?'; title = '아직 가 보지 않았다'; }
+    else if (r.cleared) { cls.push('done'); icon = ROOM_ICON[r.type]; title += ' · 끝남'; }
+    else { cls.push('open'); icon = ROOM_ICON[r.type]; title += ' · 남아 있다'; }
+    return `<div class="cell ${cls.join(' ')}" title="${esc(title)}">${icon}</div>`;
   }).join('')).join('');
+
+  const left = floorData.rooms.filter((r) => (r.seen || r.visited) && !r.visited).length;
 
   const cols = cells[0]?.length ?? 1;
   const sealed = floorData.rooms.filter((r) => r.type === 'sealed' && (r.seen || r.visited) && !r.cleared);
@@ -402,7 +454,10 @@ export function dungeonPanel(save, floorData) {
     ${hazardHtml}
     <div class="map" style="grid-template-columns:repeat(${cols},2.2rem)">${grid}</div>
     <div class="legend">
-      <span>▣ 현재 위치 · 점선 = 미탐험</span>
+      <span class="lg"><i class="sw here"></i>지금</span>
+      <span class="lg"><i class="sw unseen"></i>안 가 봄${left ? ` ${left}` : ''}</span>
+      <span class="lg"><i class="sw open"></i>남음</span>
+      <span class="lg"><i class="sw done"></i>끝남</span>
       ${sealed.map((r) => `<span>🔒 ${esc(r.seal.label)} 필요</span>`).join('')}
     </div>
     <hr class="sep">

@@ -2595,6 +2595,7 @@ function bossPrompt(room) {
 /* ── 전투 ───────────────────────────────── */
 function startBattle(room, elite, isBoss = false) {
   UI.resetBars();          // 새 전투에서 지난 전투의 잔상을 끌고 오지 않는다
+  UI.resetBodyPick();      // 펼쳐 둔 부위도 전투마다 접는다
   const r = makeRng(S.run.seed + room.x * 977 + room.y * 131 + S.run.floor);
   const sid = S.run.stage ?? '1-1';
   const mon = isBoss ? rollBoss(sid, S.run.floor, r, S.unlocks)
