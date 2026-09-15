@@ -122,6 +122,7 @@ function migrate(s) {
   s.log.hintSwap ??= false;
   s.log.hintOssuary ??= false;
   s.log.hintVault ??= false;
+  s.log.hintBench ??= false;
   s.town ??= {};
   s.town.smithy ??= [];
   s.town.supply ??= newSupply();                          // 상점 보급품 재고
@@ -2035,6 +2036,7 @@ function coreScreen(back, canEdit = true) {
         const max = assembleGolem(S).stats.hp;
         if (S.golem.coreHp !== null) S.golem.coreHp = Math.min(S.golem.coreHp, max);
         UI.logLine(`${c.name}을(를) 골렘 가슴에 앉혔다.`, 'good');
+        spendBench('core');
         golemScreen(back, canEdit);
       } };
     }),
@@ -2084,6 +2086,7 @@ function slotScreen(slot, back, canEdit = true) {
           if (p.raw) UI.logLine('아직 정착되지 않은 날것이다. 성능 60%, 기술 불발 25%, 내구도 2배 소모.', 'bad');
           if (gain) UI.logLine(`새 스킬: ${gain}`, 'good');
           warnCoverage(before, after);
+          spendBench('swap');
           golemScreen(back, canEdit);
         },
       };
@@ -2091,6 +2094,7 @@ function slotScreen(slot, back, canEdit = true) {
     cur && slot !== 'body' ? { label: '떼어낸다', cls: 'danger', on: () => {
       S.golem[slot] = null;
       UI.logLine(`${SLOT_LABEL[slot]}을(를) 비웠다.`, 'dim');
+      spendBench('swap');
       golemScreen(back, canEdit);
     } } : null,
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => golemScreen(back, canEdit) },
@@ -2452,7 +2456,18 @@ function enterRoom(room, first = false) {
       case 'event': return eventRoom(room);
       case 'rest': return restRoom(room);
       case 'sealed': return sealedRoom(room);
-      case 'workshop': room.cleared = true; break;
+      case 'workshop':
+        room.cleared = true;
+        if (!room.used) {
+          UI.logLine('버려진 작업대. 공구는 삭았지만 한 번은 버텨 줄 것이다.', 'narrate');
+          if (!S.log.hintBench) {
+            S.log.hintBench = true;
+            UI.logLine('— 작업대는 한 번뿐이다 —', 'necro');
+            UI.logLine('부속 한 자리를 바꾸거나, 한 부위를 고치거나 — 둘 중 하나만 된다.', 'necro');
+            UI.logLine('제대로 손보려면 마을 납골당 정비대로 가야 한다. 거기는 시간이 들지만 제한이 없다.', 'dim');
+          }
+        }
+        break;
       default: room.cleared = true;
     }
   }
@@ -2467,8 +2482,14 @@ function roomChoices(room) {
   const list = [];
 
   if (room.type === 'workshop') {
-    list.push({ label: '작업대에서 정비', cls: 'primary', on: () => golemScreen(backToRoom, true) });
-    list.push({ label: '방어도 수리', cls: 'primary', meta: '시체 조각', on: repairScreen });
+    if (room.used) {
+      list.push({ label: '작업대 — 다 썼다', disabled: true, meta: BENCH_USED[room.used] ?? '' });
+    } else {
+      list.push({ label: '부속 한 자리 교체', cls: 'primary', meta: '한 번뿐',
+        on: () => { benchRoom = room; golemScreen(backToRoom, true); } });
+      list.push({ label: '한 부위 방어도 수리', cls: 'primary', meta: '한 번뿐 · 시체 조각',
+        on: () => { benchRoom = room; repairScreen(); } });
+    }
   }
   list.push({ label: '골렘 상태', cls: 'ghost', on: () => golemScreen(backToRoom, false) });
   list.push({ label: '소지품', cls: 'ghost', on: () => inventoryScreen(backToRoom) });
@@ -2490,6 +2511,23 @@ function roomChoices(room) {
   save();
 }
 
+/* ── 작업대 사용권 (§7.4-A) ─────────────────────────
+   던전 작업대는 조각 몇 개로 즉시 고쳐 주는데, 마을 정비대는 재료에 시간까지 든다.
+   그대로 두면 **작업대 방을 찾는 것만이 정비의 정답**이 되고, 납골당 정비대는 아무도 안 쓴다.
+   그래서 작업대는 **한 번만** 쓴다 — 부속 한 자리를 바꾸거나, 한 부위를 수리하거나, 둘 중 하나.
+   방에 새겨 두므로 층을 넘기면 다시 생기고, 같은 층에서 되돌아와도 이미 쓴 것은 쓴 것이다. */
+let benchRoom = null;                    // 지금 사용권을 쥐고 있는 작업대
+const BENCH_USED = { swap: '부속을 바꿨다', core: '핵을 갈았다', repair: '한 부위를 고쳤다' };
+
+/** 작업대를 썼다. 무엇에 썼는지 방에 새긴다. */
+function spendBench(kind) {
+  if (!benchRoom) return;
+  benchRoom.used = kind;
+  benchRoom = null;
+  UI.logLine('녹슨 공구가 삭아 부스러진다. 이 작업대는 여기까지다.', 'dim');
+  save();
+}
+
 /** 작업대 방에서 방어도를 즉석 수리한다. 재료를 먹고 시간은 걸리지 않는다 */
 function repairScreen() {
   const g = assembleGolem(S);
@@ -2498,14 +2536,15 @@ function repairScreen() {
   UI.dungeonPanel(S, fd);
   UI.logHead('방어도 수리');
   UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도를 되돌릴 수 있다.', 'narrate');
-  UI.logLine(`시체 조각 하나에 방어도 ${35}. 층마다 한 번뿐이니 아껴 쓸 이유는 없다.`, 'dim');
+  UI.logLine('공구가 버텨 주는 것은 한 부위뿐이다. 어디를 고칠지 골라야 한다.', 'dim');
 
   const PER_SCRAP = 35;        // 시체 조각 1당 되돌아오는 방어도 (밸런스 도구가 정한 값)
   const rows = g.worn.map(({ slot, part, shieldMax: max, shield: cur }) => {
     const missing = max - cur;
     const cost = Math.max(1, Math.ceil(missing / PER_SCRAP));
     return { slot, part, max, cur, missing, cost };
-  }).filter((r) => r.missing > 0);
+  }).filter((r) => r.missing > 0)
+    .sort((a, b) => b.missing - a.missing);     // 가장 많이 깎인 곳이 위에
 
   if (!rows.length) UI.logLine('모든 부위의 방어도가 온전하다.', 'dim');
 
@@ -2518,23 +2557,17 @@ function repairScreen() {
         S.scrap -= r.cost;
         r.part.shield = r.max;
         UI.logLine(`${partName(r.part)}의 방어도를 ${r.max}까지 되돌렸다.`, 'good');
-        repairScreen();
+        spendBench('repair');
+        backToRoom();
       },
     })),
-    rows.length > 1 ? { label: '전부 수리', cls: 'primary',
-      meta: `조각 ${rows.reduce((n, r) => n + r.cost, 0)}`,
-      disabled: S.scrap < rows.reduce((n, r) => n + r.cost, 0),
-      on: () => {
-        for (const r of rows) { S.scrap -= r.cost; r.part.shield = r.max; }
-        UI.logLine('모든 부위의 방어도를 되돌렸다.', 'good');
-        repairScreen();
-      } } : null,
     { label: '돌아간다', cls: 'ghost', pin: true, on: backToRoom },
   ], { paged: true });
   save();
 }
 
 const backToRoom = () => {
+  benchRoom = null;                      // 쓰지 않고 나왔으면 사용권은 방에 남는다
   const fd = S.run.floorData;
   UI.topbar(S, `무덤 ${fd.floor}층`);
   UI.dungeonPanel(S, fd);
