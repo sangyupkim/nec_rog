@@ -129,8 +129,44 @@ export function topbar(save, where) {
 /* ── 선택지 ─────────────────────────────── */
 export const onChoicesRendered = [];
 
-export function choices(list) {
+/* ── 목록 넘기기 ─────────────────────────────
+   선택지가 많은 화면(해체대·접합로·상점…)에서 앞의 몇 개만 보이고
+   나머지는 볼 방법이 없었다. 정착 대기 9개 중 7개까지만 보이는 식이다.
+   이제 긴 목록은 쪽으로 나누고, `pin: true`인 항목(돌아간다 같은 것)은 모든 쪽에 남는다. */
+const PAGE_SIZE = 7;
+let pageAt = 0;        // 지금 보고 있는 쪽
+let pageKey = '';      // 목록이 바뀌면 첫 쪽으로 되돌린다
+
+export function choices(list, opts = {}) {
   const box = $('choices');
+  const all = list.filter(Boolean);
+  const pinned = all.filter((c) => c.pin);
+  const items = all.filter((c) => !c.pin);
+
+  // 목록의 정체가 바뀌면 쪽을 초기화한다
+  const key = opts.key ?? items.map((c) => c.label).join('|');
+  if (key !== pageKey) { pageKey = key; pageAt = 0; }
+
+  // 쪽 나누기는 **부속 목록처럼 길어지는 화면에서만** 켠다 (`paged: true`).
+  // 마을 같은 허브는 항목이 다 보여야 하므로 그냥 흘려보내고, 상자가 알아서 스크롤한다.
+  const size = opts.pageSize ?? PAGE_SIZE;
+  const pages = Math.max(1, Math.ceil(items.length / size));
+  if (pageAt >= pages) pageAt = pages - 1;
+
+  let shown = items;
+  const nav = [];
+  if (opts.paged && items.length > size) {
+    shown = items.slice(pageAt * size, (pageAt + 1) * size);
+    const go = (d) => { pageAt = (pageAt + d + pages) % pages; choices(list, { ...opts, key }); };
+    nav.push({ label: '◂ 이전', cls: 'ghost', nokey: true, on: () => go(-1) });
+    nav.push({ label: `${pageAt + 1} / ${pages}쪽`, cls: 'ghost', nokey: true, disabled: true });
+    nav.push({ label: '다음 ▸', cls: 'ghost', nokey: true, on: () => go(1) });
+  }
+
+  render(box, [...shown, ...nav, ...pinned]);
+}
+
+function render(box, list) {
   box.replaceChildren();
   keyHandlers = [];
   for (const fn of onChoicesRendered) fn();

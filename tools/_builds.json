@@ -4,6 +4,7 @@
    "part_head_goblin_skull",
    "part_body_goblin_torso",
    "part_arm_goblin_claw",
+   "part_leg_goblin_hop",
    "part_leg_goblin_hop"
   ],
   "core_scrap"
@@ -14,7 +15,8 @@
    "part_body_goblin_torso",
    "part_arm_goblin_claw",
    "part_leg_hound_legs",
-   "part_arm_ratking"
+   "part_arm_ratking",
+   "part_leg_hound_legs"
   ],
   "core_iron"
  ],
@@ -24,6 +26,7 @@
    "part_body_hound_ribcage",
    "part_arm_piston",
    "part_arm_bone_spike",
+   "part_leg_hound_legs",
    "part_leg_hound_legs"
   ],
   "core_iron"
@@ -34,6 +37,7 @@
    "part_body_sluice",
    "part_arm_ratking",
    "part_arm_piston",
+   "part_leg_bloatmother",
    "part_leg_bloatmother"
   ],
   "core_iron"
@@ -44,6 +48,7 @@
    "part_body_sluice",
    "part_arm_rusted_axe",
    "part_arm_ratking",
+   "part_leg_bloatmother",
    "part_leg_bloatmother"
   ],
   "core_iron"
@@ -54,6 +59,7 @@
    "part_body_ogre_hide",
    "part_arm_rusted_axe",
    "part_arm_ashpriest",
+   "part_leg_ogre_stump",
    "part_leg_ogre_stump"
   ],
   "core_soul"
@@ -64,6 +70,7 @@
    "part_body_pallbearer",
    "part_arm_weaver_prime",
    "part_arm_ogre_tomb",
+   "part_leg_pallbearer",
    "part_leg_pallbearer"
   ],
   "core_soul"
@@ -74,6 +81,7 @@
    "part_body_janu",
    "part_arm_weaver_prime",
    "part_arm_prototype",
+   "part_leg_pallbearer",
    "part_leg_pallbearer"
   ],
   "core_soul"
@@ -84,6 +92,7 @@
    "part_body_labyrinth",
    "part_arm_ornel",
    "part_arm_prototype",
+   "part_leg_labyrinth",
    "part_leg_labyrinth"
   ],
   "core_gravelord"

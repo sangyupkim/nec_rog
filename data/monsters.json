@@ -54,7 +54,7 @@
     "acts": [
       1
     ],
-    "hp": 150,
+    "hp": 170,
     "def_element": "타격",
     "stats": {
       "atk": 8,
@@ -141,7 +141,7 @@
     "acts": [
       1
     ],
-    "hp": 555,
+    "hp": 560,
     "def_element": "타격",
     "stats": {
       "atk": 26,
@@ -274,7 +274,7 @@
     "acts": [
       1
     ],
-    "hp": 645,
+    "hp": 670,
     "def_element": "부패",
     "stats": {
       "atk": 22,
@@ -315,7 +315,7 @@
     "acts": [
       1
     ],
-    "hp": 180,
+    "hp": 195,
     "def_element": "냉기",
     "stats": {
       "atk": 9,
@@ -353,7 +353,7 @@
     "acts": [
       1
     ],
-    "hp": 180,
+    "hp": 200,
     "def_element": "독",
     "stats": {
       "atk": 10,
@@ -391,7 +391,7 @@
     "acts": [
       1
     ],
-    "hp": 95,
+    "hp": 115,
     "def_element": "타격",
     "stats": {
       "atk": 11,
@@ -434,7 +434,7 @@
     "acts": [
       1
     ],
-    "hp": 200,
+    "hp": 210,
     "def_element": "부패",
     "stats": {
       "atk": 17,
@@ -513,7 +513,7 @@
     "acts": [
       1
     ],
-    "hp": 990,
+    "hp": 1040,
     "def_element": "타격",
     "stats": {
       "atk": 20,
@@ -552,7 +552,7 @@
     "acts": [
       1
     ],
-    "hp": 255,
+    "hp": 270,
     "def_element": "부패",
     "stats": {
       "atk": 21,
@@ -591,7 +591,7 @@
     "acts": [
       1
     ],
-    "hp": 220,
+    "hp": 235,
     "def_element": "신성",
     "stats": {
       "atk": 13,
@@ -705,7 +705,7 @@
     "acts": [
       1
     ],
-    "hp": 845,
+    "hp": 855,
     "def_element": "참격",
     "stats": {
       "atk": 22,
@@ -744,7 +744,7 @@
     "acts": [
       1
     ],
-    "hp": 320,
+    "hp": 325,
     "def_element": "부패",
     "stats": {
       "atk": 23,
@@ -782,7 +782,7 @@
     "acts": [
       1
     ],
-    "hp": 325,
+    "hp": 305,
     "def_element": "타격",
     "stats": {
       "atk": 15,
@@ -820,7 +820,7 @@
     "acts": [
       1
     ],
-    "hp": 400,
+    "hp": 335,
     "def_element": "참격",
     "stats": {
       "atk": 16,
@@ -858,7 +858,7 @@
     "acts": [
       1
     ],
-    "hp": 345,
+    "hp": 260,
     "def_element": "냉기",
     "stats": {
       "atk": 16,
@@ -896,7 +896,7 @@
     "acts": [
       1
     ],
-    "hp": 330,
+    "hp": 300,
     "def_element": "부패",
     "stats": {
       "atk": 17,
@@ -934,7 +934,7 @@
     "acts": [
       1
     ],
-    "hp": 570,
+    "hp": 615,
     "def_element": "참격",
     "stats": {
       "atk": 20,
@@ -974,7 +974,7 @@
     "acts": [
       1
     ],
-    "hp": 820,
+    "hp": 785,
     "def_element": "신성",
     "stats": {
       "atk": 24,

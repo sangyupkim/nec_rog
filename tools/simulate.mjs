@@ -44,7 +44,7 @@ const WORKSHOP = 1;         // 작업대
 const PER_SCRAP = 35;       // 조각 1당 방어도 (src/main.js와 같아야 한다)
 const START_SCRAP = 12;
 
-const SLOT_OF = { head: 'head', body: 'body', arm: 'armL', leg: 'leg' };
+const SLOT_ORDER = { head: ['head'], body: ['body'], arm: ['armL', 'armR'], leg: ['legL', 'legR'] };
 
 /* 튜닝 손잡이 — 데이터를 고치기 전에 얼마가 맞는지 여기서 훑는다.
    BOSS_ATK=0.8 npm run simulate  처럼 쓴다. */
@@ -76,12 +76,12 @@ function bestSkill(cb, list) {
 /** 참조 빌드로 세이브 하나를 만든다 */
 function makeSave(ids, coreId) {
   const inv = ids.map((id) => makePart(id));
-  const golem = { core: coreId, head: null, body: null, armL: null, armR: null, leg: null,
-                  attachments: [], banned: [], retuned: {} };
+  const golem = { core: coreId, head: null, body: null, armL: null, armR: null,
+                  legL: null, legR: null, attachments: [], banned: [], retuned: {} };
   const used = new Set();
   for (const p of inv) {
     const kind = DB.partsBy[p.defId].slot;
-    const order = kind === 'arm' ? ['armL', 'armR'] : [SLOT_OF[kind]];
+    const order = SLOT_ORDER[kind] ?? ['body'];
     const slot = order.find((s) => !golem[s] && !used.has(s));
     if (slot) { golem[slot] = p.uid; used.add(slot); }
   }

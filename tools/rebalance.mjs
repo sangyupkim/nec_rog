@@ -33,7 +33,7 @@ for (const part of DB.campaign.parts) {
 
 const BUILDS = JSON.parse(readFileSync(new URL('./_builds.json', import.meta.url), 'utf8'));
 const TARGET = { normal: [4, 6], elite: [8, 12], boss: [15, 20] };
-const SLOT_OF = { head: 'head', body: 'body', arm: 'armL', leg: 'leg' };
+const SLOT_ORDER = { head: ['head'], body: ['body'], arm: ['armL', 'armR'], leg: ['legL', 'legR'] };
 const SAMPLES = 15;
 
 /**
@@ -55,11 +55,11 @@ function bestSkill(cb, list) {
 
 function makeSave(ids, coreId) {
   const inv = ids.map((id) => makePart(id));
-  const golem = { core: coreId, head: null, body: null, armL: null, armR: null, leg: null,
-                  attachments: [], banned: [], retuned: {} };
+  const golem = { core: coreId, head: null, body: null, armL: null, armR: null,
+                  legL: null, legR: null, attachments: [], banned: [], retuned: {} };
   for (const p of inv) {
     const kind = DB.partsBy[p.defId].slot;
-    const order = kind === 'arm' ? ['armL', 'armR'] : [SLOT_OF[kind]];
+    const order = SLOT_ORDER[kind] ?? ['body'];
     const slot = order.find((s) => !golem[s]);
     if (slot) golem[slot] = p.uid;
   }

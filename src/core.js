@@ -161,9 +161,12 @@ export const RAW_STAT_RATIO = 0.6;    // 날것 파츠의 스탯 발휘율
 export const RAW_FAIL_CHANCE = 25;    // 스킬 사용 실패 확률 %
 export const RAW_WEAR = 2;            // 전투당 내구도 소모
 
-export const SLOTS = ['head', 'body', 'armL', 'armR', 'leg'];
-export const SLOT_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완', leg: '다리' };
-export const SLOT_KIND = { head: 'head', body: 'body', armL: 'arm', armR: 'arm', leg: 'leg' };
+/** 골렘의 자리 여섯. 팔도 다리도 두 짝이다 — 사람 몸이 그러니까. */
+export const SLOTS = ['head', 'body', 'armL', 'armR', 'legL', 'legR'];
+export const SLOT_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완',
+                            legL: '좌각', legR: '우각' };
+export const SLOT_KIND = { head: 'head', body: 'body', armL: 'arm', armR: 'arm',
+                           legL: 'leg', legR: 'leg' };
 export const SKILL_CAP = 9;
 
 /** 장착 상태 + 부착물로부터 골렘의 실제 능력치를 계산한다 */
@@ -235,7 +238,7 @@ export function skillElement(save, skillId) {
  * 처음엔 한 판 기준으로 잡았다가, 1층에서 3~4전투 만에 모든 부위가 무너져
  * 아무도 1-1을 깰 수 없었다. `npm run balance`의 층 완주 검사가 정한 값이다.
  */
-const SHIELD_BASE = { head: 160, body: 320, armL: 220, armR: 220, leg: 220 };
+const SHIELD_BASE = { head: 160, body: 320, armL: 220, armR: 220, legL: 220, legR: 220 };
 export function shieldMax(part, slot) {
   const st = partStats(part);
   return Math.max(30, Math.round(SHIELD_BASE[slot] + st.def * 6 + st.hp / 6));
@@ -248,7 +251,7 @@ export const MON_FRAME_RATIO = { head: 0.45, body: 0.85, arm: 0.55, leg: 0.48 };
 export const AIM = {
   random: { name: '무작위', acc: 0, mul: 1.0, slots: null },
   upper:  { name: '상단',   acc: -15, mul: 1.5, slots: ['head', 'armL', 'armR'], mon: ['head', 'arm'] },
-  lower:  { name: '하단',   acc: -10, mul: 1.3, slots: ['body', 'leg'],          mon: ['body', 'leg'] },
+  lower:  { name: '하단',   acc: -10, mul: 1.3, slots: ['body', 'legL', 'legR'],  mon: ['body', 'leg'] },
 };
 
 /* ── 몬스터 인스턴스 ────────────────────────────────── */

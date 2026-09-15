@@ -31,7 +31,7 @@ export const damage = (power, atk, def, atkEl, defEl) => {
 
 /* 핵 = 체력, 파츠 = 방어도 (§5.7) */
 const cores = Object.fromEntries(L('cores').map((c) => [c.id, c]));
-const SHIELD_BASE = { head: 160, body: 320, arm: 220, leg: 220 };
+const SHIELD_BASE = { head: 160, body: 320, arm: 220, leg: 220 };  // 슬롯이 아니라 종류 기준
 const shieldOf = (p) => Math.max(30,
   Math.round(SHIELD_BASE[p.slot] + p.stats.def * 6 + p.stats.hp / 6));
 
