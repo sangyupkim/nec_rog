@@ -458,11 +458,12 @@ function coreManaScreen() {
 
   const can = core && lv < CORE_MANA_MAX_LV;
   const c = CORE_UP_COST(lv);
-  const afford = can && S.silver >= c.silver && S.scrap >= c.scrap && S.boneMeal >= c.boneMeal;
+  const lack = can ? shortText(c) : null;
   UI.choices([
     { label: `마력 +${CORE_MANA_STEP} (${lv} → ${lv + 1}단계)`, cls: 'primary',
-      meta: can ? `은화 ${c.silver} · 조각 ${c.scrap} · 골분 ${c.boneMeal}` : '더는 못 올린다',
-      disabled: !afford,
+      meta: !can ? (core ? '더는 못 올린다' : '핵이 없다')
+        : lack ?? `은화 ${c.silver} · 조각 ${c.scrap} · 골분 ${c.boneMeal}`,
+      disabled: !can || Boolean(lack),
       on: () => {
         S.silver -= c.silver; S.scrap -= c.scrap; S.boneMeal -= c.boneMeal;
         S.coreUpgrades[coreId] = lv + 1;
@@ -478,14 +479,19 @@ function coreManaScreen() {
 /* ── 부속 한 장 들여다보기 ─────────────────────────────
    이름만 보고는 그 부속이 무슨 기술을 들고 오는지 알 수가 없었다.
    소지품에서 눌러 능력치·기술·상태를 한 화면에 펼친다. */
-function partDetailScreen(part, back) {
+/**
+ * 부속 하나를 낱낱이 보여 준다.
+ * `action`을 주면 **여기가 곧 확인 화면**이 된다 — 목록에서 이름이 잘려
+ * 무엇인지 모른 채 누르는 일을 없애려는 것이다. (§12.6)
+ */
+function partDetailScreen(part, back, action = null) {
   const def = DB.partsBy[part.defId];
   const st = partStats(part);
   const slot = SLOT_OF_KIND(def.slot);
   const mod = part.mod ? DB.modifiersBy[part.mod] : null;
   const equipped = SLOTS.some((x) => S.golem[x] === part.uid);
 
-  UI.topbar(S, '소지품 · 부속');
+  UI.topbar(S, action?.title ?? '소지품 · 부속');
   const rows = [
     UI.rowHTML('자리', KIND_LABEL[def.slot],
       `<span class="rar ${def.rarity}">${UI.RARITY_LABEL[def.rarity]}</span>`),
@@ -529,7 +535,14 @@ function partDetailScreen(part, back) {
     }
   }
 
-  UI.choices([{ label: '돌아간다', cls: 'ghost', pin: true, on: back }]);
+  if (action) {
+    UI.logLine(action.ask, 'bad');
+    if (action.note) UI.logLine(action.note, 'dim');
+  }
+  UI.choices([
+    action ? { label: action.label, cls: action.cls ?? 'primary', meta: action.meta, on: action.on } : null,
+    { label: action ? '아니오' : '돌아간다', cls: 'ghost', pin: true, on: back },
+  ]);
 }
 
 /** 효과 한 줄 설명 */
@@ -734,6 +747,23 @@ function dailyScreen() {
 }
 
 const RES_LABEL = { silver: '은화', soulAsh: '영혼재', scrap: '시체 조각', ichor: '부패 진액', boneMeal: '골분' };
+/* 버튼 곁말에 들어갈 짧은 이름 — '시체 조각 8 모자라다'는 잘려서 못 읽는다 */
+const RES_SHORT = { silver: '은화', soulAsh: '영혼재', scrap: '조각', ichor: '진액', boneMeal: '골분' };
+
+/**
+ * 무엇이 **얼마나** 모자란지 한 줄로. 전부 있으면 null.
+ *
+ * 그냥 '재료가 모자라다'라고만 적으면 무엇을 구해 와야 하는지 알 수 없어
+ * 창을 나갔다 들어오며 재화를 일일이 대조하게 된다. 부족분을 숫자로 적는다. (§16.5)
+ */
+function shortText(cost) {
+  const out = [];
+  for (const [k, v] of Object.entries(cost ?? {})) {
+    const lack = v - (S[k] ?? 0);
+    if (lack > 0) out.push(`${RES_SHORT[k] ?? k} ${lack}`);
+  }
+  return out.length ? `${out.join(' · ')} 모자라다` : null;
+}
 const rewardText = (r) => Object.entries(r).filter(([, v]) => v > 0)
   .map(([k, v]) => `${RES_LABEL[k] ?? k} ${v}`).join(' · ');
 
@@ -993,31 +1023,46 @@ function dissectScreen() {
   else UI.logLine('해체할 파츠를 고른다. 시간이 지나면 재료가 된다.');
   UI.choices([
     ...spare.map((p) => {
-      const rarity = DB.partsBy[p.defId].rarity;
-      const spec = O.DISSECT[rarity] ?? O.DISSECT.common;
+      const def = DB.partsBy[p.defId];
+      const spec = O.DISSECT[def.rarity] ?? O.DISSECT.common;
       return {
-        label: `${partName(p)} 해체`,
-        meta: `${Math.round(spec.ms / 60000)}분 · 조각 ${spec.scrap[0]}~${spec.scrap[1]}`,
+        // 목록에서는 이름이 잘릴 수 있다. 자리와 내구도를 곁에 적고,
+        // 누르면 상세 화면에서 무엇인지 확인한 뒤에 올린다
+        label: UI.partHTML(p),
+        meta: `${KIND_LABEL[def.slot]} · ${p.integrity}/${p.maxIntegrity} · 조각 ${spec.scrap[0]}~${spec.scrap[1]}`,
         disabled: free <= 0,
-        on: () => {
-          S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
-          const r = makeRng(Date.now() & 0xffffffff);
-          o.dissection.slots.push({
-            name: partName(p), startedAt: Date.now(), durationMs: O.jobDuration(S, spec.ms),
-            yield: {
-              scrap: r.int(spec.scrap[0], spec.scrap[1]), ichor: spec.ichor, boneMeal: spec.boneMeal,
-              modSample: p.mod && r.chance(35) ? p.mod : null,
-            },
-          });
-          UI.logLine(`${partName(p)}을(를) 해체대에 올렸다.`, 'good');
-          notifyQuests({ kind: 'dismantle', count: 1 });
-          dissectScreen();
-        },
+        on: () => partDetailScreen(p, dissectScreen, {
+          title: '납골당 · 해체 확인',
+          ask: `${partName(p)}을(를) 해체할까?`,
+          note: `${Math.round(O.jobDuration(S, spec.ms) / 60000)}분 뒤 시체 조각 ${spec.scrap[0]}~${spec.scrap[1]}`
+            + `${spec.ichor ? ` · 진액 ${spec.ichor}` : ''}${spec.boneMeal ? ` · 골분 ${spec.boneMeal}` : ''}`
+            + '. 한 번 올리면 되돌릴 수 없다.',
+          label: '예, 해체한다', cls: 'danger',
+          meta: `${Math.round(O.jobDuration(S, spec.ms) / 60000)}분`,
+          on: () => dissectPart(p, spec),
+        }),
       };
     }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ], { paged: true });
   save();
+}
+
+/** 부속 하나를 해체대에 올린다 */
+function dissectPart(p, spec) {
+  const o = S.ossuary;
+  S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
+  const r = makeRng(Date.now() & 0xffffffff);
+  o.dissection.slots.push({
+    name: partName(p), startedAt: Date.now(), durationMs: O.jobDuration(S, spec.ms),
+    yield: {
+      scrap: r.int(spec.scrap[0], spec.scrap[1]), ichor: spec.ichor, boneMeal: spec.boneMeal,
+      modSample: p.mod && r.chance(35) ? p.mod : null,
+    },
+  });
+  UI.logLine(`${partName(p)}을(를) 해체대에 올렸다.`, 'good');
+  notifyQuests({ kind: 'dismantle', count: 1 });
+  dissectScreen();
 }
 
 function vaultScreen() {
@@ -1368,7 +1413,6 @@ function forgeJobScreen() {
 
   const rawCount = S.inventory.filter((p) => p.raw && !equippedF.has(p.uid)).length;
   const damagedCount = S.inventory.filter((p) => p.integrity < p.maxIntegrity && !equippedF.has(p.uid)).length;
-  const affordable = (r) => Object.entries(r.cost).every(([k, v]) => (S[k] ?? 0) >= v);
   const costText = (r) => Object.entries(r.cost)
     .map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
 
@@ -1384,7 +1428,7 @@ function forgeJobScreen() {
           : key === 'attune' ? '정착할 날것이 없다'
           : key === 'mend' ? '상한 부속이 없다'
           : key === 'fuse' ? '여분이 둘 이상 필요하다' : '여분 부속이 없다')
-        : !affordable(r) ? '재료가 모자라다' : null;
+        : shortText(r.cost);
       return {
         label: `${r.name}`,
         meta: why ?? `${Math.round(r.ms / 60000)}분 · ${costText(r)}`,
@@ -1403,6 +1447,8 @@ function recipeScreen(key, first = null) {
   UI.topbar(S, `접합로 · ${r.name}`);
   ossPanel();
   UI.logLine(r.desc, 'dim');
+  const costText = (rec) => Object.entries(rec.cost)
+    .map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ') || '재료 없음';
 
   const start = (inputs, extra = {}) => {
     for (const [k, v] of Object.entries(r.cost)) S[k] -= v;
@@ -1445,18 +1491,32 @@ function recipeScreen(key, first = null) {
   }
 
   UI.choices([
-    ...pool.map((p) => ({
-      label: partName(p),
-      meta: `${DB.partsBy[p.defId].slot} · ${p.integrity}/${p.maxIntegrity}`,
-      on: () => {
+    ...pool.map((p) => {
+      const def = DB.partsBy[p.defId];
+      const go = () => {
         if (key !== 'fuse') { start([p]); return; }
         if (!first) { recipeScreen(key, p); return; }
         start([first, p], {
           skillsA: partSkills(first).slice(0, 1),
           skillsB: partSkills(p).slice(0, 1),
         });
-      },
-    })),
+      };
+      const pick = key === 'fuse' && !first;
+      return {
+        // 이름이 잘려도 자리·내구도로 구분되고, 누르면 상세를 확인한 뒤에 건다
+        label: UI.partHTML(p),
+        meta: `${KIND_LABEL[def.slot]} · ${p.integrity}/${p.maxIntegrity}${p.raw ? ' · 날것' : ''}`,
+        on: () => partDetailScreen(p, () => recipeScreen(key, first), {
+          title: `접합로 · ${r.name}`,
+          ask: pick ? `${partName(p)}을(를) 바탕으로 삼을까?` : `${partName(p)}에 ${r.name}을(를) 걸까?`,
+          note: pick ? '고르고 나면 이어붙일 상대를 고른다.'
+            : `${Math.round(O.jobDuration(S, r.ms) / 60000)}분 · ${costText(r)}. 재료로 쓴 부속은 돌아오지 않는다.`,
+          label: pick ? '이것으로 고른다' : `예, ${r.name}한다`,
+          cls: pick ? 'primary' : 'danger',
+          on: go,
+        }),
+      };
+    }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: forgeJobScreen },
   ], { paged: true });
 }
@@ -1584,8 +1644,10 @@ function altarScreen() {
   UI.logHead('제단');
   UI.logLine('영혼재는 오직 무덤에서만 나온다. 여기서 그것을 태워 영구적인 것을 산다.', 'narrate');
 
+  // 모자랄 때는 곁말 자리를 부족분에 내준다 — 못 누르는 이유가 먼저 읽혀야 한다
   const buy = (label, cost, meta, fn, disabled = false) => ({
-    label, meta: meta ?? `영혼재 ${cost}`,
+    label,
+    meta: (S.soulAsh < cost ? `영혼재 ${cost - S.soulAsh} 모자라다` : null) ?? meta ?? `영혼재 ${cost}`,
     disabled: disabled || S.soulAsh < cost,
     on: () => { S.soulAsh -= cost; fn(); altarScreen(); },
   });
@@ -1823,7 +1885,8 @@ function forgeScreen() {
   for (const a of DB.attachments) {
     if (a.effect.op === 'retune') continue;
     if (!S.owned.attachments.includes(a.id)) {
-      list.push({ label: `${a.name} 제작`, meta: money(a.price), disabled: !canCraft(S, a), on: () => {
+      const lack = shortText({ silver: a.price, ...(a.materials ?? {}) });
+      list.push({ label: `${a.name} 제작`, meta: lack ?? money(a.price), disabled: Boolean(lack), on: () => {
         craft(S, a);
         UI.logLine(`${a.name}을(를) 만들었다.`, 'good');
         forgeScreen();
