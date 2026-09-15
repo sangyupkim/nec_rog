@@ -49,16 +49,32 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   grid-template-rows:auto minmax(0,1fr) auto;   /* 상단바 · 본문 · 선택지 */
   max-width:1400px;margin:0 auto;
 }
-/* 좁은 화면에서도 한 줄을 유지한다. 넘치면 가로로 밀린다 */
+/*
+ * 넓으면 한 줄, 좁거나 글자가 커지면 재화가 통째로 다음 줄로 내려간다.
+ * nowrap + overflow-x로 두면 글자를 키웠을 때 잘린 것처럼 보인다.
+ */
 #topbar{
-  display:flex;flex-wrap:nowrap;gap:0 .9rem;align-items:baseline;
+  display:flex;flex-wrap:wrap;gap:.15rem .9rem;align-items:baseline;
   padding:.4rem clamp(8px,1.6vw,18px);
   border-bottom:1px solid var(--line);background:var(--panel);
   font-family:var(--mono);font-size:.74rem;color:var(--muted);
-  overflow-x:auto;scrollbar-width:none;white-space:nowrap;
+  min-width:0;
 }
-#topbar::-webkit-scrollbar{display:none}
-#topbar span{flex:0 0 auto}
+#topbar .where{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+#topbar .res{
+  display:flex;flex-wrap:wrap;gap:.15rem .9rem;align-items:baseline;min-width:0;
+}
+#topbar .res span{flex:0 0 auto;white-space:nowrap}
+/* 넓은 화면에서는 위치 · 재화 · 버튼이 한 줄에 나란히 */
+@media (min-width:660px){
+  #topbar .res{flex:1 1 auto;justify-content:flex-end;order:1}
+  #uiscale{order:2}
+}
+/* 좁은 화면에서는 재화가 둘째 줄로 내려간다 */
+@media (max-width:659px){
+  #topbar .res{flex:1 0 100%;order:2}
+  #uiscale{order:1;margin-left:auto}
+}
 #uiscale{
   flex:0 0 auto;font-family:var(--mono);font-size:.74rem;color:var(--muted);
   border:1px solid var(--line);border-radius:2px;padding:.1rem .4rem;margin-left:.2rem;
@@ -101,7 +117,6 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #scalebox button:hover{color:var(--ink);border-color:var(--accent-dim)}
 #scalebox .preview{font-size:.95rem;color:var(--ink-soft);border-top:1px solid var(--line-soft);padding-top:.45rem}
 #topbar .where{color:var(--accent);letter-spacing:.06em}
-#topbar .sp{flex:1}
 #topbar b{color:var(--ink-soft);font-weight:500}
 
 #panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}

@@ -48,7 +48,7 @@ function newSave() {
     ossuary: (() => { const o = O.newOssuary(); o.built.forge = true; return o; })(),
     unlocks: { vaultStart: 1, necroSlots: 3 },
     modSamples: {},
-    log: { runs: 0, kills: 0, lost: 0, handouts: 0 },
+    log: { runs: 0, kills: 0, lost: 0, handouts: 0, hintAim: false, hintRaw: false },
   };
 }
 
@@ -68,6 +68,8 @@ function migrate(s) {
   s.unlocks.necroSlots ??= 3;
   s.log ??= {};
   s.log.handouts ??= 0;
+  s.log.hintAim ??= false;
+  s.log.hintRaw ??= false;
   s.town ??= {};
   s.town.smithy ??= [];
   s.golem ??= {};
@@ -174,6 +176,47 @@ const RESOURCE_GUIDE = [
     note: '적게 나오고 귀하다. 강화와 정비에 집중해서 쓴다.' },
 ];
 
+/** 부위 조준과 방어도 — 전투의 두 축 */
+function aimGuideScreen(back = town) {
+  UI.topbar(S, '부위 조준 안내');
+  UI.listPanel('조준 세 가지', [
+    UI.rowHTML('무작위', '부위를 가리지 않는다', '명중 ±0 · 부위 ×1.0'),
+    UI.rowHTML('상단', '머리 · 양팔', '명중 −15 · 부위 ×1.5'),
+    UI.rowHTML('하단', '몸통 · 다리', '명중 −10 · 부위 ×1.3'),
+  ], `<p class="note">전투 커맨드의 🎯 버튼으로 전환한다. 한 번 고르면 바꿀 때까지 유지된다.</p>`);
+
+  UI.logHead('부위 조준');
+  UI.logLine('적의 부위를 부수면 그만큼 약해진다 — 팔을 부수면 공격력이 절반, 다리면 속도와 회피가 절반이다.', 'narrate');
+  UI.logLine('대신 부서진 부위는 전리품에서 빠진다. 그 부속은 얻을 수 없다.', 'bad');
+  UI.logLine('이것이 조준의 전부다 — 지금 편하게 싸울 것인가, 그 부속을 온전히 얻을 것인가.', 'good');
+  UI.logLine('무작위 조준은 부위 피해 배율이 1.0이라 사실상 "부속 보존" 선택지가 된다.', 'dim');
+
+  UI.logLine('', '');
+  UI.logLine('내 쪽도 같은 구조다. 핵이 체력이고, 장착한 부속이 방어도다.', 'narrate');
+  UI.logLine('피해는 방어도를 먼저 깎고, 방어도가 다 닳아야 핵에 닿는다.', '');
+  UI.logLine('부위 방어도가 0이 되면 그 부속의 기술을 쓸 수 없다. 전부 무너지면 핵이 남아도 패배한다.', 'bad');
+  UI.logLine('방어도는 포션으로 돌아오지 않는다. 던전 작업대방이나 납골당 정비대에서만 되돌린다.', 'good');
+  UI.choices([{ label: '돌아간다', cls: 'ghost', on: () => back(false) }]);
+}
+
+/** 날것 부속 — 전투 드랍을 바로 쓰는 것의 대가 */
+function rawGuideScreen(back = town) {
+  UI.topbar(S, '날것 부속 안내');
+  UI.listPanel('날것 vs 정착', [
+    UI.rowHTML('스탯', '60%만 발휘', '100%'),
+    UI.rowHTML('기술', '25% 확률로 불발', '정상'),
+    UI.rowHTML('내구도', '전투당 2씩 소모', '전투당 1'),
+  ], `<p class="note">정비 화면에서 부속마다 <b>날것</b> / <b>정착</b> 표시를 볼 수 있다.</p>`);
+
+  UI.logHead('날것 부속');
+  UI.logLine('무덤에서 막 뜯어온 부속은 날것이다. 골렘의 이음새에 맞지 않아 헛돈다.', 'narrate');
+  UI.logLine('그대로 끼울 수는 있다 — 다만 스탯은 60%, 기술은 넷 중 하나꼴로 불발되고, 내구도가 배로 닳는다.', 'bad');
+  UI.logLine('고치는 곳: 납골당 → 접합로 → 정착. 시체 조각 8 + 부패 진액 1, 20분.', 'good');
+  UI.logLine('상점에서 산 것, 봉인실 보상, 접합로에서 나온 것은 처음부터 정착 상태다. 날것은 전투 드랍에만 붙는다.', 'dim');
+  UI.logLine('급하면 지금 끼우고 감수하거나, 마을로 돌아가 제대로 처리하고 오거나 — 그 저울질이 요점이다.', '');
+  UI.choices([{ label: '돌아간다', cls: 'ghost', on: () => back(false) }]);
+}
+
 function resourceGuideScreen(back = town) {
   UI.topbar(S, '재화 안내');
   UI.listPanel('가진 재화',
@@ -275,14 +318,15 @@ function scavengerScreen() {
       disabled: !needsHelp,
       on: () => { giveHandout(); scavengerScreen(); } },
     { label: '재화가 뭔지 알려달라', cls: 'ghost', on: () => resourceGuideScreen(scavengerScreen) },
+    { label: '부위 조준이 뭐냐', cls: 'ghost', on: () => aimGuideScreen(scavengerScreen) },
+    { label: '날것 부속이 뭐냐', cls: 'ghost', on: () => rawGuideScreen(scavengerScreen) },
     { label: '조언을 듣는다', cls: 'ghost', on: () => {
       for (const t of [
-        '"무덤에서 뜯어온 건 날것이야. 그대로 끼우면 헛돌지."',
-        '"고치려면 납골당 → 접합로 → 정착. 시체 조각 여덟에 진액 하나, 스무 날쯤 걸려."',
-        '"닳은 건 같은 자리에서 수복. 부패한 것도 되살아나."',
-        '"팔을 노려 부수면 놈이 약해져. 대신 그 팔은 못 건지고."',
         '"작업대가 있는 방에서만 갈아끼울 수 있어. 밖에선 눈으로만 봐."',
         '"핵이 깨지면 골렘은 끝이야. 부속은 좀 주워 오겠지만."',
+        '"닳은 건 납골당 접합로에서 수복해. 부패한 것도 되살아나."',
+        '"방어도는 물약으로 안 돌아와. 작업대나 정비대에서만 고쳐."',
+        '"부속 둘은 붙어 있어야 내려갈 수 있어. 하나 남은 골렘은 서 있기만 하지."',
       ]) UI.logLine(t, 'narrate');
       UI.choices([{ label: '돌아간다', cls: 'ghost', on: () => town(false) }]);
     } },
@@ -1629,6 +1673,13 @@ function startBattle(room, elite, isBoss = false) {
   }
   UI.logHead(isBoss ? '층의 주인' : elite ? '엘리트 전투' : '전투');
   UI.logAll(cb.log);
+  if (!S.log.hintAim) {
+    S.log.hintAim = true;
+    UI.logLine('— 처음이니 한 번만 짚는다 —', 'necro');
+    UI.logLine('피해는 핵이 아니라 부속의 방어도부터 깎는다. 방어도가 다 닳아야 핵이 맞는다.', 'necro');
+    UI.logLine('🎯 조준으로 적의 부위를 노릴 수 있다. 부수면 적이 약해지지만 그 부속은 못 얻는다.', 'necro');
+    UI.logLine('자세한 건 마을의 뼈 수습꾼에게 물어보면 된다.', 'dim');
+  }
   combatTurn();
 }
 
@@ -1732,7 +1783,14 @@ function winBattle() {
       on: () => {
         S.inventory.push(p);
         UI.logLine(`${partName(p)}을(를) 챙겼다.`, 'good');
-        UI.logLine('아직 날것이다. 납골당 정착대를 거쳐야 온전히 쓸 수 있다.', 'dim');
+        if (!S.log.hintRaw) {
+          S.log.hintRaw = true;
+          UI.logLine('— 날것 부속 —', 'necro');
+          UI.logLine('막 뜯어온 것은 골렘에 맞지 않는다. 그대로 끼우면 스탯 60%, 기술 25% 불발, 내구도 2배 소모다.', 'necro');
+          UI.logLine('납골당 → 접합로 → 정착 (조각 8 + 진액 1, 20분)을 거치면 온전해진다.', 'necro');
+        } else {
+          UI.logLine('아직 날것이다. 납골당 정착대를 거쳐야 온전히 쓸 수 있다.', 'dim');
+        }
         notifyQuests({ kind: 'loot', slot: DB.partsBy[p.defId].slot, mod: p.mod });
         afterBattle(isBoss, room);
       },

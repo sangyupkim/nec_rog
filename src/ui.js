@@ -23,15 +23,17 @@ export function clearLog() { $('log').replaceChildren(); }
 
 /* ── 상단바 ─────────────────────────────── */
 export function topbar(save, where) {
+  // 재화를 한 덩어리로 묶는다 — 좁은 화면에서 통째로 다음 줄로 넘어가야 잘리지 않는다
   $('topbar').innerHTML = `
     <span class="where">${esc(where)}</span>
-    <span class="sp"></span>
-    <span><b>은화</b> ${save.silver}</span>
-    <span><b>영혼재</b> ${save.soulAsh}</span>
-    <span><b>조각</b> ${save.scrap}</span>
-    <span><b>진액</b> ${save.ichor}</span>
-    <span><b>골분</b> ${save.boneMeal}</span>
-    <button id="uiscale" type="button" title="글자 크기"></button>`;
+    <button id="uiscale" type="button" title="글자 크기"></button>
+    <span class="res">
+      <span><b>은화</b> ${save.silver}</span>
+      <span><b>영혼재</b> ${save.soulAsh}</span>
+      <span><b>조각</b> ${save.scrap}</span>
+      <span><b>진액</b> ${save.ichor}</span>
+      <span><b>골분</b> ${save.boneMeal}</span>
+    </span>`;
   const btn = $('uiscale');
   btn.addEventListener('click', () => window.toggleUiScale?.());
   window.applyUiScale?.();
