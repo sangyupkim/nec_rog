@@ -18,6 +18,76 @@ export function logLine(text, cls = '') {
   $('log').scrollTop = $('log').scrollHeight;
 }
 export function logAll(lines) { for (const l of lines) logLine(l.text, l.cls); }
+
+/* ── 전투 로그 연출 (§5.8) ───────────────────
+   한 턴의 로그를 한꺼번에 쏟지 않고 국면(골렘 → 적 → 턴 끝)별로 끊어 보여준다.
+   같은 국면 안에서는 촘촘히, 국면이 바뀔 때만 텀을 둔다.
+   화면을 두드리거나 아무 키나 누르면 남은 줄이 즉시 다 나온다. */
+const BEAT = { line: 110, phase: 420 };
+const reducedMotion = () =>
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+function shake(kind) {
+  if (reducedMotion()) return;
+  const app = $('app');
+  const cls = kind === 'golem' ? 'hit-golem' : 'hit-mon';
+  app.classList.remove(cls);
+  void app.offsetWidth;   // 같은 클래스를 연달아 붙일 때 애니메이션을 다시 태우려면 필요하다
+  app.classList.add(cls);
+  setTimeout(() => app.classList.remove(cls), 360);
+}
+
+export function logPlay(lines) {
+  return new Promise((done) => {
+    const list = lines.slice();
+    if (!list.length) { done(); return; }
+    let i = 0;
+    let timer = null;
+
+    const finish = () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', onSkip, true);
+      window.removeEventListener('pointerdown', onSkip, true);
+      done();
+    };
+    const dump = () => {
+      for (; i < list.length; i++) emit(list[i], true);
+      finish();
+    };
+    const onSkip = () => dump();
+
+    function emit(l, quiet) {
+      logLine(l.text, `${l.cls ?? ''}${l.big ? ' big' : ''}`);
+      if (!quiet && l.hit) shake(l.hit);
+    }
+
+    function step() {
+      if (i >= list.length) { finish(); return; }
+      const l = list[i];
+      emit(l, false);
+      i++;
+      if (i >= list.length) { finish(); return; }
+      // 다음 줄이 다른 국면이면 한 박자 쉰다
+      const gap = list[i].phase !== l.phase ? BEAT.phase : BEAT.line;
+      timer = setTimeout(step, gap);
+    }
+
+    window.addEventListener('keydown', onSkip, true);
+    window.addEventListener('pointerdown', onSkip, true);
+    step();
+  });
+}
+
+/** 연출이 도는 동안 선택지 자리에 둘 표시 */
+export function logWaiting() {
+  const box = $('choices');
+  box.replaceChildren();
+  keyHandlers = [];
+  const b = document.createElement('div');
+  b.className = 'waiting';
+  b.textContent = '· · ·  아무 곳이나 눌러 건너뛰기';
+  box.append(b);
+}
 export function logHead(text) { logLine(text, 'head'); }
 export function clearLog() { $('log').replaceChildren(); }
 

@@ -14,6 +14,7 @@ export class Combat {
     this.rng = rng;
     this.mon = monster;
     this.log = [];
+    this.phase = 'intro';   // 로그를 국면별로 묶어 UI가 사이에 텀을 둘 수 있게 한다 (§5.8)
     this.turn = 0;
     this.over = false;
     this.result = null;
@@ -72,7 +73,9 @@ export class Combat {
     this.say(`${this.mon.name}이(가) 어둠 속에서 모습을 드러낸다.`);
   }
 
-  say(text, cls = '') { this.log.push({ text, cls }); }
+  say(text, cls = '', extra = null) {
+    this.log.push({ text, cls, phase: this.phase, ...(extra ?? {}) });
+  }
 
   /* ── 플레이어가 고를 수 있는 것들 ─────────────────── */
   golemSkills() {
@@ -129,6 +132,7 @@ export class Combat {
     if (this.over) return;
     this.log = [];
     this.turn++;
+    this.phase = 'golem';
 
     let golemActed = false;
 
@@ -138,21 +142,23 @@ export class Combat {
     else if (action.kind === 'observe') { this.observe(); golemActed = true; }
 
     // 소환수는 골렘보다 먼저 움직인다
-    if (this.summon) this.summonAct();
+    if (this.summon) { this.phase = 'summon'; this.summonAct(); }
     if (this.checkEnd()) return;
 
     const golemFirst = this.speed(this.golem) >= this.speed(this.mon);
 
     const doGolem = () => {
       if (action.kind !== 'skill' || golemActed) return;
+      this.phase = 'golem';
       this.golemAct(action.id);
     };
-    const doMon = () => { if (!this.over) this.monsterAct(); };
+    const doMon = () => { if (this.over) return; this.phase = 'enemy'; this.monsterAct(); };
 
     if (golemFirst) { doGolem(); if (this.checkEnd()) return; doMon(); }
     else { doMon(); if (this.checkEnd()) return; doGolem(); }
     if (this.checkEnd()) return;
 
+    this.phase = 'end';
     this.endOfTurn();
     this.checkEnd();
   }
@@ -325,17 +331,19 @@ export class Combat {
     });
     if (hasStatus(from, '화상')) dmg = Math.floor(dmg * 0.75);
     if (hasStatus(to, '균열')) dmg = Math.floor(dmg * 1.5);
-    if (this.rng.chance(5)) { dmg = Math.floor(dmg * 1.5); this.say('급소에 들어갔다!', 'good'); }
+    if (this.rng.chance(5)) { dmg = Math.floor(dmg * 1.5); this.say('급소에 들어갔다!', 'good', { big: true }); }
 
     if (to === this.golem) {
       const leak = this.absorb(dmg);
       if (leak > 0) {
         to.hp -= leak;
-        this.say(`핵이 ${leak}의 피해를 입는다.`, 'bad');
+        this.say(`핵이 ${leak}의 피해를 입는다.`, 'bad', { hit: 'golem', big: true });
       }
     } else {
       to.hp -= dmg;
-      this.say(`${this.nameOf(to)}이(가) ${dmg}의 피해를 입는다.`, to === this.mon ? 'good' : 'bad');
+      this.say(`${this.nameOf(to)}이(가) ${dmg}의 피해를 입는다.`,
+        to === this.mon ? 'good' : 'bad',
+        { hit: to === this.mon ? 'mon' : 'golem' });
       this.hitFrame(to, dmg);
     }
 
@@ -370,7 +378,7 @@ export class Combat {
         this.brokenGolemSlots.push(f.slot);
       }
     }
-    if (left < dmg) this.say(`방어도가 ${dmg - left}을(를) 받아냈다.`, 'dim');
+    if (left < dmg) this.say(`방어도가 ${dmg - left}을(를) 받아냈다.`, 'dim', { hit: 'golem' });
     return left;
   }
 

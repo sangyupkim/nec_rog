@@ -201,6 +201,43 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .line::before{content:"› ";color:var(--muted)}
 .line.narrate::before,.line.head::before{content:""}
 
+/* ── 전투 연출 (§5.8) ─────────────────────
+   로그가 한 줄씩 떨어지면서, 타격이 들어간 줄에서 화면이 짧게 흔들린다. */
+.line{animation:line-in .16s ease-out}
+.line.big{font-weight:600;letter-spacing:.01em;animation:line-in .16s ease-out,line-pop .28s ease-out}
+@keyframes line-in{from{opacity:0;transform:translateY(.25rem)}to{opacity:1;transform:none}}
+@keyframes line-pop{0%{transform:scale(1)}35%{transform:scale(1.045)}100%{transform:scale(1)}}
+
+/* 적이 맞으면 가볍게, 내 골렘이 맞으면 크게 — 누가 맞았는지 손끝으로 구분된다 */
+#app.hit-mon{animation:shake-soft .22s ease-in-out}
+#app.hit-golem{animation:shake-hard .34s ease-in-out}
+@keyframes shake-soft{0%,100%{transform:translateX(0)}30%{transform:translateX(-3px)}70%{transform:translateX(3px)}}
+@keyframes shake-hard{
+  0%,100%{transform:translate(0,0)}
+  15%{transform:translate(-6px,2px)}
+  35%{transform:translate(5px,-2px)}
+  55%{transform:translate(-4px,-1px)}
+  80%{transform:translate(3px,1px)}
+}
+#app.hit-golem::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:5;
+  background:var(--danger);opacity:.08;animation:flash .34s ease-out forwards;
+}
+@keyframes flash{to{opacity:0}}
+
+/* 연출이 도는 동안 선택지 자리를 지키는 표시 — 버튼이 사라졌다 나타나며 화면이 튀지 않게 한다 */
+.waiting{
+  font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;min-height:2.2rem;
+  animation:breathe 1.1s ease-in-out infinite;
+}
+@keyframes breathe{0%,100%{opacity:.45}50%{opacity:.9}}
+
+@media (prefers-reduced-motion:reduce){
+  .line,.line.big,#app.hit-mon,#app.hit-golem,.waiting{animation:none}
+  #app.hit-golem::after{display:none}
+}
+
 /* ── 선택지 버튼 ─────────────────────────── */
 .btn{
   border:1px solid var(--line);background:var(--panel-2);

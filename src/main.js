@@ -1727,10 +1727,12 @@ function combatTurn() {
   UI.choices(list);
 }
 
-function resolve(action) {
+async function resolve(action) {
   const before = cb.summonCount;
   cb.act(action);
-  UI.logAll(cb.log);
+  // 로그를 한꺼번에 쏟지 않고 국면별로 끊어 보여준다 (§5.8)
+  UI.logWaiting();
+  await UI.logPlay(cb.log);
   if (cb.summonCount > before) {
     S.run.summons += cb.summonCount - before;
     notifyQuests({ kind: 'summon', count: cb.summonCount - before });
