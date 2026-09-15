@@ -6,7 +6,7 @@
     "acts": [
       1
     ],
-    "hp": 105,
+    "hp": 110,
     "def_element": "참격",
     "stats": {
       "atk": 8,
@@ -54,7 +54,7 @@
     "acts": [
       1
     ],
-    "hp": 155,
+    "hp": 150,
     "def_element": "타격",
     "stats": {
       "atk": 8,
@@ -97,7 +97,7 @@
     "acts": [
       1
     ],
-    "hp": 160,
+    "hp": 175,
     "def_element": "부패",
     "stats": {
       "atk": 7,
@@ -141,7 +141,7 @@
     "acts": [
       1
     ],
-    "hp": 625,
+    "hp": 555,
     "def_element": "타격",
     "stats": {
       "atk": 26,
@@ -183,7 +183,7 @@
     "acts": [
       1
     ],
-    "hp": 285,
+    "hp": 240,
     "def_element": "참격",
     "stats": {
       "atk": 9,
@@ -224,7 +224,7 @@
     "acts": [
       1
     ],
-    "hp": 375,
+    "hp": 370,
     "def_element": "부패",
     "stats": {
       "atk": 14,
@@ -274,7 +274,7 @@
     "acts": [
       1
     ],
-    "hp": 970,
+    "hp": 645,
     "def_element": "부패",
     "stats": {
       "atk": 22,
@@ -315,7 +315,7 @@
     "acts": [
       1
     ],
-    "hp": 160,
+    "hp": 180,
     "def_element": "냉기",
     "stats": {
       "atk": 9,
@@ -353,7 +353,7 @@
     "acts": [
       1
     ],
-    "hp": 135,
+    "hp": 180,
     "def_element": "독",
     "stats": {
       "atk": 10,
@@ -391,7 +391,7 @@
     "acts": [
       1
     ],
-    "hp": 120,
+    "hp": 95,
     "def_element": "타격",
     "stats": {
       "atk": 11,
@@ -434,7 +434,7 @@
     "acts": [
       1
     ],
-    "hp": 230,
+    "hp": 200,
     "def_element": "부패",
     "stats": {
       "atk": 17,
@@ -474,7 +474,7 @@
     "acts": [
       1
     ],
-    "hp": 340,
+    "hp": 250,
     "def_element": "참격",
     "stats": {
       "atk": 16,
@@ -513,7 +513,7 @@
     "acts": [
       1
     ],
-    "hp": 565,
+    "hp": 990,
     "def_element": "타격",
     "stats": {
       "atk": 20,
@@ -552,7 +552,7 @@
     "acts": [
       1
     ],
-    "hp": 500,
+    "hp": 255,
     "def_element": "부패",
     "stats": {
       "atk": 21,
@@ -591,7 +591,7 @@
     "acts": [
       1
     ],
-    "hp": 210,
+    "hp": 220,
     "def_element": "신성",
     "stats": {
       "atk": 13,
@@ -629,7 +629,7 @@
     "acts": [
       1
     ],
-    "hp": 310,
+    "hp": 325,
     "def_element": "타격",
     "stats": {
       "atk": 12,
@@ -667,7 +667,7 @@
     "acts": [
       1
     ],
-    "hp": 220,
+    "hp": 200,
     "def_element": "화염",
     "stats": {
       "atk": 14,
@@ -705,7 +705,7 @@
     "acts": [
       1
     ],
-    "hp": 950,
+    "hp": 845,
     "def_element": "참격",
     "stats": {
       "atk": 22,
@@ -744,7 +744,7 @@
     "acts": [
       1
     ],
-    "hp": 595,
+    "hp": 320,
     "def_element": "부패",
     "stats": {
       "atk": 23,
@@ -782,7 +782,7 @@
     "acts": [
       1
     ],
-    "hp": 320,
+    "hp": 325,
     "def_element": "타격",
     "stats": {
       "atk": 15,
@@ -820,7 +820,7 @@
     "acts": [
       1
     ],
-    "hp": 335,
+    "hp": 400,
     "def_element": "참격",
     "stats": {
       "atk": 16,
@@ -858,7 +858,7 @@
     "acts": [
       1
     ],
-    "hp": 260,
+    "hp": 345,
     "def_element": "냉기",
     "stats": {
       "atk": 16,
@@ -896,7 +896,7 @@
     "acts": [
       1
     ],
-    "hp": 255,
+    "hp": 330,
     "def_element": "부패",
     "stats": {
       "atk": 17,
@@ -934,7 +934,7 @@
     "acts": [
       1
     ],
-    "hp": 550,
+    "hp": 570,
     "def_element": "참격",
     "stats": {
       "atk": 20,
@@ -974,7 +974,7 @@
     "acts": [
       1
     ],
-    "hp": 880,
+    "hp": 820,
     "def_element": "신성",
     "stats": {
       "atk": 24,
@@ -1013,7 +1013,7 @@
     "acts": [
       1
     ],
-    "hp": 1260,
+    "hp": 1275,
     "def_element": "타격",
     "stats": {
       "atk": 25,
@@ -1052,7 +1052,7 @@
     "acts": [
       1
     ],
-    "hp": 1035,
+    "hp": 585,
     "def_element": "신성",
     "stats": {
       "atk": 27,

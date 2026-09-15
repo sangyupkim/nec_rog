@@ -8,7 +8,8 @@
     "start": "node tools/serve.mjs",
     "validate": "node tools/validate.mjs",
     "balance": "node tools/balance.mjs",
-    "check": "npm run validate && npm run balance",
-    "rebalance": "node tools/rebalance.mjs"
+    "check": "npm run validate && npm run balance && npm run simulate",
+    "rebalance": "node tools/rebalance.mjs",
+    "simulate": "node tools/simulate.mjs"
   }
 }

@@ -26,7 +26,10 @@ let cb = null;         // 진행 중인 전투
 function newSave() {
   const seed = Math.floor(Math.random() * 1e9);
   const r = makeRng(seed);
+  // 네 자리를 채운 채 시작한다. 세 자리로 시작하면 1-1의 방어도 예산이
+  // 한 층을 못 버틴다 — npm run simulate가 정한 구성이다
   const starter = [
+    makePart('part_head_goblin_skull'),
     makePart('part_body_goblin_torso'),
     makePart('part_arm_goblin_claw'),
     makePart('part_leg_goblin_hop'),
@@ -37,7 +40,8 @@ function newSave() {
     inventory: starter,
     golem: {
       core: 'core_scrap',
-      head: null, body: starter[0].uid, armL: starter[1].uid, armR: null, leg: starter[2].uid,
+      head: starter[0].uid, body: starter[1].uid, armL: starter[2].uid, armR: null,
+      leg: starter[3].uid,
       attachments: [], banned: [], retuned: {},
     },
     cores: [],          // 예비 핵
@@ -67,6 +71,24 @@ function save() {
  * 새 기능을 넣을 때 여기를 같이 고치지 않으면, 이미 플레이 중인 사람의 화면에서
  * undefined.map 같은 오류가 난다. 필드를 추가하면 반드시 여기도 추가할 것.
  */
+/**
+ * 세이브 안의 파츠 uid를 훑어 번호표를 그 뒤로 옮긴다.
+ * 이걸 빠뜨리거나 잘못 부르면 새로 만든 파츠가 기존 uid와 겹쳐
+ * 골렘이 엉뚱한 부속을 집는다. syncUidSeq는 **숫자**를 받는다 — 세이브가 아니라.
+ */
+function resyncUids(s) {
+  let max = 0;
+  const all = [
+    ...(s.inventory ?? []),
+    ...(s.ossuary?.vault?.parts ?? []),
+    ...(s.ossuary?.crew?.parts ?? []),
+    ...(s.ossuary?.workshop?.golems ?? []).flatMap((g) => g.parts ?? []),
+    ...(s.ossuary?.laborBay?.dispatch ?? []).flatMap((d) => d.parts ?? []),
+  ];
+  for (const p of all) max = Math.max(max, Number(String(p.uid).slice(1)) || 0);
+  syncUidSeq(max + 1);
+}
+
 function migrate(s) {
   s.cores ??= [];
   s.daily ??= null;
@@ -144,12 +166,7 @@ function load() {
     if (!raw) return null;
     const s = migrate(JSON.parse(raw));
     if (s.version !== 1) return null;
-    let max = 0;
-    const all = [...s.inventory,
-      ...(s.ossuary?.vault?.parts ?? []),
-      ...(s.ossuary?.laborBay?.dispatch ?? []).flatMap((d) => d.parts ?? [])];
-    for (const p of all) max = Math.max(max, Number(String(p.uid).slice(1)) || 0);
-    syncUidSeq(max + 1);
+    resyncUids(s);
     return s;
   } catch { return null; }
 }
@@ -471,7 +488,7 @@ function importSave() {
     // 덮어쓰기 전에 지금 것을 한 칸 옆에 남긴다 — 되돌릴 수 없는 일은 만들지 않는다
     try { localStorage.setItem(`${SAVE_KEY}.before-import`, JSON.stringify(S)); } catch { /* 무시 */ }
     S = migrate(parsed);
-    syncUidSeq(S);
+    resyncUids(S);
     save();
     UI.logLine('기록을 가져왔다. 이전 것은 한 칸 옆에 남겨 두었다.', 'good');
     town(false);
@@ -2046,12 +2063,13 @@ function repairScreen() {
   UI.topbar(S, `무덤 ${fd.floor}층 · 방어도 수리`);
   UI.dungeonPanel(S, fd);
   UI.logHead('방어도 수리');
-  UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도를 조금은 되돌릴 수 있다.', 'narrate');
+  UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도를 되돌릴 수 있다.', 'narrate');
+  UI.logLine(`시체 조각 하나에 방어도 ${35}. 층마다 한 번뿐이니 아껴 쓸 이유는 없다.`, 'dim');
 
-  const COST_PER = 1;          // 방어도 15당 시체 조각 1
+  const PER_SCRAP = 35;        // 시체 조각 1당 되돌아오는 방어도 (밸런스 도구가 정한 값)
   const rows = g.worn.map(({ slot, part, shieldMax: max, shield: cur }) => {
     const missing = max - cur;
-    const cost = Math.max(1, Math.ceil((missing / 15) * COST_PER));
+    const cost = Math.max(1, Math.ceil(missing / PER_SCRAP));
     return { slot, part, max, cur, missing, cost };
   }).filter((r) => r.missing > 0);
 
@@ -2092,7 +2110,9 @@ const backToRoom = () => {
 /* ── 방 종류별 처리 ─────────────────────── */
 function bonesRoom(room) {
   const r = makeRng(S.run.seed + room.x * 31 + room.y * 17);
-  const scrap = r.int(4, 9) + S.run.floor * 2;
+  // 조각은 방어도를 되돌리는 유일한 수단이다 (§5.7). 여기서 나오는 양이
+  // 곧 한 단계를 버틸 수 있는지를 정한다 — 시뮬레이터가 정한 값이다
+  const scrap = r.int(6, 14) + S.run.floor * 3;
   const extra = r.chance(35) ? r.int(1, 3) : 0;
   S.scrap += scrap;
   if (extra) S.boneMeal += extra;
@@ -2137,6 +2157,33 @@ function restRoom(room) {
   UI.logLine('벽감의 초에 불을 붙인다. 잠시 숨을 돌릴 수 있다.', 'narrate');
   const damaged = g.worn.filter(({ part }) => part.integrity < part.maxIntegrity);
   UI.choices([
+    // 안치실도 방어도를 되돌린다. 핵만 채워 주면 정작 발목을 잡는 쪽은 그대로다.
+    // (§5.7의 "재료를 써야 돌아온다"는 그대로다 — 공짜가 아니라 조각을 쓴다)
+    (() => {
+      const PER_SCRAP = 35;
+      const hurt = g.worn.filter((w) => w.shield < w.shieldMax);
+      if (!hurt.length) return null;
+      const missing = hurt.reduce((n, w) => n + (w.shieldMax - w.shield), 0);
+      const cost = Math.max(1, Math.ceil(missing / PER_SCRAP));
+      const pay = Math.min(cost, S.scrap);
+      return {
+        label: '이음새를 조인다 — 방어도 수리',
+        meta: S.scrap ? `시체 조각 ${pay}${pay < cost ? ' (가진 만큼)' : ''}` : '조각이 없다',
+        disabled: !S.scrap,
+        on: () => {
+          let left = pay * PER_SCRAP;
+          S.scrap -= pay;
+          for (const w of hurt) {
+            if (left <= 0) break;
+            const give = Math.min(left, w.shieldMax - w.shield);
+            w.part.shield = w.shield + give;
+            left -= give;
+          }
+          UI.logLine(`벌어진 이음새를 조였다. 방어도 +${pay * PER_SCRAP - Math.max(0, left)}.`, 'good');
+          room.cleared = true; UI.dungeonPanel(S, S.run.floorData); roomChoices(room);
+        },
+      };
+    })(),
     { label: '휴식 — 핵 체력 30% 회복', on: () => {
       const amt = Math.round(g.stats.hp * 0.3);
       S.run.golemHp = Math.min(g.stats.hp, S.run.golemHp + amt);

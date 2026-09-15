@@ -229,7 +229,13 @@ export function skillElement(save, skillId) {
  */
 // 방어도는 한 층(전투 4~6회)을 버틸 양이어야 한다.
 // 포션으로 돌아오지 않으므로, 한 전투에 소진되면 그 뒤로는 핵이 직접 맞는다.
-const SHIELD_BASE = { head: 80, body: 160, armL: 110, armR: 110, leg: 110 };
+/**
+ * 부위별 기본 방어도 (§5.7).
+ * 방어도는 포션으로 돌아오지 않으므로 **한 판이 아니라 한 단계(3층)를 버티는 예산**이다.
+ * 처음엔 한 판 기준으로 잡았다가, 1층에서 3~4전투 만에 모든 부위가 무너져
+ * 아무도 1-1을 깰 수 없었다. `npm run balance`의 층 완주 검사가 정한 값이다.
+ */
+const SHIELD_BASE = { head: 160, body: 320, armL: 220, armR: 220, leg: 220 };
 export function shieldMax(part, slot) {
   const st = partStats(part);
   return Math.max(30, Math.round(SHIELD_BASE[slot] + st.def * 6 + st.hp / 6));
@@ -315,9 +321,15 @@ export function rollBoss(stageId, floor, rng, unlocks = {}) {
   if (floor >= last && stage?.boss) {
     return makeMonster(stage.boss, rollMod(stage, floor, rng, unlocks), rng);
   }
-  const m = rollElite(stageId, floor, rng, unlocks);
-  m.maxHp = Math.round(m.maxHp * 1.2);
+  // 마지막 층이 아니면 '층의 주인' — 일반 몬스터를 키운 것이다.
+  // 전용 엘리트를 한 번 더 키우면(엘리트 × 1.2) 층 중간에 보스급이 서 버린다.
+  const pool = stage?.monsters?.length ? stage.monsters : ['m_goblin'];
+  const m = makeMonster(rng.pick(pool), rollMod(stage, floor, rng, unlocks), rng);
+  m.maxHp = Math.round(m.maxHp * 2.6);
   m.hp = m.maxHp;
+  m.stats.atk = Math.round(m.stats.atk * 1.25);
+  m.stats.def = Math.round(m.stats.def * 1.2);
+  m.tier = 'elite';
   m.name = `층의 주인 ${m.name}`;
   return m;
 }

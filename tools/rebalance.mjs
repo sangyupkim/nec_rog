@@ -1,93 +1,124 @@
 #!/usr/bin/env node
 /**
- * 몬스터 HP 역산기 — 목표 턴수(§6.2)에서 HP를 거꾸로 구한다.
- * 몬스터가 '처음 등장하는 단계'의 참조 빌드로 이분 탐색하며,
- * 손으로 정한 수치를 덮어쓴다. 수치를 바꾸고 싶으면 목표 턴수나 빌드를 바꿔라.
+ * 몬스터 HP 역산기 — **실제 전투 엔진으로** 목표 턴수(§6.2)를 맞춘다.
  *
- *   npm run rebalance   # data/monsters.json 의 hp를 고쳐 쓴다
- *   npm run balance     # 결과를 검사만 한다 (고치지 않는다)
+ * 처음엔 해석적 근사(최선의 스킬을 매 턴 명중시킨다는 가정)로 HP를 구했는데,
+ * 실제 엔진에서는 빗나가고, 부위가 무너져 기술이 사라지고, 충전이 떨어진다.
+ * 그래서 근사가 18턴이라고 한 보스가 실제로는 33턴이 걸렸고,
+ * 그 33턴 동안 방어도가 바닥나 아무도 보스를 넘지 못했다.
  *
- * 참조 빌드는 tools/_builds.json — tools/balance.mjs 의 BUILDS 와 같은 내용이다.
+ * 이제 근사를 쓰지 않는다. 몬스터가 **처음 등장하는 단계**의 참조 빌드로
+ * 진짜 전투를 여러 번 돌려 중앙값 턴수가 목표 안에 들어오는 HP를 이분 탐색한다.
+ *
+ *   npm run rebalance     # data/monsters.json 의 hp를 고쳐 쓴다
+ *   npm run simulate      # 고친 뒤 층을 완주할 수 있는지 본다
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-const P = (n) => new URL(`data/${n}.json`, `file://${process.cwd()}/`);
-const L = (n) => JSON.parse(readFileSync(P(n), 'utf8'));
-const parts = Object.fromEntries(L('parts').map((p) => [p.id, p]));
-const skills = Object.fromEntries(L('skills').map((s) => [s.id, s]));
-const cores = Object.fromEntries(L('cores').map((c) => [c.id, c]));
-const monsters = L('monsters');
-const EL = L('elements');
-const campaign = L('campaign');
+import { DB, makeRng, makePart, makeMonster, elemMul } from '../src/core.js';
+import { Combat } from '../src/combat.js';
 
-const elemMul = (a, d) => EL.matrix[a]?.[d] ?? EL.default;
-const damage = (power, atk, def, ae, de) => {
-  if (power === 0) return 0;
-  const raw = (power * (25 + atk)) / 50;
-  return Math.max(1, Math.floor(raw * (1 - def / (def + 40)) * elemMul(ae, de)));
-};
-const SHIELD_BASE = { head: 80, body: 160, arm: 110, leg: 110 };
-const shieldOf = (p) => Math.max(30, Math.round(SHIELD_BASE[p.slot] + p.stats.def * 6 + p.stats.hp / 6));
-const assemble = (ids, coreId) => {
-  const stats = { hp: 0, atk: 0, def: 0, eva: 0, spd: 0, focus: 0 };
-  let defElement = null; const sk = []; let shield = 0;
-  const core = cores[coreId];
-  stats.hp = core.hp;
-  for (const [k, v] of Object.entries(core.stats)) stats[k] += v;
-  for (const id of ids) {
-    const p = parts[id];
-    for (const k of Object.keys(stats)) if (k !== 'hp') stats[k] += p.stats[k];
-    shield += shieldOf(p);
-    if (p.def_element) defElement = p.def_element;
-    sk.push(...p.skills);
-  }
-  return { stats, defElement, shield, effective: stats.hp + shield, skills: [...new Set(sk)] };
-};
-const turnsFor = (g, m, hp) => {
-  const opts = g.skills.map((id) => skills[id]).filter((s) => s.power > 0).map((s) => ({
-    id: s.id,
-    dmg: damage(s.power, g.stats.atk, m.stats.def, s.element, m.def_element) * (s.hits ?? 1) * (s.accuracy / 100),
-    charges: s.charges,
-  })).sort((a, b) => b.dmg - a.dmg);
-  if (!opts.length) return Infinity;
-  let left = new Map(opts.map((o) => [o.id, o.charges]));
-  let h = hp, t = 0;
-  while (h > 0 && t < 500) {
-    const use = opts.find((o) => o.charges === null || left.get(o.id) > 0) ?? opts.at(-1);
-    if (use.charges !== null) left.set(use.id, left.get(use.id) - 1);
-    h -= use.dmg; t++;
-  }
-  return t;
-};
-const BUILDS = JSON.parse(readFileSync(new URL('tools/_builds.json', `file://${process.cwd()}/`), 'utf8'));
+const P = (n) => new URL(`../data/${n}.json`, import.meta.url);
+const L = (n) => JSON.parse(readFileSync(P(n), 'utf8'));
+const FILES = ['elements', 'skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
+               'summons', 'items', 'attachments', 'quests', 'cores', 'campaign', 'story'];
+for (const f of FILES) DB[f] = L(f);
+for (const k of ['skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
+                 'summons', 'items', 'attachments', 'cores']) {
+  DB[`${k}By`] = Object.fromEntries(DB[k].map((x) => [x.id, x]));
+}
+DB.stagesBy = {}; DB.partOfStage = {};
+for (const part of DB.campaign.parts) {
+  for (const st of part.stages) { DB.stagesBy[st.id] = st; DB.partOfStage[st.id] = part; }
+}
+
+const BUILDS = JSON.parse(readFileSync(new URL('./_builds.json', import.meta.url), 'utf8'));
 const TARGET = { normal: [4, 6], elite: [8, 12], boss: [15, 20] };
+const SLOT_OF = { head: 'head', body: 'body', arm: 'armL', leg: 'leg' };
+const SAMPLES = 15;
+
+/**
+ * 사람이라면 고를 법한 스킬 — 힘만 보는 게 아니라 **상성을 본 뒤** 고른다.
+ * 힘만 보고 고르면 신성 방어 보스에게 신성 기술(배율 0)을 계속 휘두르게 된다.
+ * 그건 게임이 어려운 게 아니라 봇이 눈이 먼 것이다.
+ */
+function bestSkill(cb, list) {
+  let best = null, bestScore = -1;
+  for (const s of list) {
+    const def = DB.skillsBy[s.id];
+    const mul = elemMul(s.element, cb.mon.defElement);
+    const score = (def.power ?? 0) * (def.hits ?? 1) * mul * ((def.accuracy ?? 100) / 100);
+    if (score > bestScore) { bestScore = score; best = s; }
+  }
+  // 전부 0점이면(전부 무효) 그래도 뭐든 쓴다
+  return best ?? list[0];
+}
+
+function makeSave(ids, coreId) {
+  const inv = ids.map((id) => makePart(id));
+  const golem = { core: coreId, head: null, body: null, armL: null, armR: null, leg: null,
+                  attachments: [], banned: [], retuned: {} };
+  for (const p of inv) {
+    const kind = DB.partsBy[p.defId].slot;
+    const order = kind === 'arm' ? ['armL', 'armR'] : [SLOT_OF[kind]];
+    const slot = order.find((s) => !golem[s]);
+    if (slot) golem[slot] = p.uid;
+  }
+  return { inventory: inv, golem, consumables: {}, necro: { known: [], equipped: [] },
+           seen: {}, unlocks: {}, scrap: 0, run: null };
+}
+
+/** 이 HP였다면 몇 턴 걸렸겠는가 — 실제 엔진, 여러 판의 중앙값 */
+function medianTurns(build, monId, hp) {
+  const ts = [];
+  for (let i = 0; i < SAMPLES; i++) {
+    const save = makeSave(build[0], build[1]);
+    const rng = makeRng(4242 + i * 104729);
+    const mon = makeMonster(monId, null, rng);
+    mon.hp = hp; mon.maxHp = hp;
+    const cb = new Combat(save, mon, rng);
+    let t = 0;
+    while (!cb.over && t < 120) {
+      const sk = cb.golemSkills().filter((s) => s.usable);
+      if (!sk.length) break;
+      cb.act({ kind: 'skill', id: bestSkill(cb, sk).id });
+      t++;
+    }
+    ts.push(cb.result === 'win' ? t : 120);   // 못 이기면 최악으로 친다
+  }
+  ts.sort((a, b) => a - b);
+  return ts[Math.floor(ts.length / 2)];
+}
 
 // 각 몬스터가 처음 등장하는 단계
-const firstStage = {};
-const seen = new Set();
-for (const part of campaign.parts) for (const st of part.stages) {
+const firstStage = {}; const seen = new Set();
+for (const part of DB.campaign.parts) for (const st of part.stages) {
   for (const id of [...(st.monsters ?? []), st.elite, st.boss].filter(Boolean)) {
     if (!seen.has(id)) { seen.add(id); firstStage[id] = st.id; }
   }
 }
 
 let changed = 0;
-for (const m of monsters) {
+console.log(`목표 턴수에서 HP를 역산한다 (실제 엔진 · 판마다 ${SAMPLES}회 중앙값)\n`);
+for (const m of DB.monsters) {
   const sid = firstStage[m.id];
-  if (!sid || !BUILDS[sid]) continue;
-  const g = assemble(BUILDS[sid][0], BUILDS[sid][1]);
+  const build = BUILDS[sid];
+  if (!build) continue;
   const [lo, hi] = TARGET[m.tier];
   const want = Math.round((lo + hi) / 2);
-  // 이분 탐색으로 목표 턴수에 맞는 HP
-  let a = 20, b = 4000, best = m.hp;
-  for (let i = 0; i < 40; i++) {
+
+  let a = 20, b = 3000, best = null;
+  for (let i = 0; i < 14; i++) {
     const mid = Math.round((a + b) / 2);
-    const t = turnsFor(g, m, mid);
-    if (t < want) a = mid; else { best = mid; b = mid; }
+    if (medianTurns(build, m.id, mid) < want) a = mid; else { best = mid; b = mid; }
   }
-  const hp = Math.round(best / 5) * 5;
-  const t = turnsFor(g, m, hp);
-  if (t < lo || t > hi) { console.log(`  ! ${m.name} 역산 실패 (${t}턴)`); continue; }
-  if (hp !== m.hp) { console.log(`  ${m.name.padEnd(12)} ${String(m.hp).padStart(4)} → ${String(hp).padStart(4)}  (${sid}, ${t}턴)`); m.hp = hp; changed++; }
+  if (best == null) { console.log(`  ! ${m.name} 역산 실패`); continue; }
+  const hp = Math.max(40, Math.round(best / 5) * 5);
+  const t = medianTurns(build, m.id, hp);
+  const mark = t < lo || t > hi ? '!' : ' ';
+  if (hp !== m.hp) {
+    console.log(`  ${mark} ${m.name.padEnd(13)} ${String(m.hp).padStart(4)} → ${String(hp).padStart(4)}  (${sid} · ${t}턴, 목표 ${lo}~${hi})`);
+    m.hp = hp; changed++;
+  }
 }
-writeFileSync(P('monsters'), JSON.stringify(monsters, null, 2) + '\n');
+writeFileSync(P('monsters'), JSON.stringify(DB.monsters, null, 2) + '\n');
 console.log(`\n${changed}종 조정`);

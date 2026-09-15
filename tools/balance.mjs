@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 /**
- * 밸런스 점검기 — 참조 빌드로 각 몬스터를 잡는 데 걸리는 턴수를 계산한다.
- * §6.2의 턴수 목표(일반 4~6, 엘리트 8~12, 보스 15~20)를 벗어나면 경고한다.
+ * 데이터 개요 — 참조 빌드로 각 몬스터의 대략적인 턴수를 **어림잡는다.**
+ *
+ * ⚠ 이 계산은 낙관적이다. "매 턴 가장 센 기술이 명중하고, 부위는 절대 무너지지
+ * 않는다"고 가정하기 때문이다. 실제 전투에서는 빗나가고, 부위가 무너져 기술이
+ * 사라지고, 충전이 떨어진다. 이 근사가 18턴이라고 한 보스가 실제로는 33턴이었다.
+ *
+ * **판정의 권한은 `npm run simulate`에 있다** — 그쪽은 실제 엔진을 돌린다.
+ * 여기 나오는 ⚠는 "근사와 다르다"는 뜻일 뿐 틀렸다는 뜻이 아니다.
  *
  *   node tools/balance.mjs
  */
@@ -25,7 +31,7 @@ export const damage = (power, atk, def, atkEl, defEl) => {
 
 /* 핵 = 체력, 파츠 = 방어도 (§5.7) */
 const cores = Object.fromEntries(L('cores').map((c) => [c.id, c]));
-const SHIELD_BASE = { head: 80, body: 160, arm: 110, leg: 110 };
+const SHIELD_BASE = { head: 160, body: 320, arm: 220, leg: 220 };
 const shieldOf = (p) => Math.max(30,
   Math.round(SHIELD_BASE[p.slot] + p.stats.def * 6 + p.stats.hp / 6));
 
@@ -92,9 +98,11 @@ const TARGET = { normal: [4, 6], elite: [8, 12], boss: [15, 20] };
  * 빌드는 "그 단계까지 정직하게 플레이했다면 들고 있을 법한 것"으로 잡는다.
  */
 const BUILDS = {
-  '1-1': [['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'], 'core_scrap'],
+  '1-1': [['part_head_goblin_skull', 'part_body_goblin_torso', 'part_arm_goblin_claw',
+           'part_leg_goblin_hop'], 'core_scrap'],
+  // 1-1을 깨면 영혼재·은화·전리품이 들어온다. 무쇠 심장과 쥐 왕의 앞발은 살 만하다
   '1-2': [['part_head_goblin_skull', 'part_body_goblin_torso', 'part_arm_goblin_claw',
-           'part_arm_bone_spike', 'part_leg_hound_legs'], 'core_scrap'],
+           'part_leg_hound_legs', 'part_arm_ratking'], 'core_iron'],
   '1-3': [['part_head_goblin_skull', 'part_body_hound_ribcage', 'part_arm_piston',
            'part_arm_bone_spike', 'part_leg_hound_legs'], 'core_iron'],
   '2-1': [['part_head_ratking', 'part_body_sluice', 'part_arm_ratking',
@@ -139,42 +147,89 @@ for (const [label, [ids, coreId]] of Object.entries(BUILDS)) {
     const expected = EXPECTED[label].includes(m.id);
     const [lo, hi] = TARGET[m.tier];
     const off = expected && (turns < lo || turns > hi);
-    if (off) warnings++;
-    const mark = !expected ? '  ' : off ? '⚠ ' : '✓ ';
+    const mark = !expected ? '  ' : off ? '~ ' : '✓ ';
     console.log(`  ${mark}${m.name.padEnd(11)} HP${String(m.hp).padStart(4)}` +
       `  →${String(turns).padStart(3)}턴 (목표 ${lo}~${hi})` +
       `   피격 ${String(surv.avg).padStart(3)}/턴 · ${surv.turns}턴이면 골렘 사망`);
   }
 }
 
-/* ── 층 누적 소모 검사 ──────────────────────────────────────
- * 전투 1회를 버티는 것과 한 층(전투 4~6회)을 버티는 것은 다른 문제다.
- * 회복 수단이 제한된 상태에서 층 전체를 완주할 수 있는지 검사한다. */
-const BATTLES_PER_FLOOR = 5;
-// 유효 체력 100% + 물약·휴식으로 돌아오는 핵 몫만. 방어도는 포션으로 안 돌아온다 (§5.7)
-const HEAL_BUDGET = 1.25;
-const perBattleCap = HEAL_BUDGET / BATTLES_PER_FLOOR;
+/* ── 층 완주 검사 ────────────────────────────────────────────
+ * 전투 1회를 버티는 것과 한 층을 버티는 것은 전혀 다른 문제다.
+ *
+ * 앞선 판은 "회복 예산 125%"를 가정했는데, **방어도에는 그런 것이 없다.**
+ * 방어도는 포션으로 돌아오지 않고 작업대·정비대에서 재료를 써야만 돌아온다 (§5.7).
+ * 그 가정 때문에 전투당 12% 라는 숫자가 통과됐고, 실제로는 1층에서 3~4전투 만에
+ * 모든 부위의 방어가 무너져 아무도 1-1을 깰 수 없었다.
+ *
+ * 그래서 이제 층을 실제로 굴려 본다 — 전투마다 방어도를 깎고,
+ * 작업대 한 곳에서 가진 조각만큼만 되돌린다.
+ */
+const BATTLES_PER_FLOOR = 4;     // 실제 생성기 평균 (전투방 4 + 엘리트 1)
+const SCRAP_PER_SHIELD = 35;     // 조각 1당 방어도 35 (§5.7 작업대 — src/main.js의 PER_SCRAP과 같아야 한다)
+const WORKSHOPS_PER_FLOOR = 1;   // 생성기가 층마다 하나 놓는다
+const BONES_SCRAP = 8;           // 유해 더미 한 곳당 조각 (실제 int(4,9)+층×2, 평균 1.6곳)
 
-console.log('\n── 층 누적 소모 ──────────────────────────');
-console.log(`한 층 전투 ${BATTLES_PER_FLOOR}회 · 회복 예산 ${Math.round(HEAL_BUDGET * 100)}%`
-  + ` → 전투당 ${Math.round(perBattleCap * 100)}% 이하여야 함`);
+/** 이 몬스터 한 판에서 골렘이 받는 총 피해 */
+function fightDrain(g, m) {
+  const { turns } = turnsToKill(g, m);
+  const surv = survivalTurns(g, m);
+  return surv.avg * Math.max(1, turns - 1);
+}
+
+console.log('\n── 층 완주 검사 ──────────────────────────');
+console.log(`층마다 전투 ${BATTLES_PER_FLOOR}회 + 엘리트 1회 · 작업대 ${WORKSHOPS_PER_FLOOR}곳`
+  + ` (조각 1당 방어도 ${SCRAP_PER_SHIELD})`);
+console.log('방어도는 포션으로 돌아오지 않는다. 층을 못 버티면 목표 턴수가 맞아도 소용없다.\n');
 
 for (const [label, [ids, coreId]] of Object.entries(BUILDS)) {
   const g = assemble(ids, coreId);
-  for (const mid of EXPECTED[label]) {
-    const m = monsters.find((x) => x.id === mid);
-    if (m.tier !== 'normal') continue;
-    const { turns } = turnsToKill(g, m);
-    const surv = survivalTurns(g, m);
-    const spend = (surv.avg * (turns - 1)) / g.effective;
-    const off = spend > perBattleCap;
-    if (off) warnings++;
-    console.log(`  ${off ? '⚠ ' : '✓ '}${label} vs ${m.name.padEnd(11)}`
-      + ` 전투당 ${(spend * 100).toFixed(0)}% 소모`
-      + `  (${BATTLES_PER_FLOOR}회면 ${(spend * BATTLES_PER_FLOOR * 100).toFixed(0)}%)`);
+  const stage = campaign.parts.flatMap((x) => x.stages).find((x) => x.id === label);
+  if (!stage) continue;
+  const pool = (stage.monsters ?? []).map((id) => monsters.find((x) => x.id === id)).filter(Boolean);
+  const eliteDef = monsters.find((x) => x.id === stage.elite);
+  const bossDef = monsters.find((x) => x.id === stage.boss);
+  if (!pool.length || !bossDef) continue;
+
+  // 평균적인 일반 전투 한 판
+  const avgNormal = pool.reduce((n, m) => n + fightDrain(g, m), 0) / pool.length;
+  // 엘리트는 승격 보정을 반영한다 (§ rollElite)
+  const elite = eliteDef.tier === 'elite' ? eliteDef
+    : { ...eliteDef, hp: Math.round(eliteDef.hp * 2.2),
+        stats: { ...eliteDef.stats, atk: Math.round(eliteDef.stats.atk * 1.2) } };
+  const eliteDrain = fightDrain(g, elite);
+  const bossDrain = fightDrain(g, bossDef);
+
+  let shield = g.shield;
+  let scrap = 12;              // 시작 조각. 층마다 유해 더미로 조금 더 는다
+  let died = null;
+  for (let floor = 1; floor <= (stage.floors ?? 3) && !died; floor++) {
+    scrap += Math.round(1.6 * BONES_SCRAP);
+    const fights = [];
+    for (let i = 0; i < BATTLES_PER_FLOOR; i++) fights.push(['일반', avgNormal]);
+    fights.push(floor === (stage.floors ?? 3) ? ['보스', bossDrain] : ['엘리트', eliteDrain]);
+    // 작업대는 층 중간에 만난다고 본다
+    const repairAt = Math.floor(fights.length / 2);
+    fights.forEach(([kind, dmg], i) => {
+      if (died) return;
+      if (i === repairAt) {
+        const need = Math.ceil((g.shield - shield) / SCRAP_PER_SHIELD);
+        const pay = Math.min(need, scrap);
+        shield = Math.min(g.shield, shield + pay * SCRAP_PER_SHIELD);
+        scrap -= pay;
+      }
+      shield -= dmg;
+      if (shield <= 0) died = `${floor}층 ${i + 1}번째 전투(${kind})`;
+    });
   }
+  const mark = died ? '⚠ ' : '✓ ';
+  if (died) warnings++;
+  console.log(`  ${mark}${label} ${(stage.name ?? '').padEnd(8)} 방어도 ${g.shield}`
+    + ` · 일반 ${Math.round(avgNormal)}/판 · 엘리트 ${Math.round(eliteDrain)} · 보스 ${Math.round(bossDrain)}`
+    + (died ? `  → ${died}에서 무너짐` : '  → 완주 가능'));
 }
 
-console.log('\n✓ = 해당 층에서 만나는 몬스터가 목표 턴수 안에 있음 / ⚠ = 벗어남');
-console.log('  표시 없음 = 그 층에서 마주치지 않는 조합 (참고용)');
-console.log(warnings ? `\n목표 이탈 ${warnings}건 — 조정 필요.` : '\n모든 예상 조우가 목표 턴수 안에 있음.');
+console.log('\n✓ = 근사 턴수가 목표 안 / ~ = 근사와 다름 (근사가 낙관적이라 흔하다)');
+console.log('  표시 없음 = 그 단계에서 마주치지 않는 조합 (참고용)');
+console.log('  실제 판정은 npm run simulate — 이 표는 눈으로 훑는 용도다.');
+console.log(warnings ? `\n층 완주 어림셈에서 ${warnings}건 걸림 — simulate로 확인할 것.` : '');

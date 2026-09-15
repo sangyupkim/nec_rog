@@ -8,6 +8,11 @@ import {
 const WILL_START = 3, WILL_MAX = 10, WILL_GAIN = 1;
 const MON_SLOT_LABEL = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
 
+/** 한 전투에서 도트(중독·화상·가시)가 핵에서 가져갈 수 있는 최대 비율 */
+const DOT_CAP = 0.35;
+/** 화상 한 틱 = 최대 체력의 몇 %인가 */
+const BURN_RATIO = 0.03;
+
 export class Combat {
   constructor(save, monster, rng) {
     this.save = save;
@@ -15,6 +20,7 @@ export class Combat {
     this.mon = monster;
     this.log = [];
     this.phase = 'intro';   // 로그를 국면별로 묶어 UI가 사이에 텀을 둘 수 있게 한다 (§5.8)
+    this.dotTaken = 0;      // 이번 전투에서 핵이 도트로 잃은 양 (§5.7 상한)
     this.turn = 0;
     this.over = false;
     this.result = null;
@@ -399,7 +405,7 @@ export class Combat {
 
     if (hasStatus(to, '가시')) {
       const thorn = 3;
-      from.hp -= thorn;
+      if (from === this.golem) this.coreDot(thorn); else from.hp -= thorn;
       this.say(`가시가 ${this.nameOf(from)}을(를) 되찌른다. (${thorn}${from === this.golem ? ' · 핵 직격' : ''})`,
         'dim', from === this.golem ? { hit: 'golem' } : null);
     }
@@ -619,25 +625,49 @@ export class Combat {
     this.will = Math.min(WILL_MAX, this.will + WILL_GAIN);
   }
 
+  /**
+   * 중독·화상은 방어도를 지나쳐 핵을 직접 갉는다 (§5.7).
+   * 다만 **한 전투에서 핵의 DOT_CAP까지만** 가져간다.
+   * 그러지 않으면 보스전(15~20턴)에서 도트만으로 핵이 반드시 비는데,
+   * 그건 압박이 아니라 산수로 정해진 처형이다 — 실제로 부푼 어머니가
+   * 방어도를 631 남긴 채 핵만 0으로 만들고 있었다.
+   */
+  coreDot(n) {
+    const cap = Math.round(this.golem.maxHp * DOT_CAP);
+    const left = Math.max(0, cap - this.dotTaken);
+    const dealt = Math.min(n, left);
+    this.dotTaken += dealt;
+    this.golem.hp -= dealt;
+    return dealt;
+  }
+
   tickStatuses(u) {
     const st = u.statuses;
     if (st['중독']) {
-      const n = st['중독'].stacks;
-      u.hp -= n;
-      this.say(u === this.golem
-        ? `독이 이음새를 타고 흘러 핵을 ${n} 갉는다. (방어도를 지나친다)`
-        : `${this.nameOf(u)}이(가) 중독으로 ${n}의 피해를 입는다.`,
-        u === this.mon ? 'good' : 'bad', u === this.golem ? { hit: 'golem' } : null);
+      const raw = st['중독'].stacks;
+      const n = u === this.golem ? this.coreDot(raw) : raw;
+      if (u !== this.golem) u.hp -= n;
+      if (n > 0) {
+        this.say(u === this.golem
+          ? `독이 이음새를 타고 흘러 핵을 ${n} 갉는다. (방어도를 지나친다)`
+          : `${this.nameOf(u)}이(가) 중독으로 ${n}의 피해를 입는다.`,
+          u === this.mon ? 'good' : 'bad', u === this.golem ? { hit: 'golem' } : null);
+      } else if (u === this.golem) {
+        this.say('독이 더 파고들 곳을 찾지 못한다.', 'dim');
+      }
       st['중독'].stacks--;
       if (st['중독'].stacks <= 0) delete st['중독'];
     }
     if (st['화상']) {
-      const n = Math.max(1, Math.round(u.maxHp * 0.05));
-      u.hp -= n;
-      this.say(u === this.golem
-        ? `불길이 부속 틈으로 파고들어 핵을 ${n} 태운다. (방어도를 지나친다)`
-        : `${this.nameOf(u)}이(가) 화상으로 ${n}의 피해를 입는다.`,
-        u === this.mon ? 'good' : 'bad', u === this.golem ? { hit: 'golem' } : null);
+      const raw = Math.max(1, Math.round(u.maxHp * BURN_RATIO));
+      const n = u === this.golem ? this.coreDot(raw) : raw;
+      if (u !== this.golem) u.hp -= n;
+      if (n > 0) {
+        this.say(u === this.golem
+          ? `불길이 부속 틈으로 파고들어 핵을 ${n} 태운다. (방어도를 지나친다)`
+          : `${this.nameOf(u)}이(가) 화상으로 ${n}의 피해를 입는다.`,
+          u === this.mon ? 'good' : 'bad', u === this.golem ? { hit: 'golem' } : null);
+      }
     }
     if (st['재생']) {
       const n = Math.round(u.maxHp * 0.08);

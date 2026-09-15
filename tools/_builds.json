@@ -1,6 +1,7 @@
 {
  "1-1": [
   [
+   "part_head_goblin_skull",
    "part_body_goblin_torso",
    "part_arm_goblin_claw",
    "part_leg_goblin_hop"
@@ -12,10 +13,10 @@
    "part_head_goblin_skull",
    "part_body_goblin_torso",
    "part_arm_goblin_claw",
-   "part_arm_bone_spike",
-   "part_leg_hound_legs"
+   "part_leg_hound_legs",
+   "part_arm_ratking"
   ],
-  "core_scrap"
+  "core_iron"
  ],
  "1-3": [
   [
