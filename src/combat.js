@@ -350,7 +350,8 @@ export class Combat {
     if (hasStatus(to, '가시')) {
       const thorn = 3;
       from.hp -= thorn;
-      this.say(`가시가 ${this.nameOf(from)}을(를) 되찌른다. (${thorn})`, 'dim');
+      this.say(`가시가 ${this.nameOf(from)}을(를) 되찌른다. (${thorn}${from === this.golem ? ' · 핵 직격' : ''})`,
+        'dim', from === this.golem ? { hit: 'golem' } : null);
     }
     return dmg;
   }
@@ -573,14 +574,20 @@ export class Combat {
     if (st['중독']) {
       const n = st['중독'].stacks;
       u.hp -= n;
-      this.say(`${this.nameOf(u)}이(가) 중독으로 ${n}의 피해를 입는다.`, u === this.mon ? 'good' : 'bad');
+      this.say(u === this.golem
+        ? `독이 이음새를 타고 흘러 핵을 ${n} 갉는다. (방어도를 지나친다)`
+        : `${this.nameOf(u)}이(가) 중독으로 ${n}의 피해를 입는다.`,
+        u === this.mon ? 'good' : 'bad', u === this.golem ? { hit: 'golem' } : null);
       st['중독'].stacks--;
       if (st['중독'].stacks <= 0) delete st['중독'];
     }
     if (st['화상']) {
       const n = Math.max(1, Math.round(u.maxHp * 0.05));
       u.hp -= n;
-      this.say(`${this.nameOf(u)}이(가) 화상으로 ${n}의 피해를 입는다.`, u === this.mon ? 'good' : 'bad');
+      this.say(u === this.golem
+        ? `불길이 부속 틈으로 파고들어 핵을 ${n} 태운다. (방어도를 지나친다)`
+        : `${this.nameOf(u)}이(가) 화상으로 ${n}의 피해를 입는다.`,
+        u === this.mon ? 'good' : 'bad', u === this.golem ? { hit: 'golem' } : null);
     }
     if (st['재생']) {
       const n = Math.round(u.maxHp * 0.08);

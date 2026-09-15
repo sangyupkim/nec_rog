@@ -54,28 +54,46 @@ export function newOssuary() {
     forge: { level: 1, slots: [] },
     laborBay: { level: 1, dispatch: [] },
     vault: { capacity: 3, parts: [], lostRecords: [] },
-    crew: { parts: [] },      // 작업반 — 배치하면 해체·접합 작업이 빨라진다
+    // 조립대 — 여분 핵으로 세운 사역 골렘들. 작업반·파견에 세울 수 있는 것은 이들뿐이다
+    workshop: { golems: [], seq: 0 },
+    crew: { parts: [] },      // (구) 부속 직접 배치 — 마이그레이션에서 조립대로 흡수된다
     overhaul: [],             // 정비대 — 방어도·핵 회복 작업
     pending: null,       // 복귀 정산 화면에서 보여줄 내역
   };
 }
 
 /**
- * 작업반 능률. 배치한 부속의 능력치 합에 비례해 작업 시간이 줄어든다.
+ * 사역 골렘 한 기의 능률.
+ * 핵이 몸을 세우고 부속이 손을 놀린다 — 둘 다 있어야 일이 된다.
+ * 부속만 세워 두는 것으로는 아무 일도 일어나지 않는다.
+ */
+export function golemPower(g) {
+  if (!g?.core) return 0;
+  let power = Math.round((CORE_HP_OF(g.core) ?? 0) / 10);
+  for (const p of g.parts ?? []) {
+    const st = STATS_OF(p);
+    power += st.atk + st.def + Math.max(0, st.spd) + st.focus + Math.round((st.hp ?? 0) / 20);
+  }
+  return power;
+}
+
+/** 조립대에 선 골렘들 (없으면 빈 배열) */
+export const workshopGolems = (save) => save.ossuary?.workshop?.golems ?? [];
+
+/**
+ * 작업반 능률. 작업반에 세운 **사역 골렘**의 능률 합에 비례해 작업 시간이 줄어든다.
  * 상한 60% — 아무리 좋은 골렘을 세워도 기다림 자체를 없애지는 못한다.
  */
 export function crewSpeed(save) {
-  const parts = save.ossuary?.crew?.parts ?? [];
-  if (!parts.length) return { power: 0, cut: 0 };
-  let power = 0;
-  for (const p of parts) {
-    const st = STATS_OF(p);
-    power += st.atk + st.def + Math.max(0, st.spd) + st.focus + Math.round(st.hp / 20);
-  }
-  return { power, cut: Math.min(0.6, power / 200) };
+  const crew = workshopGolems(save).filter((g) => g.assigned === 'crew');
+  if (!crew.length) return { power: 0, cut: 0, count: 0 };
+  const power = crew.reduce((n, g) => n + golemPower(g), 0);
+  return { power, cut: Math.min(0.6, power / 200), count: crew.length };
 }
+
 let STATS_OF = () => ({ atk: 0, def: 0, spd: 0, focus: 0, hp: 0 });
-export const bindStats = (fn) => { STATS_OF = fn; };
+let CORE_HP_OF = () => 0;
+export const bindStats = (fn, coreHp) => { STATS_OF = fn; if (coreHp) CORE_HP_OF = coreHp; };
 
 /** 작업반이 붙은 실제 소요 시간 */
 export const jobDuration = (save, ms) => Math.round(ms * (1 - crewSpeed(save).cut));

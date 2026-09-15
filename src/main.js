@@ -87,7 +87,16 @@ function migrate(s) {
   s.necro.equipped ??= [];
 
   const o = (s.ossuary ??= O.newOssuary());
+  o.workshop ??= { golems: [], seq: 0 };
+  o.workshop.golems ??= [];
+  o.workshop.seq ??= 0;
+  // 예전에는 부속을 직접 작업반에 세웠다. 이제는 핵으로 조립한 골렘만 일한다 —
+  // 세워 뒀던 부속은 돌려준다. 잃어버리게 두는 것이 가장 나쁜 처리다
   o.crew ??= { parts: [] };
+  if (o.crew.parts?.length) {
+    for (const part of o.crew.parts) (s.inventory ??= []).push(part);
+    o.crew.parts = [];
+  }
   o.crew.parts ??= [];
   o.vault ??= { capacity: 3, parts: [], lostRecords: [] };
   o.vault.parts ??= [];
@@ -133,6 +142,8 @@ const MIN_PARTS = 2;
 const wornCount = () => SLOTS.filter((s) => S.golem[s]).length;
 /** 소지 + 장착한 파츠 총수 — 바르그의 지원 판정에 쓴다 */
 const totalParts = () => S.inventory.length;
+/* 날것은 스탯 60%에 기술이 불발되므로 '쓸 수 있는 부속'으로 세지 않는다 */
+const settledParts = () => S.inventory.filter((p) => !p.raw).length;
 
 /* 던전에서만 방향키가 살아난다. 화면이 바뀌면 곧바로 꺼진다. */
 let arrowMoves = null;
@@ -195,6 +206,8 @@ function aimGuideScreen(back = town) {
   UI.logLine('내 쪽도 같은 구조다. 핵이 체력이고, 장착한 부속이 방어도다.', 'narrate');
   UI.logLine('피해는 방어도를 먼저 깎고, 방어도가 다 닳아야 핵에 닿는다.', '');
   UI.logLine('부위 방어도가 0이 되면 그 부속의 기술을 쓸 수 없다. 전부 무너지면 핵이 남아도 패배한다.', 'bad');
+  UI.logLine('반대도 마찬가지다 — 부속이 멀쩡해도 핵이 0이 되면 그 자리에서 진다.', 'bad');
+  UI.logLine('중독·화상·가시는 방어도를 지나쳐 핵을 직접 갉는다. 방어도가 남았는데 핵이 줄었다면 그것이다.', 'necro');
   UI.logLine('방어도는 포션으로 돌아오지 않는다. 던전 작업대방이나 납골당 정비대에서만 되돌린다.', 'good');
   UI.choices([{ label: '돌아간다', cls: 'ghost', on: () => back(false) }]);
 }
@@ -291,13 +304,14 @@ function scavengerScreen() {
     UI.rowHTML('핵', g.core ? UI.esc(g.core.name) : '<span class="empty">없음</span>',
       g.core ? '장착' : '!', !g.core),
     UI.rowHTML('장착', `${wornCount()}개`, `최소 ${MIN_PARTS}`, wornCount() < MIN_PARTS),
-    UI.rowHTML('소지', `${totalParts()}개`, '', totalParts() <= MIN_PARTS),
+    UI.rowHTML('소지', `${totalParts()}개`, `정착 ${settledParts()}`, settledParts() < MIN_PARTS),
     UI.rowHTML('상태', ready ? '내려갈 수 있다' : '<span class="empty">아직 못 내려간다</span>', '', !ready),
-  ], `<p class="note">핵이 없거나 부속이 ${MIN_PARTS}개 이하로 남으면 바르그가 모자란 것만 채워 준다.</p>`);
+  ], `<p class="note">핵이 없거나 <b>정착된</b> 부속이 ${MIN_PARTS}개 미만이면 바르그가 모자란 것만 채워 준다.<br>
+      날것은 기술이 불발되므로 여기서는 쓸 수 있는 부속으로 세지 않는다.</p>`);
 
   UI.logHead('뼈 수습꾼 바르그');
   const times = S.log.handouts ?? 0;
-  if (!S.golem.core || totalParts() <= MIN_PARTS) {
+  if (!S.golem.core || settledParts() < MIN_PARTS) {
     UI.logLine(times === 0
       ? '"빈손이군. 그런 얼굴은 여기서 자주 봐."'
       : times < 4 ? '"또 부서져 왔군. 그럴 줄 알았지."'
@@ -310,7 +324,7 @@ function scavengerScreen() {
 
   // 핵이 없거나 부속이 바닥났으면 손을 내민다
   const noCore = !S.golem.core;
-  const lowParts = totalParts() <= MIN_PARTS;
+  const lowParts = settledParts() < MIN_PARTS;
   const needsHelp = noCore || lowParts;
   UI.choices([
     { label: needsHelp ? '도움을 받는다' : '도움을 청한다', cls: 'primary',
@@ -343,19 +357,25 @@ function giveHandout() {
   const given = [];
   if (!S.golem.core) { S.golem.core = 'core_scrap'; given.push(DB.coresBy.core_scrap.name); }
 
+  // 최하급 정착 부속. 날것만 남으면 기술이 불발돼 진행이 막히므로 이 둘은 정착 상태로 준다
   const BASIC = ['part_body_goblin_torso', 'part_arm_goblin_claw', 'part_leg_goblin_hop'];
-  while (totalParts() < 3) {
-    const need = BASIC[Math.min(totalParts(), BASIC.length - 1)];
-    const p = makePart(need);
+  let i = 0;
+  while (settledParts() < MIN_PARTS) {
+    const p = makePart(BASIC[Math.min(i++, BASIC.length - 1)]);
+    p.raw = false;                       // 바르그의 수레에서 나온 것은 이미 손이 갔다
     S.inventory.push(p);
     given.push(partName(p));
+    if (i > BASIC.length + 2) break;     // 안전장치
   }
-  // 비어 있는 자리에 알아서 끼워 준다 — 빈손으로 내보내지 않는다
+
+  // 비어 있는 자리에 알아서 끼워 준다 — 빈손으로 내보내지 않는다.
+  // 정착된 것을 먼저 쓴다. 날것이 자동으로 끼워져 기술이 불발되는 일을 막는다
   const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
   for (const slot of SLOTS) {
     if (S.golem[slot]) continue;
     const kind = SLOT_KIND[slot];
-    const free = S.inventory.find((p) => !equipped.has(p.uid) && DB.partsBy[p.defId].slot === kind);
+    const fits = (p) => !equipped.has(p.uid) && DB.partsBy[p.defId].slot === kind;
+    const free = S.inventory.find((p) => fits(p) && !p.raw) ?? S.inventory.find(fits);
     if (!free) continue;
     S.golem[slot] = free.uid;
     equipped.add(free.uid);
@@ -391,6 +411,8 @@ function ossuaryScreen() {
   const cs = O.crewSpeed(S);
   const oh = o.overhaul ?? [];
   list.push({ label: '🔧 정비대', meta: oh.length ? `${oh.length}건 진행 중` : '방어도 · 핵', on: overhaulScreen });
+  const wg = O.workshopGolems(S);
+  list.push({ label: '⚙ 조립대', meta: wg.length ? `골렘 ${wg.length}기` : '핵으로 골렘을 세운다', on: workshopScreen });
   list.push({ label: '🛠 작업반', meta: cs.cut ? `작업 ${Math.round(cs.cut * 100)}% 단축` : '배치 없음', on: crewScreen });
   list.push({ label: '🕯 제단 — 영구 해금', cls: 'primary', on: altarScreen });
   list.push({ label: '돌아간다', cls: 'ghost', on: () => town(false) });
@@ -560,45 +582,133 @@ function overhaulScreen() {
 }
 
 /* ── 작업반 ─────────────────────────────── */
+/* ── 조립대 — 여분 핵으로 사역 골렘을 세운다 ──────────────
+   부속만 세워 두는 것으로는 아무 일도 일어나지 않는다.
+   핵이 몸을 세우고, 그 골렘이 일을 한다. */
+function workshopScreen() {
+  const o = S.ossuary;
+  const golems = O.workshopGolems(S);
+  UI.topbar(S, '납골당 · 조립대');
+
+  UI.listPanel('세워 둔 사역 골렘',
+    golems.map((g) => UI.rowHTML(
+      DB.coresBy[g.core]?.name ?? '?', UI.esc(g.name),
+      `능률 ${O.golemPower(g)}${g.assigned === 'crew' ? ' · 작업반' : ''}`)),
+    `<p class="note">여분 핵 ${S.cores.length}개 · 여분 부속 ${sparePool().length}개<br>
+      핵 하나에 골렘 하나. 세운 골렘은 작업반에 배치해 작업 시간을 줄인다.<br>
+      배치한 부속은 탐험에 쓸 수 없고, 내구도는 닳지 않는다.</p>`);
+
+  UI.logHead('조립대');
+  UI.logLine('핵을 놓고 부속을 맞춘다. 전투에 나갈 골렘이 아니라, 여기 남아 손을 놀릴 골렘이다.', 'narrate');
+  if (!S.cores.length && !golems.length) {
+    UI.logLine('여분 핵이 없다. 상점에서 사거나 층의 주인에게서 얻어야 한다.', 'dim');
+  }
+
+  UI.choices([
+    ...S.cores.map((cid) => {
+      const c = DB.coresBy[cid];
+      const spare = sparePool();
+      return {
+        label: `${c.name}으로 조립`,
+        meta: spare.length ? `체력 ${c.hp} · 부속 ${Math.min(spare.length, 5)}개 사용` : '여분 부속이 없다',
+        disabled: !spare.length,
+        on: () => { assembleWorkGolem(cid); workshopScreen(); },
+      };
+    }),
+    ...golems.map((g) => ({
+      label: `${g.name} 해체`, cls: 'ghost',
+      meta: `핵과 부속 ${g.parts.length}개 회수`,
+      on: () => { disassembleWorkGolem(g.id); workshopScreen(); },
+    })),
+    { label: '돌아간다', cls: 'ghost', on: ossuaryScreen },
+  ]);
+  save();
+}
+
+/** 조립대·작업반·파견 어디에도 묶이지 않은 여분 부속 */
+function sparePool() {
+  const o = S.ossuary;
+  const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
+  const inLabor = new Set((o.laborBay?.dispatch ?? []).flatMap((d) => d.parts.map((p) => p.uid)));
+  return S.inventory.filter((p) => !equipped.has(p.uid) && !inLabor.has(p.uid));
+}
+
+/** 슬롯별로 가장 능률이 좋은 여분 부속을 붙여 준다 — 손으로 다섯 칸을 채우게 하지 않는다 */
+function assembleWorkGolem(coreId) {
+  const o = S.ossuary;
+  o.workshop.seq = (o.workshop.seq ?? 0) + 1;
+  const power = (p) => {
+    const st = partStats(p);
+    return st.atk + st.def + Math.max(0, st.spd) + st.focus;
+  };
+  const picked = [];
+  const used = new Set();
+  for (const slot of SLOTS) {
+    const kind = SLOT_KIND[slot];
+    const best = sparePool()
+      .filter((p) => !used.has(p.uid) && DB.partsBy[p.defId].slot === kind)
+      .sort((a, b) => power(b) - power(a))[0];
+    if (!best) continue;
+    used.add(best.uid);
+    picked.push(best);
+  }
+  if (!picked.length) { UI.logLine('붙일 부속이 없다.', 'bad'); return; }
+
+  S.inventory = S.inventory.filter((p) => !used.has(p.uid));
+  S.cores = S.cores.filter((x) => x !== coreId);
+  const g = {
+    id: `wg${o.workshop.seq}`,
+    name: `사역 골렘 ${o.workshop.seq}호`,
+    core: coreId,
+    parts: picked,
+    assigned: null,
+  };
+  o.workshop.golems.push(g);
+  UI.logLine(`${g.name}이(가) 일어섰다. 부속 ${picked.length}개 · 능률 ${O.golemPower(g)}.`, 'good');
+}
+
+function disassembleWorkGolem(id) {
+  const o = S.ossuary;
+  const g = o.workshop.golems.find((x) => x.id === id);
+  if (!g) return;
+  o.workshop.golems = o.workshop.golems.filter((x) => x.id !== id);
+  S.cores.push(g.core);
+  for (const p of g.parts) S.inventory.push(p);
+  UI.logLine(`${g.name}을(를) 해체했다. 핵과 부속 ${g.parts.length}개를 돌려받았다.`, 'good');
+}
+
+/* ── 작업반 — 세워 둔 사역 골렘을 일에 붙인다 ───────────── */
 function crewScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 작업반');
   const cs = O.crewSpeed(S);
-  UI.listPanel('작업반에 세운 부속',
-    o.crew.parts.map((p) => UI.rowHTML(KIND_LABEL[DB.partsBy[p.defId].slot], UI.esc(partName(p)),
-      `${p.integrity}/${p.maxIntegrity}`)),
-    `<p class="note">능률 ${cs.power} → 해체대·접합로 작업 시간 <b>${Math.round(cs.cut * 100)}% 단축</b> (상한 60%).<br>
-     배치한 부속은 탐험에 쓸 수 없다. 내구도는 닳지 않는다.</p>`);
+  const golems = O.workshopGolems(S);
+  const onDuty = golems.filter((g) => g.assigned === 'crew');
+
+  UI.listPanel('작업반에 붙인 골렘',
+    onDuty.map((g) => UI.rowHTML(DB.coresBy[g.core]?.name ?? '?', UI.esc(g.name), `능률 ${O.golemPower(g)}`)),
+    `<p class="note">합계 능률 ${cs.power} → 해체대·접합로 작업 시간 <b>${Math.round(cs.cut * 100)}% 단축</b> (상한 60%).<br>
+      부속만으로는 일을 시킬 수 없다. <b>조립대</b>에서 핵을 넣어 세운 골렘만 붙일 수 있다.</p>`);
 
   UI.logHead('작업반');
-  UI.logLine('부속을 세워 두면 알아서 손을 놀린다. 능력치가 좋을수록 일이 빨라진다.', 'narrate');
-
-  const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
-  const inLabor = new Set((o.laborBay?.dispatch ?? []).flatMap((d) => d.parts.map((p) => p.uid)));
-  const pool = S.inventory.filter((p) => !equipped.has(p.uid) && !inLabor.has(p.uid)
-    && !o.crew.parts.some((c) => c.uid === p.uid));
+  UI.logLine('세워 둔 골렘에게 일을 맡긴다. 핵이 좋을수록, 부속이 좋을수록 일이 빠르다.', 'narrate');
+  if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 먼저 핵을 넣어 한 기를 세워야 한다.', 'dim');
 
   UI.choices([
-    ...o.crew.parts.map((p) => ({
-      label: `${partName(p)} 회수`, cls: 'ghost', on: () => {
-        o.crew.parts = o.crew.parts.filter((x) => x.uid !== p.uid);
-        S.inventory.push(p);
+    ...onDuty.map((g) => ({
+      label: `${g.name} 물린다`, cls: 'ghost',
+      on: () => { g.assigned = null; crewScreen(); },
+    })),
+    ...golems.filter((g) => !g.assigned).map((g) => ({
+      label: `${g.name} 붙인다`,
+      meta: `능률 ${O.golemPower(g)}`,
+      on: () => {
+        g.assigned = 'crew';
+        UI.logLine(`${g.name}이(가) 일을 시작했다.`, 'good');
         crewScreen();
       },
     })),
-    ...pool.slice(0, 6).map((p) => {
-      const st = partStats(p);
-      return {
-        label: `${partName(p)} 배치`,
-        meta: `공${st.atk} 방${st.def} 속${st.spd} 집${st.focus}`,
-        on: () => {
-          S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
-          o.crew.parts.push(p);
-          UI.logLine(`${partName(p)}을(를) 작업반에 세웠다.`, 'good');
-          crewScreen();
-        },
-      };
-    }),
+    { label: '조립대로', on: workshopScreen },
     { label: '돌아간다', cls: 'ghost', on: ossuaryScreen },
   ]);
   save();
@@ -1930,7 +2040,8 @@ function notifyQuests(ev) {
 async function boot() {
   try {
     await loadData();
-    O.bindStats(partStats);   // 작업반 능률 계산에 파츠 스탯을 넘긴다
+    // 작업반 능률 계산에 파츠 스탯과 핵 체력을 넘긴다
+    O.bindStats(partStats, (coreId) => DB.coresBy[coreId]?.hp ?? 0);
   } catch (e) {
     document.getElementById('log').innerHTML =
       `<div class="line bad">${UI.esc(e.message)}</div>
