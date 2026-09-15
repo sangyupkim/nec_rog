@@ -218,9 +218,15 @@ function syncDpad() {
   const pad = document.getElementById('dpad');
   if (!pad) return;
   pad.hidden = !arrowMoves;
+  // 십자키가 떠 있는 동안에는 선택지 오른쪽에 그만큼 자리를 비운다
+  document.getElementById('app')?.classList.toggle('dpad-on', Boolean(arrowMoves));
   if (!arrowMoves) return;
   for (const b of pad.querySelectorAll('.dp')) {
-    b.disabled = !arrowMoves[b.dataset.dir];
+    const move = arrowMoves[b.dataset.dir];
+    b.disabled = !move;
+    // 선택지에서 뺀 '미탐험 / 방 종류'를 버튼 자체가 알려 준다
+    b.dataset.seen = move ? String(move.seen) : '';
+    b.title = move ? `${b.dataset.dir} — ${move.label}` : '';
   }
 }
 // 모듈 스크립트는 defer라 여기 올 때 이미 DOMContentLoaded가 지나 있다.
@@ -231,16 +237,16 @@ function syncDpad() {
   pad.addEventListener('click', (e) => {
     const b = e.target.closest('.dp');
     if (!b || b.disabled) return;
-    arrowMoves?.[b.dataset.dir]?.();
+    arrowMoves?.[b.dataset.dir]?.go();
   });
 })();
 document.addEventListener('keydown', (e) => {
   const dir = DIR_KEY[e.key];
   if (!dir || !arrowMoves) return;
-  const go = arrowMoves[dir];
-  if (!go) return;
+  const move = arrowMoves[dir];
+  if (!move) return;
   e.preventDefault();
-  go();
+  move.go();
 });
 const STAT_LABEL = { hp: '체력', atk: '공격', def: '방어', eva: '회피', spd: '속도', focus: '집중' };
 
@@ -2305,12 +2311,9 @@ function enterRoom(room, first = false) {
 function roomChoices(room) {
   const fd = S.run.floorData;
   const exits = exitsOf(fd, room.id);
-  const ARROW = { 위: '↑', 오른쪽: '→', 아래: '↓', 왼쪽: '←' };
-  const list = exits.map((e) => ({
-    label: `${ARROW[e.dir]} ${e.dir}`,
-    meta: e.room.visited ? ROOM_LABEL[e.room.type] : '미탐험',
-    on: () => enterRoom(e.room),
-  }));
+  // 이동은 십자키가 맡는다. 선택지에 또 넣으면 같은 것이 두 벌이 되고,
+  // 정작 필요한 항목(상성표 같은 것)이 십자키에 가려진다.
+  const list = [];
 
   if (room.type === 'workshop') {
     list.push({ label: '작업대에서 정비', cls: 'primary', on: () => golemScreen(backToRoom, true) });
@@ -2328,7 +2331,11 @@ function roomChoices(room) {
   }
   UI.choices(list);
   // 선택지를 그린 뒤에 켜야 한다 (choices가 매번 초기화한다)
-  setArrowMoves(Object.fromEntries(exits.map((e) => [e.dir, () => enterRoom(e.room)])));
+  setArrowMoves(Object.fromEntries(exits.map((e) => [e.dir, {
+    go: () => enterRoom(e.room),
+    label: e.room.visited ? ROOM_LABEL[e.room.type] : '미탐험',
+    seen: Boolean(e.room.visited),
+  }])));
   save();
 }
 

@@ -276,10 +276,11 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #dpad[hidden]{display:none}
 #dpad{
   position:fixed;z-index:15;
+  --dp:2.1rem;
   right:calc(clamp(8px,2vw,18px) + env(safe-area-inset-right,0px));
   bottom:calc(clamp(8px,2vw,18px) + env(safe-area-inset-bottom,0px));
-  display:grid;grid-template-columns:repeat(3,2.1rem);grid-template-rows:repeat(3,2.1rem);
-  gap:.15rem;opacity:.92;
+  display:grid;grid-template-columns:repeat(3,var(--dp));grid-template-rows:repeat(3,var(--dp));
+  gap:.15rem;
 }
 #dpad .dp{
   font-family:var(--mono);font-size:1rem;line-height:1;
@@ -287,14 +288,25 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   display:flex;align-items:center;justify-content:center;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation;
 }
-#dpad .dp:hover:not(:disabled){color:var(--ink);border-color:var(--accent-dim)}
+/* 아직 안 가 본 방향은 눈에 띄게 — 선택지에서 뺀 '미탐험' 표시를 대신한다 */
+#dpad .dp[data-seen="false"]{color:var(--accent);border-color:var(--accent-dim)}
+#dpad .dp:hover:not(:disabled){color:var(--ink);border-color:var(--accent)}
 #dpad .dp:active:not(:disabled){background:var(--panel-2)}
-#dpad .dp:disabled{opacity:.25}
+#dpad .dp:disabled{opacity:.2}
 #dpad .up{grid-area:1/2} #dpad .left{grid-area:2/1}
 #dpad .right{grid-area:2/3} #dpad .down{grid-area:3/2}
+
+/* 십자키가 선택지를 덮지 않게 그만큼 자리를 비워 둔다.
+   덮으면 마지막 선택지(상성표 같은 것)를 아예 누를 수 없다. */
+#app.dpad-on #choices{
+  padding-right:calc(var(--dp-w) + clamp(8px,2vw,18px) * 2 + env(safe-area-inset-right,0px));
+}
+#app{--dp-w:calc(2.1rem * 3 + .3rem)}
+
 /* 좁은 화면에서는 조금 작게 */
 @media (max-aspect-ratio:4/5), (max-width:560px){
-  #dpad{grid-template-columns:repeat(3,1.9rem);grid-template-rows:repeat(3,1.9rem)}
+  #dpad{--dp:1.9rem}
+  #app{--dp-w:calc(1.9rem * 3 + .3rem)}
 }
 
 /* 글상자 — 세이브 내보내기·가져오기 */
