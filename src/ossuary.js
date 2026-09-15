@@ -33,6 +33,8 @@ export const RECIPES = {
              cost: { ichor: 3 } },
   graft:   { name: '이식', ms: 20 * 60_000, desc: '파츠 하나에 무작위 모디파이어를 붙인다.',
              cost: { ichor: 2, scrap: 10 } },
+  mend:    { name: '수복', ms: 30 * 60_000, desc: '닳거나 부패한 부속의 내구도를 상한까지 되돌린다.',
+             cost: { scrap: 12, boneMeal: 2 } },
   refine:  { name: '정제', ms: 60 * 60_000, desc: '내구도 상한 +2, 스탯 +10%.',
              cost: { boneMeal: 5 } },
   revive:  { name: '소생', ms: 240 * 60_000, desc: '런에서 잃은 파츠를 복원한다.',
@@ -51,9 +53,30 @@ export function newOssuary() {
     forge: { level: 1, slots: [] },
     laborBay: { level: 1, dispatch: [] },
     vault: { capacity: 3, parts: [], lostRecords: [] },
+    crew: { parts: [] },      // 작업반 — 배치하면 해체·접합 작업이 빨라진다
     pending: null,       // 복귀 정산 화면에서 보여줄 내역
   };
 }
+
+/**
+ * 작업반 능률. 배치한 부속의 능력치 합에 비례해 작업 시간이 줄어든다.
+ * 상한 60% — 아무리 좋은 골렘을 세워도 기다림 자체를 없애지는 못한다.
+ */
+export function crewSpeed(save) {
+  const parts = save.ossuary?.crew?.parts ?? [];
+  if (!parts.length) return { power: 0, cut: 0 };
+  let power = 0;
+  for (const p of parts) {
+    const st = STATS_OF(p);
+    power += st.atk + st.def + Math.max(0, st.spd) + st.focus + Math.round(st.hp / 20);
+  }
+  return { power, cut: Math.min(0.6, power / 200) };
+}
+let STATS_OF = () => ({ atk: 0, def: 0, spd: 0, focus: 0, hp: 0 });
+export const bindStats = (fn) => { STATS_OF = fn; };
+
+/** 작업반이 붙은 실제 소요 시간 */
+export const jobDuration = (save, ms) => Math.round(ms * (1 - crewSpeed(save).cut));
 
 export const vatCap = (o) => o.rotVat.level * 50;
 export const dissectionSlots = (o) => o.dissection.level;
@@ -65,6 +88,15 @@ export const DISSECT = {
   rare:   { ms: 30 * 60_000, scrap: [8, 12], ichor: 1, boneMeal: 0 },
   unique: { ms: 120 * 60_000, scrap: [20, 20], ichor: 3, boneMeal: 2 },
 };
+
+/* ── 대장간 강화 (§10.4) ───────────────────────── */
+export const UPGRADE_MAX = 3;
+export const upgradeCost = (lv) => ({
+  silver: 120 + lv * 90,
+  scrap: 10 + lv * 8,
+  boneMeal: 2 + lv * 2,
+});
+export const upgradeMs = (lv) => (25 + lv * 20) * 60_000;
 
 /* ── 정산 ──────────────────────────────────────── */
 /**
@@ -87,8 +119,26 @@ export function settle(save, now = Date.now()) {
   settleDissection(save, o, now, lines);
   settleForge(save, o, now, rng, lines);
   settleLabor(save, o, elapsed, rng, lines);
+  settleSmithy(save, now, lines);
 
   return { elapsed, capped, lines };
+}
+
+/** 대장간에 맡긴 강화가 끝났는지 본다 */
+function settleSmithy(save, now, lines) {
+  const jobs = save.town?.smithy;
+  if (!jobs?.length) return;
+  const done = [];
+  save.town.smithy = jobs.filter((j) => {
+    if (now < j.startedAt + j.durationMs) return true;
+    done.push(j);
+    return false;
+  });
+  for (const j of done) {
+    const part = { ...j.part, upgrade: (j.part.upgrade ?? 0) + 1 };
+    save.inventory.push(part);
+    lines.push({ facility: '대장간', text: `${partName(part)} 강화 완료 (+${part.upgrade})` });
+  }
 }
 
 function settleVat(save, o, elapsed, lines) {
@@ -181,6 +231,11 @@ function finishRecipe(save, job, rng) {
       part.refined = (a.refined ?? 0) + 1;
       if (a.fused) part.fused = a.fused;
       return part;
+    }
+    case 'mend': {
+      const a = inputs[0];
+      if (!a) return null;
+      return { ...a, integrity: a.maxIntegrity };
     }
     case 'attune': {
       const a = inputs[0];

@@ -104,7 +104,11 @@ export function rollStock(rng) {
       : null;
     parts.push(makePart(rng.pick(pool), modId));
   }
-  return { items, parts };
+  // 핵은 한 번에 한둘만 깔린다 — 골렘을 다시 세우는 일이 흔해지면 안 된다
+  const cores = DB.cores.filter((c) => c.source.includes('shop'))
+    .filter(() => rng.chance(55)).map((c) => c.id).slice(0, 2);
+  if (!cores.length) cores.push('core_scrap');
+  return { items, parts, cores };
 }
 
 export function partPrice(p) {

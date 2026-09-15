@@ -37,10 +37,13 @@ export function topbar(save, where) {
 }
 
 /* ── 선택지 ─────────────────────────────── */
+export const onChoicesRendered = [];
+
 export function choices(list) {
   const box = $('choices');
   box.replaceChildren();
   keyHandlers = [];
+  for (const fn of onChoicesRendered) fn();
   let n = 0;
   for (const c of list) {
     if (!c) continue;
@@ -224,16 +227,24 @@ export function golemPanel(save) {
         <span class="vl empty">비어 있음</span><span class="rt">—</span></div>`;
     }
     const warn = p.integrity <= 2;
+    const tags = (p.raw ? '<span class="chip warn">날것</span> ' : '<span class="chip good">정착</span> ')
+      + (p.integrity <= 0 ? '<span class="chip warn">부패</span> ' : '');
     return `<div class="row"><span class="lb">${SLOT_LABEL[slot]}</span>
-      <span class="vl">${esc(partName(p))}${p.integrity <= 0 ? ' <span class="chip warn">부패</span>' : ''}</span>
+      <span class="vl">${tags}${esc(partName(p))}</span>
       <span class="rt ${warn ? 'warn' : ''}">${p.integrity}/${p.maxIntegrity}</span></div>`;
   }).join('');
 
   const att = (save.golem.attachments ?? []).map((id) => DB.attachmentsBy[id]?.name).filter(Boolean);
 
+  const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
   panel(`
     <p class="pt">골렘 구성</p>
-    <div class="rows">${rows}</div>
+    <div class="rows">
+      <div class="row"><span class="lb">핵</span>
+        <span class="vl">${core ? esc(core.name) : '<span class="empty">없음 — 골렘이 서지 못한다</span>'}</span>
+        <span class="rt ${core ? '' : 'warn'}">${core ? core.rarity : '!'}</span></div>
+      ${rows}
+    </div>
     <div class="statgrid">
       <div><span>최대HP</span> <b>${g.stats.hp}</b></div>
       <div><span>공격</span> <b>${g.stats.atk}</b></div>

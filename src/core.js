@@ -3,7 +3,7 @@
 export const DB = {};
 
 const FILES = ['elements', 'skills', 'parts', 'monsters', 'modifiers',
-               'necro_skills', 'summons', 'items', 'attachments', 'quests'];
+               'necro_skills', 'summons', 'items', 'attachments', 'quests', 'cores'];
 
 export async function loadData() {
   const loaded = await Promise.all(
@@ -14,7 +14,7 @@ export async function loadData() {
   );
   FILES.forEach((f, i) => { DB[f] = loaded[i]; });
   for (const key of ['skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
-                     'summons', 'items', 'attachments']) {
+                     'summons', 'items', 'attachments', 'cores']) {
     DB[`${key}By`] = Object.fromEntries(DB[key].map((x) => [x.id, x]));
   }
 }
@@ -106,11 +106,12 @@ export function partName(p) {
   const prefix = (p.mod ? `${DB.modifiersBy[p.mod].prefix} ` : '')
     + (p.fused ? '이어붙인 ' : '')
     + (p.refined ? '정제된 ' : '');
+  const suffix = p.upgrade ? ` +${p.upgrade}` : '';
   return def.name_template
     .replace('{mod}', prefix)
     .replace('{owner}', def.owner ?? '')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim() + suffix;
 }
 
 /** 모디파이어가 반영된 파츠 스탯 */
@@ -119,7 +120,7 @@ export function partStats(p) {
   const mod = p.mod ? DB.modifiersBy[p.mod] : null;
   // 접합로에서 융합·정제된 파츠는 자체 스탯을 들고 다닌다 (§9.3-③)
   const base = p.fused?.stats ?? def.stats;
-  const refine = 1 + 0.1 * (p.refined ?? 0);
+  const refine = 1 + 0.1 * (p.refined ?? 0) + 0.08 * (p.upgrade ?? 0);
   const out = {};
   for (const [k, v0] of Object.entries(base)) {
     const v = v0 * refine;
@@ -157,6 +158,10 @@ export function assembleGolem(save) {
   const skills = [];
   const worn = [];
 
+  // 핵이 없으면 골렘은 서지 못한다 (§3.5)
+  const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
+  if (core) for (const [k, v] of Object.entries(core.stats)) stats[k] += v;
+
   for (const slot of SLOTS) {
     const uid = save.golem[slot];
     if (!uid) continue;
@@ -186,7 +191,9 @@ export function assembleGolem(save) {
   stats.eva = Math.min(60, stats.eva);
   stats.hp = Math.max(1, stats.hp);
 
-  return { stats, defElement, skills, active, worn, traits, over: active.length > SKILL_CAP };
+  return { stats, defElement, skills, active, worn, traits, core,
+           standing: Boolean(core && save.golem.body),
+           over: active.length > SKILL_CAP };
 }
 
 /** 스킬의 실효 속성 (속성 도가니로 바꾼 경우 반영) */

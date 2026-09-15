@@ -11,7 +11,9 @@ export const ROOM_LABEL = {
 };
 
 const key = (x, y) => `${x},${y}`;
-const DIRS = [[0, -1, '북쪽'], [1, 0, '동쪽'], [0, 1, '남쪽'], [-1, 0, '서쪽']];
+// 화면 기준 방향이 직관적이다. 키보드 방향키와도 그대로 대응된다.
+const DIRS = [[0, -1, '위'], [1, 0, '오른쪽'], [0, 1, '아래'], [-1, 0, '왼쪽']];
+export const DIR_KEY = { ArrowUp: '위', ArrowRight: '오른쪽', ArrowDown: '아래', ArrowLeft: '왼쪽' };
 
 export function generateFloor(seed, floor) {
   for (let attempt = 0; attempt < 40; attempt++) {
