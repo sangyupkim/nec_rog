@@ -10,6 +10,7 @@ import * as CP from './campaign.js';
 import { generateFloor, roomAt, exitsOf, ROOM_LABEL, ROOM_ICON, FLAVOR, DIR_KEY } from './dungeon.js';
 import {
   rollQuests, advanceQuests, questsAllDone, claimQuests, resetQuests,
+  refreshDaily, advanceDaily, dailyAllDone, claimDaily,
   nextResetCost, rollStock, partPrice, sellPrice, canCraft, craft,
   canLearn, learn, buildingStatus, ATTACH_SLOTS,
 } from './town.js';
@@ -45,12 +46,13 @@ function newSave() {
     necro: { known: ['nk_bonemend', 'nk_skeleton', 'nk_soulspear'],
              equipped: ['nk_bonemend', 'nk_skeleton', 'nk_soulspear'] },
     quests: { active: rollQuests(r), resets: 0 },
+    daily: null,          // 첫 진입에서 오늘 날짜로 채워진다
     town: { stock: rollStock(r), smithy: [] },
     seen: {}, run: null,
     // 캠페인 — 어디까지 왔는가 (§7-A). stage는 '다음에 도전할 단계'
     campaign: { stage: '1-1', cleared: {}, story: {}, ending: null },
     ossuary: (() => { const o = O.newOssuary(); o.built.forge = true; return o; })(),
-    unlocks: { vaultStart: 1, necroSlots: 3 },
+    unlocks: { vaultStart: 1, necroSlots: 3, salvage: 0, partPool: 0, modTier: 0 },
     modSamples: {},
     log: { runs: 0, kills: 0, lost: 0, handouts: 0, hintAim: false, hintRaw: false },
   };
@@ -66,6 +68,7 @@ function save() {
  */
 function migrate(s) {
   s.cores ??= [];
+  s.daily ??= null;
   s.campaign ??= { stage: '1-1', cleared: {}, story: {}, ending: null };
   s.campaign.cleared ??= {};
   s.campaign.story ??= {};
@@ -75,6 +78,9 @@ function migrate(s) {
   s.unlocks ??= { vaultStart: 1, necroSlots: 3 };
   s.unlocks.vaultStart ??= 1;
   s.unlocks.necroSlots ??= 3;
+  s.unlocks.salvage ??= 0;      // 잔해 수습 — 무너진 골렘에서 더 건진다
+  s.unlocks.partPool ??= 0;     // 수소문 — 상점에 좋은 부속이 깔린다
+  s.unlocks.modTier ??= 0;      // 이상 감식 — tier 2 모디파이어가 일찍 나온다
   s.log ??= {};
   s.log.handouts ??= 0;
   s.log.hintAim ??= false;
@@ -261,6 +267,8 @@ const findPart = (uid) => S.inventory.find((p) => p.uid === uid);
 /** 납골당 정산을 돌리고, 내역이 있으면 복귀 정산 화면을 먼저 보여준다 */
 function settleAndReport(next) {
   const r = O.settle(S, Date.now());
+  // 끝난 작업 건수를 오늘의 일에 흘려보낸다
+  if (r.lines.length) notifyQuests({ kind: 'job', count: r.lines.length });
   save();
   if (!r.lines.length) { next(); return; }
   UI.topbar(S, '납골당 · 복귀 정산');
@@ -274,6 +282,11 @@ function settleAndReport(next) {
 
 function town(intro = true) {
   cb = null;
+  // 자정을 넘겼으면 오늘의 일을 새로 건다 (§10.2-A)
+  if (refreshDaily(S, rng)) {
+    UI.logLine('☀ 게시판의 종이가 새것으로 바뀌었다. 오늘의 일이 걸렸다.', 'necro');
+    save();
+  }
   UI.topbar(S, '시체골 · 마을');
   UI.townPanel(S, buildingStatus(S));
   if (intro) {
@@ -289,6 +302,9 @@ function town(intro = true) {
       on: scavengerScreen },
     { label: '납골당', meta: ossuaryBadge(), on: ossuaryScreen },
     { label: '의뢰소', meta: questsAllDone(S) ? '수령 가능' : `${S.quests.active.filter((q) => q.done).length}/3`, on: questScreen },
+    { label: '☀ 오늘의 일', cls: dailyAllDone(S) ? 'primary' : '',
+      meta: `${(S.daily?.list ?? []).filter((q) => q.done).length}/${(S.daily?.list ?? []).length}`,
+      on: dailyScreen },
     { label: '썩은 손수레', meta: '상점', on: shopScreen },
     { label: '뼈 모루', meta: '대장간', on: forgeScreen },
     { label: '강령술사 조합', meta: '술법', on: conclaveScreen },
@@ -307,6 +323,44 @@ function ossuaryBadge() {
   if (o.rotVat.stored >= O.vatCap(o)) return '통이 가득';
   return busy ? `작업 ${busy}건` : '비어 있음';
 }
+
+/* ── 오늘의 일 — 하루 한 번 들를 이유 (§10.2-A) ──────── */
+function dailyScreen() {
+  UI.topbar(S, '시체골 · 오늘의 일');
+  const list = S.daily?.list ?? [];
+  const unclaimed = list.filter((q) => q.done && !q.claimed);
+
+  UI.listPanel(`오늘의 일 (${S.daily?.day ?? '-'})`,
+    list.map((q) => UI.rowHTML(q.done ? '완료' : `${q.progress}/${q.goal}`,
+      UI.esc(q.title), q.claimed ? '수령함' : rewardText(q.reward), !q.done)),
+    `<p class="note">자정이 지나면 새로 걸린다. 받지 않은 보상은 같이 사라진다.<br>
+      의뢰소의 의뢰와 달리 <b>하루치</b>이고, 보상은 방치 재료 쪽으로 기운다.</p>`);
+
+  UI.logHead('오늘의 일');
+  UI.logLine('게시판 한쪽에 매일 새로 붙는 종이들. 바르그가 대신 떼다 준다.', 'narrate');
+  for (const q of list) {
+    UI.logLine(`${q.done ? '✔' : '·'} ${q.title} — ${q.desc} (${q.progress}/${q.goal})`,
+      q.done ? 'good' : '');
+  }
+
+  UI.choices([
+    { label: `보상 수령 (${unclaimed.length}건)`, cls: 'primary', disabled: !unclaimed.length,
+      on: () => {
+        const got = claimDaily(S);
+        const got2 = Object.entries(got).filter(([, v]) => v > 0)
+          .map(([k, v]) => `${RES_LABEL[k] ?? k} ${v}`).join(', ');
+        UI.logLine(`오늘의 보상을 받았다 — ${got2}`, 'good');
+        save();
+        dailyScreen();
+      } },
+    { label: '돌아간다', cls: 'ghost', on: () => town(false) },
+  ]);
+  save();
+}
+
+const RES_LABEL = { silver: '은화', soulAsh: '영혼재', scrap: '시체 조각', ichor: '부패 진액', boneMeal: '골분' };
+const rewardText = (r) => Object.entries(r).filter(([, v]) => v > 0)
+  .map(([k, v]) => `${RES_LABEL[k] ?? k} ${v}`).join(' · ');
 
 /* ── 메인 퀘스트 — 바르그가 전담한다 (§7-A.5) ────────── */
 function mainQuestScreen() {
@@ -461,6 +515,7 @@ function giveHandout() {
 /* ── 납골당 ─────────────────────────────── */
 function ossuaryScreen() {
   const fresh = O.settle(S, Date.now());
+  if (fresh.lines.length) notifyQuests({ kind: 'job', count: fresh.lines.length });
   for (const l of fresh.lines) UI.logLine(`${l.facility} — ${l.text}`, l.warn ? 'bad' : 'good');
   UI.topbar(S, '시체골 · 납골당');
   UI.ossuaryPanel(S, O);
@@ -1025,6 +1080,21 @@ function altarScreen() {
     const c = 120 * S.unlocks.vaultStart;
     list.push(buy(`표본 지참 수 (${S.unlocks.vaultStart} → ${S.unlocks.vaultStart + 1}개)`, c, `영혼재 ${c}`,
       () => { S.unlocks.vaultStart++; }));
+  }
+  if (S.unlocks.salvage < 3) {
+    const c = 100 + 80 * S.unlocks.salvage;
+    list.push(buy(`잔해 수습 (회수율 +${(S.unlocks.salvage + 1) * 10}%p)`, c, `영혼재 ${c}`,
+      () => { S.unlocks.salvage++; UI.logLine('무너진 골렘에서 더 건질 수 있게 됐다.', 'good'); }));
+  }
+  if (S.unlocks.partPool < 2) {
+    const c = 140 + 120 * S.unlocks.partPool;
+    list.push(buy(`수소문 (상점 부속 등급 ↑)`, c, `영혼재 ${c}`,
+      () => { S.unlocks.partPool++; S.town.stock = rollStock(rng, S.unlocks);
+              UI.logLine('바르그가 아는 사람을 통해 더 나은 것이 들어온다.', 'good'); }));
+  }
+  if (!S.unlocks.modTier) {
+    list.push(buy('이상 감식 (tier 2 이상 조기 등장)', 260, '영혼재 260',
+      () => { S.unlocks.modTier = 1; UI.logLine('이상한 것을 알아보는 눈이 생겼다.', 'good'); }));
   }
   if (S.unlocks.necroSlots < 5) {
     const c = 150 * (S.unlocks.necroSlots - 2);
@@ -1593,6 +1663,7 @@ function runComplete() {
   const id = S.run.stage ?? '1-1';
   const st = stageOf(id);
   const res = CP.clearStage(S, id);
+  notifyQuests({ kind: 'stageclear', stage: id });
 
   const ash = res.reward.soulAsh + S.run.kills * 4;
   S.soulAsh += ash;
@@ -1606,7 +1677,7 @@ function runComplete() {
   if (!res.first) UI.logLine('이미 지난 곳이라 보상은 절반이다.', 'dim');
 
   S.run = null;
-  S.town.stock = rollStock(rng);
+  S.town.stock = rollStock(rng, S.unlocks);
   save();
 
   // 이야기는 처음 깰 때만. 재도전에 같은 대사를 세 번 읽히지 않는다
@@ -2003,9 +2074,9 @@ function bossPrompt(room) {
 function startBattle(room, elite, isBoss = false) {
   const r = makeRng(S.run.seed + room.x * 977 + room.y * 131 + S.run.floor);
   const sid = S.run.stage ?? '1-1';
-  const mon = isBoss ? rollBoss(sid, S.run.floor, r)
-    : elite ? rollElite(sid, S.run.floor, r)
-    : rollMonster(sid, S.run.floor, r);
+  const mon = isBoss ? rollBoss(sid, S.run.floor, r, S.unlocks)
+    : elite ? rollElite(sid, S.run.floor, r, S.unlocks)
+    : rollMonster(sid, S.run.floor, r, S.unlocks);
   cb = new Combat(S, mon, r);
   cb.room = room;
   const hzNow = CP.hazardOf(S.run.stage);
@@ -2208,7 +2279,7 @@ function collapseRun() {
   S.soulAsh += ash;
   UI.logLine(`영혼재 ${ash}를 정산했다.`, 'dim');
   S.run = null;
-  S.town.stock = rollStock(rng);
+  S.town.stock = rollStock(rng, S.unlocks);
   UI.choices([{ label: '마을로 돌아간다', cls: 'primary', on: () => settleAndReport(() => town()) }]);
   save();
 }
@@ -2222,7 +2293,8 @@ function dismantleGolem() {
   const kept = [], lost = [];
   for (const { slot, part } of g.worn) {
     const ratio = part.maxIntegrity ? part.integrity / part.maxIntegrity : 0;
-    const chance = Math.round(20 + 45 * ratio);   // 20~65%
+    // 잔해 수습 해금 한 단마다 +10%p (§8)
+    const chance = Math.round(20 + 45 * ratio) + (S.unlocks.salvage ?? 0) * 10;
     if (rng.chance(chance)) {
       part.raw = true;                            // 급히 뜯어 온 것은 날것이다
       kept.push(part);
@@ -2256,7 +2328,7 @@ function loseRun() {
   S.soulAsh += ash;
   UI.logLine(`영혼재 ${ash}를 챙겨 달아났다.`, 'dim');
   S.run = null;
-  S.town.stock = rollStock(rng);
+  S.town.stock = rollStock(rng, S.unlocks);
   UI.choices([{ label: '마을로 돌아간다', cls: 'primary', on: () => settleAndReport(() => town()) }]);
   save();
 }
@@ -2266,7 +2338,7 @@ function abandonRun(safe) {
   S.soulAsh += ash;
   UI.logLine(`영혼재 ${ash}를 정산했다.`, 'good');
   S.run = null;
-  S.town.stock = rollStock(rng);
+  S.town.stock = rollStock(rng, S.unlocks);
   UI.choices([{ label: '마을로', cls: 'primary', on: () => settleAndReport(() => town()) }]);
   save();
 }
@@ -2276,6 +2348,9 @@ function notifyQuests(ev) {
   const done = advanceQuests(S, ev);
   for (const q of done) UI.logLine(`📜 의뢰 완료 — ${q.title}`, 'necro');
   if (done.length && questsAllDone(S)) UI.logLine('📜 의뢰 세 건을 모두 마쳤다. 의뢰소로.', 'necro');
+
+  const daily = advanceDaily(S, ev);
+  for (const q of daily) UI.logLine(`☀ 오늘의 일 — ${q.title} 완료`, 'good');
 }
 
 /* ── 부팅 ───────────────────────────────── */

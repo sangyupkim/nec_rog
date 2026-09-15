@@ -274,26 +274,29 @@ export const stageOf = (id) => DB.stagesBy?.[id] ?? null;
 export const partOf = (id) => DB.partOfStage?.[id] ?? null;
 
 /** 모디파이어는 단계의 상한과 층 깊이를 함께 본다 */
-function rollMod(stage, floor, rng) {
+function rollMod(stage, floor, rng, unlocks = {}) {
   const chance = 25 + floor * 10;
   if (!rng.chance(chance)) return null;
-  const cap = floor >= 3 ? (stage?.modTier ?? 1) : Math.min(1, stage?.modTier ?? 1);
+  // '이상 감식'을 해금하면 tier 2가 한 층 일찍 나온다 (§8)
+  const early = unlocks.modTier ? 1 : 0;
+  const base = stage?.modTier ?? 1;
+  const cap = floor + early >= 3 ? base : Math.min(1, base);
   const pool = DB.modifiers.filter((m) => m.tier <= cap);
   return rng.weighted(pool.map((m) => [m.id, m.weight]));
 }
 
 /** 그 단계에서 나올 만한 몬스터를 뽑는다 */
-export function rollMonster(stageId, floor, rng) {
+export function rollMonster(stageId, floor, rng, unlocks = {}) {
   const stage = stageOf(stageId);
   const pool = stage?.monsters?.length ? stage.monsters : ['m_goblin', 'm_bonehound'];
-  return makeMonster(rng.pick(pool), rollMod(stage, floor, rng), rng);
+  return makeMonster(rng.pick(pool), rollMod(stage, floor, rng, unlocks), rng);
 }
 
 /** 단계의 엘리트. 전용 엘리트가 아니면 일반 몬스터를 승격시켜 쓴다. */
-export function rollElite(stageId, floor, rng) {
+export function rollElite(stageId, floor, rng, unlocks = {}) {
   const stage = stageOf(stageId);
   const id = stage?.elite ?? 'm_ogre';
-  const m = makeMonster(id, rollMod(stage, floor, rng), rng);
+  const m = makeMonster(id, rollMod(stage, floor, rng, unlocks), rng);
   if (DB.monstersBy[id].tier !== 'elite') {
     m.maxHp = Math.round(m.maxHp * 2.2);
     m.hp = m.maxHp;
@@ -306,13 +309,13 @@ export function rollElite(stageId, floor, rng) {
 }
 
 /** 층 보스. 마지막 층에만 그 단계의 전용 보스가 선다. */
-export function rollBoss(stageId, floor, rng) {
+export function rollBoss(stageId, floor, rng, unlocks = {}) {
   const stage = stageOf(stageId);
   const last = stage?.floors ?? 3;
   if (floor >= last && stage?.boss) {
-    return makeMonster(stage.boss, rollMod(stage, floor, rng), rng);
+    return makeMonster(stage.boss, rollMod(stage, floor, rng, unlocks), rng);
   }
-  const m = rollElite(stageId, floor, rng);
+  const m = rollElite(stageId, floor, rng, unlocks);
   m.maxHp = Math.round(m.maxHp * 1.2);
   m.hp = m.maxHp;
   m.name = `층의 주인 ${m.name}`;
