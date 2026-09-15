@@ -177,6 +177,13 @@ function migrate(s) {
   if (o.forge.level < 2) o.forge.level = 2;   // 한 칸이던 시절의 세이브를 올려 준다
   o.laborBay ??= { level: 1, dispatch: [] };
   o.laborBay.dispatch ??= [];
+  // 예전에는 부속 낱개를 파견 보냈다. 이제는 조립대 골렘만 나간다 —
+  // 나가 있던 부속은 소지품으로 돌려주고 그 파견은 접는다
+  o.laborBay.dispatch = o.laborBay.dispatch.filter((d) => {
+    if (d.golemId) return true;
+    for (const part of d.parts ?? []) (s.inventory ??= []).push(part);
+    return false;
+  });
   o.rotVat ??= { level: 1, input: 0, stored: 0 };
   o.built ??= {};
   o.built.rotVat ??= true;
@@ -1158,7 +1165,7 @@ function workshopScreen() {
 function sparePool() {
   const o = S.ossuary;
   const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
-  const inLabor = new Set((o.laborBay?.dispatch ?? []).flatMap((d) => d.parts.map((p) => p.uid)));
+  const inLabor = new Set((o.laborBay?.dispatch ?? []).flatMap((d) => (d.parts ?? []).map((p) => p.uid)));
   const inWork = new Set(O.workshopGolems(S).flatMap((g) => g.parts.map((p) => p.uid)));
   return S.inventory.filter((p) => !equipped.has(p.uid) && !inLabor.has(p.uid) && !inWork.has(p.uid));
 }
@@ -1223,10 +1230,14 @@ function workGolemScreen(id) {
     g.assigned === 'crew'
       ? { label: '작업반에서 물린다', cls: 'ghost', pin: true,
           on: () => { g.assigned = null; save(); workGolemScreen(id); } }
-      : { label: '작업반에 붙인다', cls: 'primary', pin: true, meta: `능률 ${O.golemPower(g)}`,
-          on: () => { g.assigned = 'crew'; save(); workGolemScreen(id); } },
+      : g.assigned === 'labor'
+        ? { label: '파견 나가 있다', cls: 'ghost', pin: true, disabled: true,
+            meta: '안치소에서 불러들인다' }
+        : { label: '작업반에 붙인다', cls: 'primary', pin: true, meta: `능률 ${O.golemPower(g)}`,
+            on: () => { g.assigned = 'crew'; save(); workGolemScreen(id); } },
     { label: '이 골렘을 해체한다', cls: 'danger', pin: true,
-      meta: `핵과 부속 ${g.parts.length}개 회수`,
+      meta: g.assigned === 'labor' ? '파견 중에는 해체할 수 없다' : `핵과 부속 ${g.parts.length}개 회수`,
+      disabled: g.assigned === 'labor',
       on: () => { disassembleWorkGolem(id); workshopScreen(); } },
     { label: '돌아간다', cls: 'ghost', pin: true, on: workshopScreen },
   ], { paged: true });
@@ -1448,86 +1459,118 @@ function recipeScreen(key, first = null) {
 }
 
 /* ── 사역 골렘 파견 ─────────────────────── */
+/* ── 사역 골렘 안치소 — 자원을 주워 오게 보낸다 (§9.3-④) ──
+   작업반과 같은 원칙이다. 부속 낱개가 아니라 **조립대에서 세운 골렘**을 보낸다. */
 function laborScreen() {
   const o = S.ossuary;
-  UI.topbar(S, '납골당 · 사역 골렘 안치소');
-  UI.ossuaryPanel(S, O);
+  UI.topbar(S, `납골당 · 파견 ${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸`);
+  const golems = O.workshopGolems(S);
+  const byId = (id) => golems.find((g) => g.id === id);
+
+  UI.listPanel('나가 있는 골렘',
+    o.laborBay.dispatch.map((d) => {
+      const g = byId(d.golemId);
+      const site = O.SITES[d.site];
+      return UI.rowHTML(site.name, UI.esc(g?.name ?? '?'),
+        g ? `부속 ${g.parts.length}` : '사라짐', !g);
+    }),
+    `<p class="note">시간이 지나면 조각·골분·진액을 주워 온다. 운이 좋으면 부속도 가져온다.<br>
+      주워 온 부속은 <b>표본실</b>로 들어가고, 날것이라 정착을 거쳐야 한다.<br>
+      나가 있는 동안 그 골렘의 부속은 쓸 수 없고, 터에 따라 내구도가 닳는다.</p>`);
+
   UI.logHead('사역 골렘 안치소');
-  UI.logLine('파견 보낸 골렘의 파츠는 탐험에 쓸 수 없다. 그리고 파견은 내구도를 갉아먹는다.', 'narrate');
+  UI.logLine('세운 골렘을 밖으로 내보낸다. 돌아올 때 무언가를 들고 온다.', 'narrate');
   for (const d of o.laborBay.dispatch) {
-    UI.logLine(`${O.SITES[d.site].name} — ${d.parts.map((p) => `${partName(p)} ${p.integrity}/${p.maxIntegrity}`).join(', ')}`, 'dim');
+    const g = byId(d.golemId);
+    UI.logLine(`${O.SITES[d.site].name} — ${g?.name ?? '?'}`
+      + (g ? ` (${g.parts.map((p) => `${partName(p)} ${p.integrity}/${p.maxIntegrity}`).join(', ')})` : ''), 'dim');
   }
   const free = O.laborSlots(o) - o.laborBay.dispatch.length;
-  const equippedL = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
-  const inLaborL = new Set(o.laborBay.dispatch.flatMap((d) => d.parts.map((p) => p.uid)));
-  const availL = S.inventory.filter((p) => !equippedL.has(p.uid) && !inLaborL.has(p.uid)).length;
-  if (!availL) UI.logLine('파견 보낼 여분 파츠가 없다.', 'dim');
+  const idle = golems.filter((g) => !g.assigned && g.parts.length);
+  if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 여분 핵으로 한 기를 세워야 보낸다.', 'dim');
+  else if (!idle.length) UI.logLine('놀고 있는 골렘이 없다. 작업반에 붙였거나 이미 나가 있다.', 'dim');
 
   UI.choices([
-    ...o.laborBay.dispatch.map((d) => ({
-      label: `${O.SITES[d.site].name} 파견 회수`, cls: 'ghost', on: () => {
-        for (const p of d.parts) S.inventory.push(p);
-        o.laborBay.dispatch = o.laborBay.dispatch.filter((x) => x !== d);
-        UI.logLine('사역 골렘을 회수했다.', 'good');
-        laborScreen();
-      },
-    })),
-    ...Object.entries(O.SITES).map(([key, site]) => ({
-      label: `${site.name}으로(로) 파견`,
-      meta: site.need ? `${STAT_LABEL[Object.keys(site.need)[0]]} ${Object.values(site.need)[0]}+` : '조건 없음',
-      disabled: free <= 0 || !availL,
-      on: () => dispatchPick(key),
-    })),
+    ...o.laborBay.dispatch.map((d) => {
+      const g = byId(d.golemId);
+      return {
+        label: `${O.SITES[d.site].name}에서 불러들인다`, cls: 'ghost',
+        meta: g?.name ?? '',
+        on: () => {
+          if (g) g.assigned = null;
+          o.laborBay.dispatch = o.laborBay.dispatch.filter((x) => x !== d);
+          UI.logLine(`${g?.name ?? '사역 골렘'}을(를) 불러들였다.`, 'good');
+          save();
+          laborScreen();
+        },
+      };
+    }),
+    ...Object.entries(O.SITES).map(([key, site]) => {
+      const needKey = site.need ? Object.keys(site.need)[0] : null;
+      const fits = idle.filter((g) => O.siteReady(site, O.golemStats(g)));
+      const why = free <= 0 ? `안치소가 꽉 참 (${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸)`
+        : !idle.length ? '보낼 골렘이 없다'
+        : !fits.length ? `${STAT_LABEL[needKey]} ${site.need[needKey]} 이상이 필요하다`
+        : null;
+      return {
+        label: `${site.name}으로 보낸다`,
+        meta: why ?? (site.need
+          ? `${STAT_LABEL[needKey]} ${site.need[needKey]}+ · 보낼 수 있는 골렘 ${fits.length}기`
+          : `조건 없음 · 보낼 수 있는 골렘 ${fits.length}기`),
+        disabled: Boolean(why),
+        on: () => dispatchPick(key),
+      };
+    }),
+    { label: '조립대로', on: workshopScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ], { paged: true });
   save();
 }
 
-function dispatchPick(siteKey, chosen = []) {
+/** 어느 골렘을 보낼지 고른다 */
+function dispatchPick(siteKey) {
   const o = S.ossuary;
   const site = O.SITES[siteKey];
-  UI.topbar(S, `파견 · ${site.name}`);
-  const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
-  const inLabor = new Set(o.laborBay.dispatch.flatMap((d) => d.parts.map((p) => p.uid)));
-  const pool = S.inventory.filter((p) => !equipped.has(p.uid) && !inLabor.has(p.uid)
-    && !chosen.some((c) => c.uid === p.uid));
-
-  const stats = { atk: 0, def: 0, spd: 0 };
-  for (const p of chosen) {
-    const st = partStats(p);
-    stats.atk += st.atk; stats.def += st.def; stats.spd += st.spd;
-  }
   const needKey = site.need ? Object.keys(site.need)[0] : null;
-  const ready = O.siteReady(site, stats);
+  UI.topbar(S, `파견 · ${site.name}`);
 
-  UI.listPanel(`${site.name}에 보낼 파츠`,
-    chosen.map((p) => UI.rowHTML(DB.partsBy[p.defId].slot, UI.partHTML(p), `${p.integrity}/${p.maxIntegrity}`)),
-    `<p class="note">공격 ${stats.atk} · 방어 ${stats.def} · 속도 ${stats.spd}<br>
-     ${site.need ? `요구: ${STAT_LABEL[needKey]} ${Object.values(site.need)[0]} — ${ready ? '충족' : '미달'}` : '요구 조건 없음'}<br>
-     산출: ${Object.entries(site.rate).map(([k, v]) => `${O.RES_LABEL[k]} ${v}/시간`).join(', ')}
-     ${site.wear ? `<br>내구도: ${site.wear}시간마다 1 감소` : ''}</p>`);
+  const idle = O.workshopGolems(S).filter((g) => !g.assigned && g.parts.length);
+  UI.listPanel(`${site.name}`, [
+    UI.rowHTML('요구', site.need ? `${STAT_LABEL[needKey]} ${site.need[needKey]} 이상` : '없음', ''),
+    UI.rowHTML('산출', Object.entries(site.rate)
+      .map(([k, v]) => `${O.RES_LABEL[k]} ${v}/시간`).join(' · '), ''),
+    UI.rowHTML('부속', site.findsPart
+      ? `${site.findsPart}시간마다 ${site.partLuck}% 확률` : '없음', ''),
+    UI.rowHTML('내구도', site.wear ? `${site.wear}시간마다 1 감소` : '닳지 않음', '', Boolean(site.wear)),
+  ], `<p class="note">${site.desc}<br>산출은 골렘의 ${STAT_LABEL[needKey ?? 'atk']}에 비례해 늘어난다.</p>`);
 
-  UI.logLine(chosen.length ? '더 보낼 파츠를 고르거나 파견을 시작한다.' : '파견할 파츠를 고른다.', 'dim');
+  UI.logHead(`${site.name}으로`);
+  UI.logLine(site.desc, 'narrate');
+  if (!idle.length) UI.logLine('보낼 수 있는 골렘이 없다.', 'dim');
+
   UI.choices([
-    { label: '파견 시작', cls: 'primary', disabled: !chosen.length || !ready, on: () => {
-      for (const p of chosen) S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
-      o.laborBay.dispatch.push({
-        site: siteKey, parts: chosen, startedAt: Date.now(), wearClock: 0,
-        statValue: needKey ? stats[needKey] : stats.atk,
-      });
-      UI.logLine(`${site.name}으로(로) 사역 골렘을 보냈다.`, 'good');
-      laborScreen();
-    } },
-    ...pool.map((p) => {
-      const st = partStats(p);
+    ...idle.map((g) => {
+      const st = O.golemStats(g);
+      const ready = O.siteReady(site, st);
       return {
-        label: `${partName(p)} 추가`,
-        meta: `공${st.atk} 방${st.def} 속${st.spd}`,
-        on: () => dispatchPick(siteKey, [...chosen, p]),
+        label: `${g.name} 보낸다`,
+        meta: ready
+          ? `공${st.atk} 방${st.def} 속${st.spd} · 산출 ${Math.round((1 + (st[needKey ?? 'atk'] ?? 0) / 100) * 100)}%`
+          : `${STAT_LABEL[needKey]} ${st[needKey]} / ${site.need[needKey]} — 모자라다`,
+        disabled: !ready,
+        on: () => {
+          g.assigned = 'labor';
+          o.laborBay.dispatch.push({
+            site: siteKey, golemId: g.id, startedAt: Date.now(), wearClock: 0, findClock: 0,
+          });
+          UI.logLine(`${g.name}을(를) ${site.name}으로 보냈다.`, 'good');
+          save();
+          laborScreen();
+        },
       };
     }),
-    { label: '취소', cls: 'ghost', on: laborScreen },
-  ]);
+    { label: '취소', cls: 'ghost', pin: true, on: laborScreen },
+  ], { paged: true });
 }
 
 /* ── 제단 (영구 해금) ───────────────────── */
@@ -2063,7 +2106,10 @@ function inventoryScreen(back = town) {
   const away = [
     ['표본실', (S.ossuary?.vault?.parts ?? []).length],
     ['조립대', O.workshopGolems(S).reduce((n, g) => n + g.parts.length, 0)],
-    ['파견', (S.ossuary?.laborBay?.dispatch ?? []).reduce((n, d) => n + d.parts.length, 0)],
+    ['파견', (S.ossuary?.laborBay?.dispatch ?? []).reduce((n, d) => {
+      const g = O.workshopGolems(S).find((x) => x.id === d.golemId);
+      return n + (g ? g.parts.length : (d.parts ?? []).length);
+    }, 0)],
     ['접합로', (S.ossuary?.forge?.slots ?? []).reduce((n, j) => n + (j.inputs?.length ?? 0), 0)],
     ['대장간', (S.town?.smithy ?? []).length],
     ['해체대', (S.ossuary?.dissection?.slots ?? []).length],
@@ -2911,7 +2957,7 @@ function dismantleGolem() {
   // 소지품의 여분도 일부 흘린다. 표본실·조립대·파견에 맡긴 것은 건드리지 않는다
   const wornUids = new Set(g.worn.map((w) => w.part.uid));
   const inWork = new Set(O.workshopGolems(S).flatMap((wg) => wg.parts.map((x) => x.uid)));
-  const inLabor = new Set((S.ossuary?.laborBay?.dispatch ?? []).flatMap((d) => d.parts.map((x) => x.uid)));
+  const inLabor = new Set((S.ossuary?.laborBay?.dispatch ?? []).flatMap((d) => (d.parts ?? []).map((x) => x.uid)));
   const rate = Math.max(5, SPARE_LOSS - (S.unlocks.salvage ?? 0) * 4);
   const atRisk = S.inventory.filter((part) =>
     !wornUids.has(part.uid) && !inWork.has(part.uid) && !inLabor.has(part.uid));
@@ -2983,7 +3029,9 @@ async function boot() {
   try {
     await loadData();
     // 작업반 능률 계산에 파츠 스탯과 핵 체력을 넘긴다
-    O.bindStats(partStats, (coreId) => DB.coresBy[coreId]?.hp ?? 0);
+    O.bindStats(partStats,
+      (coreId) => DB.coresBy[coreId]?.hp ?? 0,
+      (coreId) => DB.coresBy[coreId]?.stats ?? {});
   } catch (e) {
     document.getElementById('log').innerHTML =
       `<div class="line bad">${UI.esc(e.message)}</div>

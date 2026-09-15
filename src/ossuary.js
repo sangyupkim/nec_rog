@@ -19,11 +19,22 @@ export const FACILITIES = {
   laborBay:   { name: '사역 골렘 안치소', icon: '⛓', unlock: 150 },
 };
 
+/**
+ * 자원 채집터 (§9.3-④).
+ * `need`  들어가려면 골렘이 갖춰야 하는 능력치
+ * `rate`  시간당 산출 (골렘 능력치에 비례해 늘어난다)
+ * `wear`  몇 시간마다 부속 내구도가 1씩 닳는가 — 방치 수익과 부속 수명의 교환
+ * `findsPart`  몇 시간마다 부속 하나를 주워 올 기회가 오는가 (`partLuck`% 확률)
+ */
 export const SITES = {
-  graveyard: { name: '공동묘지',   need: null,        rate: { boneMeal: 2 },           wear: 0 },
-  mine:      { name: '무너진 갱도', need: { atk: 25 }, rate: { boneMeal: 3, scrap: 5 }, wear: 6 },
-  marsh:     { name: '역병 늪지',   need: { def: 30 }, rate: { ichor: 4 },              wear: 4 },
-  ruin:      { name: '전장 유적',   need: { spd: 30 }, rate: { scrap: 3 },              wear: 3, findsPart: 6 },
+  graveyard: { name: '공동묘지',   need: null,        rate: { boneMeal: 2 },           wear: 0,
+               findsPart: 8, partLuck: 25, desc: '오래된 무덤을 뒤진다. 안전하지만 나오는 것도 적다.' },
+  mine:      { name: '무너진 갱도', need: { atk: 25 }, rate: { boneMeal: 3, scrap: 5 }, wear: 6,
+               findsPart: 7, partLuck: 35, desc: '무너진 돌더미를 치워야 한다. 힘이 있어야 들어간다.' },
+  marsh:     { name: '역병 늪지',   need: { def: 30 }, rate: { ichor: 4 },              wear: 4,
+               findsPart: 9, partLuck: 30, desc: '썩은 물이 이음새를 파고든다. 단단해야 버틴다.' },
+  ruin:      { name: '전장 유적',   need: { spd: 30 }, rate: { scrap: 3 },              wear: 3,
+               findsPart: 5, partLuck: 55, desc: '먼저 줍는 쪽이 임자다. 발이 빨라야 한다.' },
 };
 
 export const RECIPES = {
@@ -79,6 +90,22 @@ export function golemPower(g) {
   return power;
 }
 
+/**
+ * 사역 골렘의 능력치 합. 파견 조건과 산출량이 여기서 나온다.
+ * 전투 골렘과 달리 핵은 몸을 세우는 몫만 하고, 일은 부속이 한다.
+ */
+export function golemStats(g) {
+  const out = { atk: 0, def: 0, eva: 0, spd: 0, focus: 0 };
+  if (!g) return out;
+  const core = CORE_STATS_OF(g.core);
+  for (const k of Object.keys(out)) out[k] += core?.[k] ?? 0;
+  for (const p of g.parts ?? []) {
+    const st = STATS_OF(p);
+    for (const k of Object.keys(out)) out[k] += st[k] ?? 0;
+  }
+  return out;
+}
+
 /** 조립대에 선 골렘들 (없으면 빈 배열) */
 export const workshopGolems = (save) => save.ossuary?.workshop?.golems ?? [];
 
@@ -95,7 +122,12 @@ export function crewSpeed(save) {
 
 let STATS_OF = () => ({ atk: 0, def: 0, spd: 0, focus: 0, hp: 0 });
 let CORE_HP_OF = () => 0;
-export const bindStats = (fn, coreHp) => { STATS_OF = fn; if (coreHp) CORE_HP_OF = coreHp; };
+let CORE_STATS_OF = () => ({});
+export const bindStats = (fn, coreHp, coreStats) => {
+  STATS_OF = fn;
+  if (coreHp) CORE_HP_OF = coreHp;
+  if (coreStats) CORE_STATS_OF = coreStats;
+};
 
 /** 작업반이 붙은 실제 소요 시간 */
 export const jobDuration = (save, ms) => Math.round(ms * (1 - crewSpeed(save).cut));
@@ -311,55 +343,81 @@ function mergeStats(a, b) {
   return out;
 }
 
+/**
+ * 파견 정산 — 보낸 **사역 골렘**이 시간에 비례해 자원을 주워 온다 (§9.3-④).
+ * 능력치가 좋을수록 많이 가져오고, 터에 따라 부속도 주워 온다.
+ * 대신 부속 내구도가 닳는다 — 공짜 수익은 없다.
+ */
 function settleLabor(save, o, elapsed, rng, lines) {
   if (!o.built.laborBay) return;
   const hours = elapsed / HOUR;
   for (const d of o.laborBay.dispatch) {
     const site = SITES[d.site];
-    const bonus = 1 + (d.statValue ?? 0) / 100;
+    const g = (o.workshop?.golems ?? []).find((x) => x.id === d.golemId);
+    if (!g) { d.done = true; continue; }          // 골렘이 사라졌으면 파견도 끝난다
+
+    const st = golemStats(g);
+    const key = site.need ? Object.keys(site.need)[0] : 'atk';
+    const bonus = 1 + (st[key] ?? 0) / 100;
     const gained = [];
     for (const [res, rate] of Object.entries(site.rate)) {
       const n = Math.floor(rate * bonus * hours);
       if (n > 0) { save[res] += n; gained.push(`${RES_LABEL[res]} +${n}`); }
     }
+
+    // 부속 줍기 — 기회가 올 때마다 굴린다. 확실한 수입이 아니라 덤이다
     if (site.findsPart) {
-      const found = Math.floor(hours / site.findsPart);
-      for (let i = 0; i < found; i++) {
+      d.findClock = (d.findClock ?? 0) + hours;
+      while (d.findClock >= site.findsPart) {
+        d.findClock -= site.findsPart;
+        if (!rng.chance(site.partLuck ?? 30)) continue;
         const pool = DB.parts.filter((p) => p.rarity !== 'unique');
         const part = makePart(rng.pick(pool).id, rng.chance(35)
           ? rng.weighted(DB.modifiers.filter((m) => m.tier === 1).map((m) => [m.id, m.weight])) : null);
+        part.raw = true;                          // 주워 온 것은 날것이다 (§3.4)
         pushToVault(save, o, part, lines);
-        gained.push(`${partName(part)} 발견`);
+        gained.push(`${partName(part)} 주워 옴`);
       }
     }
-    // 파견은 내구도를 갉아먹는다 — 방치 수익과 파츠 수명의 교환 (§9.3-④)
+
+    // 파견은 내구도를 갉아먹는다 — 방치 수익과 부속 수명의 교환
     let lost = null;
     if (site.wear) {
       d.wearClock = (d.wearClock ?? 0) + hours;
       while (d.wearClock >= site.wear) {
         d.wearClock -= site.wear;
-        const alive = d.parts.filter((p) => p.integrity > 0);
+        const alive = (g.parts ?? []).filter((p) => p.integrity > 0);
         if (!alive.length) break;
         const target = rng.pick(alive);
         target.integrity--;
         if (target.integrity <= 0) lost = partName(target);
       }
     }
+    if (lost) {
+      g.parts = g.parts.filter((p) => p.integrity > 0);
+      for (const [slot, uid] of Object.entries(g.slots ?? {})) {
+        if (!g.parts.some((p) => p.uid === uid)) delete g.slots[slot];
+      }
+    }
+
     lines.push({
       facility: '파견',
-      text: `${site.name} · ${gained.length ? gained.join(', ') : '수확 없음'}`,
-      warn: lost ? `${lost}이(가) 삭아 사라졌다` : lowIntegrityWarn(d),
+      text: `${site.name} · ${g.name} — ${gained.length ? gained.join(', ') : '수확 없음'}`,
+      warn: lost ? `${lost}이(가) 삭아 사라졌다` : lowIntegrityWarn(g),
     });
-    if (lost) d.parts = d.parts.filter((p) => p.integrity > 0);
-    if (!d.parts.length) d.done = true;
+    if (!(g.parts ?? []).length) d.done = true;   // 다 삭으면 더 일할 수 없다
   }
   const ended = o.laborBay.dispatch.filter((d) => d.done);
-  for (const d of ended) lines.push({ facility: '파견', text: `${SITES[d.site].name} 파견이 끝났다 — 골렘이 남지 않았다` });
+  for (const d of ended) {
+    const g = (o.workshop?.golems ?? []).find((x) => x.id === d.golemId);
+    if (g) g.assigned = null;
+    lines.push({ facility: '파견', text: `${SITES[d.site].name} 파견이 끝났다 — 더 보낼 것이 남지 않았다` });
+  }
   o.laborBay.dispatch = o.laborBay.dispatch.filter((d) => !d.done);
 }
 
-const lowIntegrityWarn = (d) => {
-  const low = d.parts.filter((p) => p.integrity <= 2);
+const lowIntegrityWarn = (g) => {
+  const low = (g.parts ?? []).filter((p) => p.integrity <= 2);
   return low.length ? `${low.map(partName).join(', ')} 내구도 위험` : null;
 };
 
