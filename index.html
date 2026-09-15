@@ -121,10 +121,36 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 
 #panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}
 
-/* 세로 비율이거나 너무 좁으면 위아래로 쌓는다 (§12.2) */
+#panetoggle{display:none}
+
+/*
+ * 세로 비율이거나 너무 좁으면 위아래로 쌓는다 (§12.2).
+ * 글자를 키우면 상태 패널과 선택지가 함께 커져 로그가 짜부라진다.
+ * 그래서 ① 상태 패널을 접을 수 있게 하고 ② 로그에 최소 높이를 보장한다.
+ */
 @media (max-aspect-ratio:4/5), (max-width:560px){
-  #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) minmax(0,1fr)}
-  #left{max-height:34dvh;border-right:0;border-bottom:1px solid var(--line)}
+  #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) auto minmax(22dvh,1fr)}
+  #app #left{max-height:30dvh;border-right:0;border-bottom:1px solid var(--line)}
+  /* 기본 규칙이 파일 뒤쪽에 있어 명시도를 한 단계 올려야 이긴다 */
+  #app #choices{max-height:30dvh;gap:.3rem}
+  /* 세로에서는 줄 간격을 좁혀 같은 높이에 더 많은 줄을 담는다 */
+  #app #log{gap:.12rem;padding-block:.5rem}
+  #app #log .line{line-height:1.42}
+  #app #log .line.narrate{margin:.25rem 0}
+  #app #log .line.head{margin-top:.6rem;padding-top:.35rem}
+
+  #panetoggle{
+    display:block;width:100%;text-align:center;
+    font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--muted);
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:.3rem;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  }
+  #panetoggle:hover{color:var(--ink)}
+  /* 접으면 로그가 그만큼 넓어진다 */
+  #app.panes-collapsed #left{
+    max-height:0 !important;padding-block:0;border-bottom:0;overflow:hidden;
+  }
 }
 
 /* 가로모드 휴대폰 — 높이가 모자라므로 세로 여백을 걷어낸다 */
@@ -292,6 +318,7 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
   <div id="topbar"></div>
   <div id="panes">
     <aside id="left"></aside>
+    <button id="panetoggle" type="button" aria-expanded="true">상태 접기 ▲</button>
     <main id="right">
       <div id="log"></div>
     </main>
@@ -356,6 +383,31 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
       });
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && !box.hidden) box.hidden = true;
+      });
+      apply();
+    });
+    apply();
+  })();
+</script>
+<script>
+  // 상태 패널 접기 — 세로모드에서 로그를 넓게 보기 위한 것
+  (function () {
+    var KEY = 'patchwork.panesCollapsed';
+    var off = false;
+    try { off = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    function apply() {
+      document.getElementById('app').classList.toggle('panes-collapsed', off);
+      var b = document.getElementById('panetoggle');
+      if (b) {
+        b.textContent = off ? '상태 보기 ▼' : '상태 접기 ▲';
+        b.setAttribute('aria-expanded', String(!off));
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('panetoggle').addEventListener('click', function () {
+        off = !off;
+        try { localStorage.setItem(KEY, off ? '1' : '0'); } catch (e) {}
+        apply();
       });
       apply();
     });
