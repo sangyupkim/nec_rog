@@ -146,6 +146,49 @@ document.addEventListener('keydown', (e) => {
   go();
 });
 const STAT_LABEL = { hp: '체력', atk: '공격', def: '방어', eva: '회피', spd: '속도', focus: '집중' };
+
+/**
+ * 재화 안내. 무엇이 어디서 나오고 어디에 들어가는지 한자리에 모은다.
+ * key는 세이브의 필드명과 같다 — 소지량을 그대로 읽어 온다.
+ */
+const RESOURCE_GUIDE = [
+  { key: 'silver', name: '은화', tag: '마을 재화',
+    from: '전투 후 시체에서 · 파츠 판매 · 의뢰 보상',
+    use: '상점 구매 · 대장간 제작과 강화 · 속성 도가니',
+    note: '방치로는 한 푼도 안 나온다. 무덤에 내려가야 생긴다.' },
+  { key: 'soulAsh', name: '영혼재', tag: '메타 재화',
+    from: '탐험을 마칠 때 정산 (층수와 처치 수) · 의뢰 보상',
+    use: '제단의 영구 해금 · 강령술사 조합의 술법 습득',
+    note: '오직 런에서만 나온다. 이것 때문에 방치만으로는 성장이 막힌다.' },
+  { key: 'scrap', name: '시체 조각', tag: '기본 재료',
+    from: '유해 더미 방 · 해체대 · 사역 골렘 파견',
+    use: '정착 · 이식 · 수복 · 부패조 투입 · 방어도 수리 · 대장간 제작과 강화',
+    note: '가장 많이 쓰인다. 모자라면 유해 더미를 뒤지거나 파츠를 해체한다.' },
+  { key: 'ichor', name: '부패 진액', tag: '촉매',
+    from: '부패조 방치 생산 · 희귀 이상 파츠 해체 · 역병 늪지 파견',
+    use: '정착 · 융합 · 이식 · 소생 · 핵 안정화 · 방혈관과 도가니 제작',
+    note: '부패조에 시체 조각을 담가 두면 시간이 알아서 만들어 준다.' },
+  { key: 'boneMeal', name: '골분', tag: '정밀 재료',
+    from: '공동묘지·갱도 파견 · 유해 더미 · 유니크 파츠 해체',
+    use: '정제 · 소생 · 수복 · 정비대 · 균형추 제작 · 파츠 강화',
+    note: '적게 나오고 귀하다. 강화와 정비에 집중해서 쓴다.' },
+];
+
+function resourceGuideScreen(back = town) {
+  UI.topbar(S, '재화 안내');
+  UI.listPanel('가진 재화',
+    RESOURCE_GUIDE.map((r) => UI.rowHTML(r.tag, UI.esc(r.name), String(S[r.key] ?? 0))),
+    '<p class="note">무엇이 어디서 나오고 어디에 들어가는지 정리한 것이다.</p>');
+  UI.logHead('재화 다섯 가지');
+  for (const r of RESOURCE_GUIDE) {
+    UI.logLine(`${r.name} — ${r.tag} (지금 ${S[r.key] ?? 0})`, 'necro');
+    UI.logLine(`얻는 곳: ${r.from}`, '');
+    UI.logLine(`쓰는 곳: ${r.use}`, '');
+    UI.logLine(r.note, 'dim');
+  }
+  UI.logLine('핵심은 은화와 영혼재가 무덤에서만 나온다는 것이다. 방치는 재료만 만든다.', 'good');
+  UI.choices([{ label: '돌아간다', cls: 'ghost', on: () => back(false) }]);
+}
 const money = (n) => `은화 ${n}`;
 const findPart = (uid) => S.inventory.find((p) => p.uid === uid);
 
@@ -231,6 +274,7 @@ function scavengerScreen() {
       meta: needsHelp ? '무료' : '아직 쓸 만하다',
       disabled: !needsHelp,
       on: () => { giveHandout(); scavengerScreen(); } },
+    { label: '재화가 뭔지 알려달라', cls: 'ghost', on: () => resourceGuideScreen(scavengerScreen) },
     { label: '조언을 듣는다', cls: 'ghost', on: () => {
       for (const t of [
         '"무덤에서 뜯어온 건 날것이야. 그대로 끼우면 헛돌지."',
@@ -1210,6 +1254,7 @@ function inventoryScreen(back = town) {
   UI.listPanel(`가진 것 — 파츠 ${S.inventory.length}개`, rows);
   UI.logLine(`재료: 조각 ${S.scrap} · 진액 ${S.ichor} · 골분 ${S.boneMeal} / 은화 ${S.silver} · 영혼재 ${S.soulAsh}`, 'dim');
   UI.choices([
+    { label: '재화가 뭔지 보기', cls: 'ghost', on: () => resourceGuideScreen(() => inventoryScreen(back)) },
     ...S.inventory.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
       .slice(0, 6).map((p) => ({
         label: `${partName(p)}에 역청`, meta: `+3 (${S.consumables.it_bitumen}개 남음)`, on: () => {
@@ -1839,6 +1884,7 @@ async function boot() {
     UI.logHead('Project Patchwork');
     UI.logLine('당신은 골렘을 만드는 네크로맨서다. 싸우는 것은 당신이 아니라, 당신이 조립한 것이다.', 'narrate');
     UI.logLine('무덤에서 시체를 뜯어 와 골렘에 붙인다. 붙인 부속이 곧 골렘의 능력이자 기술이 된다.', 'narrate');
+    UI.logLine('무엇이 어디에 쓰이는지 모르겠으면 마을의 뼈 수습꾼에게 물어보면 된다.', 'dim');
   } else {
     UI.logLine('기록을 불러왔다.', 'dim');
   }

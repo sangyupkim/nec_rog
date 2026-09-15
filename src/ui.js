@@ -33,7 +33,7 @@ export function topbar(save, where) {
     <span><b>골분</b> ${save.boneMeal}</span>
     <button id="uiscale" type="button" title="글자 크기"></button>`;
   const btn = $('uiscale');
-  btn.addEventListener('click', () => window.cycleUiScale?.());
+  btn.addEventListener('click', () => window.toggleUiScale?.());
   window.applyUiScale?.();
 }
 
