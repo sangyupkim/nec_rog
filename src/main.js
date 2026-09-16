@@ -1426,6 +1426,7 @@ function overhaulScreen() {
   UI.listPanel('정비대에 올릴 골렘', [...rows, ...detail],
     `<p class="note">줄을 누르면 그 골렘을 올린다. 지금 올라간 것은 <b>${UI.esc(v?.name ?? '없음')}</b>.<br>
      <b>방</b>은 방어도(맞으면 깎인다), <b>내</b>는 내구도(쓰면 닳는다). 둘 다 여기서 되돌린다.<br>
+     방어도는 포션으로 돌아오지 않는다 — 작업대나 여기서만 되돌릴 수 있다.<br>
      맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다.</p>`,
     (key) => { overhaulPick = key.slice(2); overhaulScreen(); }, `g:${v?.id}`);
 
