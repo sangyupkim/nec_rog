@@ -135,9 +135,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
  */
 @media (max-aspect-ratio:4/5), (max-width:560px){
   #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) auto minmax(22dvh,1fr)}
-  #app #left{max-height:40dvh;border-right:0;border-bottom:1px solid var(--line)}
+  #app #left{max-height:46dvh;border-right:0;border-bottom:1px solid var(--line)}
   /* 기본 규칙이 파일 뒤쪽에 있어 명시도를 한 단계 올려야 이긴다 */
-  #app{--dock-rows:4;--btn-h:2.7rem}
+  /* 뒤쪽의 기본 #app 선언에 지지 않게 명시도를 올린다 (§12.2의 그 함정) */
+  #app#app{--dock-rows:4;--btn-h:2.7rem}
   /* 세로에서는 줄 간격을 좁혀 같은 높이에 더 많은 줄을 담는다 */
   #app #log{gap:.12rem;padding-block:.5rem}
   #app #log .line{line-height:1.42}
@@ -162,7 +163,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 @media (orientation:landscape) and (max-height:520px){
   #topbar{padding-block:.25rem}
   #left,#log{padding-block:.5rem}
-  #app{--dock-rows:3;--btn-h:2.5rem}
+  #app#app{--dock-rows:3;--btn-h:2.5rem}
   #choices{padding:.4rem clamp(6px,1.2vw,12px)}
   .line{line-height:1.45}
   .unit{margin-bottom:.7rem}
@@ -174,6 +175,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   border-right:1px solid var(--line);overflow-y:auto;
   padding:clamp(10px,2vw,18px);background:var(--panel);
 }
+/* 넘친 부분이 있다는 표시 — 세로모드에서는 패널 높이가 묶여 있다 */
+#left.more{box-shadow:inset 0 -1.4rem 1.1rem -1.1rem var(--sunken)}
+
+/* 지도와 몸 도식을 나란히 — 세로로 쌓으면 도식이 접힘 아래로 내려간다 */
+.sidebyside{
+  display:flex;flex-wrap:wrap;gap:.4rem 1rem;align-items:flex-start;
+  justify-content:center;margin:.3rem 0 .2rem;
+}
+.sidebyside > .map{margin:0;flex:0 0 auto}
+.sidebyside > .bodymap{margin:0;flex:1 1 11rem;max-width:14rem;min-width:9rem}
 #right{display:grid;min-height:0}
 /* 오른쪽은 순수 텍스트 영역 — 로그만 있다 */
 #log{
@@ -207,8 +218,20 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
    글자를 가리지 않도록 그림자로만 알린다. */
 #choices.more{box-shadow:inset 0 -1.2rem 1rem -1rem var(--sunken)}
 
-/* 격자를 가로지르는 것들 — 연출 대기 표시와 글상자 */
-#choices .waiting,#choices .textbox{grid-column:1/-1}
+/* 격자를 가로지르는 것들 — 연출 대기 표시와 글상자, 쪽 넘김 띠 */
+#choices .waiting,#choices .textbox,#choices .pager{grid-column:1/-1}
+/* 쪽 넘김은 버튼 셋이 아니라 한 줄짜리 띠다 — 셋이면 칸을 셋 먹는다 */
+#choices .pager{
+  display:flex;align-items:center;justify-content:center;gap:.8rem;
+  height:1.7rem;align-self:center;
+}
+#choices .pager .pg{
+  font-family:var(--mono);font-size:.72rem;color:var(--muted);
+  border:1px solid var(--line-soft);border-radius:2px;padding:.1rem .5rem;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#choices .pager .pg:hover{color:var(--ink);border-color:var(--accent-dim)}
+#choices .pager .pgn{font-family:var(--mono);font-size:.7rem;color:var(--accent-dim)}
 #choices .waiting{grid-row:span 1}
 #choices .textbox{grid-row:span 4}
 
@@ -462,6 +485,15 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   color:var(--muted);margin:0 0 .5rem;
 }
 .unit{margin-bottom:1.1rem}
+/* 전투 — 적과 골렘을 좌우로 세운다. 세로로 쌓으면 몸 도식이 접힘 아래로 내려간다 */
+.duo{display:flex;gap:.7rem;align-items:flex-start;margin-bottom:.5rem}
+.duo > .unit{flex:1 1 0;min-width:0;margin-bottom:0}
+.duo .unit h3{font-size:.98rem;margin:0;line-height:1.25;overflow-wrap:anywhere}
+.duo .unit .tag{display:inline-block;margin:.1rem 0 .25rem}
+.duo .hpnum{font-size:.7rem;margin-top:.15rem}
+.duo .chips{gap:.2rem;margin-top:.25rem}
+.duo .chip{font-size:.62rem;padding:.06rem .3rem}
+@media (max-width:360px){ .duo{flex-direction:column;gap:.4rem} }
 .unit h3{
   font-family:var(--display);font-size:1.08rem;font-weight:700;margin:0 0 .25rem;
   display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;

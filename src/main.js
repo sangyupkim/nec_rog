@@ -677,7 +677,40 @@ function backupScreen() {
   UI.choices([
     { label: '내보내기', cls: 'primary', meta: '글상자에 띄운다', on: exportSave },
     { label: '가져오기', meta: '붙여넣은 것으로 덮어쓴다', on: importSave },
+    { label: '처음부터 다시', cls: 'danger', meta: '기록을 지운다', on: resetScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) },
+  ]);
+}
+
+/**
+ * 처음부터 다시 — 테스트할 때 쓴다.
+ * 되돌릴 수 없는 일이므로 **한 번 묻고**, 지우기 전에 지금 것을 한 칸 옆에 남긴다.
+ */
+function resetScreen() {
+  UI.topbar(S, '시체골 · 처음부터 다시');
+  const pr = CP.progress(S);
+  UI.listPanel('지울 기록', [
+    UI.rowHTML('진행', `${pr.done}/${pr.total} 단계`, ''),
+    UI.rowHTML('탐험', `${S.log.runs}회`, `처치 ${S.log.kills}`),
+    UI.rowHTML('소지', `부속 ${S.inventory.length}개`, `핵 ${S.cores.length}`),
+    UI.rowHTML('재화', `은화 ${S.silver}`, `영혼재 ${S.soulAsh}`),
+  ], '<p class="note">지운 기록은 한 칸 옆(<code>.before-reset</code>)에 남는다. 가져오기로 되살릴 수 있다.</p>');
+  UI.logHead('처음부터 다시');
+  UI.logLine('장부를 통째로 태운다. 골렘도, 부속도, 걸어 둔 작업도 전부 사라진다.', 'narrate');
+  UI.logLine('정말로 지울까?', 'bad');
+  UI.choices([
+    { label: '예, 전부 지운다', cls: 'danger', meta: '되돌릴 수 없다', on: () => {
+      try { localStorage.setItem(`${SAVE_KEY}.before-reset`, JSON.stringify(S)); } catch { /* 무시 */ }
+      S = newSave();
+      resyncUids(S);
+      save();
+      UI.clearLog();
+      UI.logHead('Project Patchwork');
+      UI.logLine('장부가 타고, 재만 남는다. 다시 처음이다.', 'narrate');
+      UI.logLine('지우기 전의 기록은 한 칸 옆에 남겨 두었다.', 'dim');
+      town(false);
+    } },
+    { label: '아니오', cls: 'ghost', pin: true, on: backupScreen },
   ]);
 }
 
@@ -809,7 +842,7 @@ function mainQuestScreen() {
       },
     })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: scavengerScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1047,7 +1080,7 @@ function dissectScreen() {
       };
     }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1100,7 +1133,7 @@ function vaultScreen() {
       },
     })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1208,7 +1241,7 @@ function workshopScreen() {
       on: () => workGolemScreen(g.id),
     })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1291,7 +1324,7 @@ function workGolemScreen(id) {
       disabled: g.assigned === 'labor',
       on: () => { disassembleWorkGolem(id); workshopScreen(); } },
     { label: '돌아간다', cls: 'ghost', pin: true, on: workshopScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1344,7 +1377,7 @@ function workSlotScreen(id, slot) {
     cur ? { label: '떼어낸다', cls: 'danger',
       on: () => { detach(); UI.logLine(`${partName(cur)}을(를) 되찾았다.`, 'dim'); save(); workGolemScreen(id); } } : null,
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => workGolemScreen(id) },
-  ], { paged: true });
+  ]);
 }
 
 function disassembleWorkGolem(id) {
@@ -1391,7 +1424,7 @@ function crewScreen() {
     })),
     { label: '조립대로', pin: true, on: workshopScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1441,7 +1474,7 @@ function forgeJobScreen() {
       };
     }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1523,7 +1556,7 @@ function recipeScreen(key, first = null) {
       };
     }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: forgeJobScreen },
-  ], { paged: true });
+  ]);
 }
 
 /* ── 사역 골렘 파견 ─────────────────────── */
@@ -1591,7 +1624,7 @@ function laborScreen() {
     }),
     { label: '조립대로', on: workshopScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1638,7 +1671,7 @@ function dispatchPick(siteKey) {
       };
     }),
     { label: '취소', cls: 'ghost', pin: true, on: laborScreen },
-  ], { paged: true });
+  ]);
 }
 
 /* ── 제단 (영구 해금) ───────────────────── */
@@ -1867,7 +1900,7 @@ function sellScreen() {
       },
     })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: shopScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -1968,7 +2001,7 @@ function upgradeScreen() {
       };
     }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: forgeScreen },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -2110,7 +2143,7 @@ function coreScreen(back, canEdit = true) {
       } };
     }),
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => golemScreen(back, canEdit) },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -2171,7 +2204,7 @@ function slotScreen(slot, back, canEdit = true) {
       golemScreen(back, canEdit);
     } } : null,
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => golemScreen(back, canEdit) },
-  ], { paged: true });
+  ]);
 }
 
 /** 속성 커버리지가 줄면 경고한다 (§12.5) */
@@ -2266,7 +2299,7 @@ function inventoryScreen(back = town) {
         },
       })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => back(false) },
-  ], { paged: true });
+  ]);
 }
 
 /* ── 런 시작 ────────────────────────────── */
@@ -2640,7 +2673,7 @@ function repairScreen() {
       },
     })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: backToRoom },
-  ], { paged: true });
+  ]);
   save();
 }
 
@@ -2753,7 +2786,7 @@ function restRoom(room) {
       UI.logLine(`초를 녹여 부어 넣는다. ${partName(target.part)}이(가) 되었다.`, 'necro');
       room.cleared = true; UI.dungeonPanel(S, S.run.floorData); roomChoices(room);
     } },
-  ], { paged: true });
+  ]);
 }
 
 function sealedRoom(room) {

@@ -142,7 +142,6 @@ export const onChoicesRendered = [];
    선택지가 많은 화면(해체대·접합로·상점…)에서 앞의 몇 개만 보이고
    나머지는 볼 방법이 없었다. 정착 대기 9개 중 7개까지만 보이는 식이다.
    이제 긴 목록은 쪽으로 나누고, `pin: true`인 항목(돌아간다 같은 것)은 모든 쪽에 남는다. */
-const PAGE_SIZE = 7;
 let pageAt = 0;        // 지금 보고 있는 쪽
 let pageKey = '';      // 목록이 바뀌면 첫 쪽으로 되돌린다
 
@@ -156,20 +155,28 @@ export function choices(list, opts = {}) {
   const key = opts.key ?? items.map((c) => c.label).join('|');
   if (key !== pageKey) { pageKey = key; pageAt = 0; }
 
-  // 쪽 나누기는 **부속 목록처럼 길어지는 화면에서만** 켠다 (`paged: true`).
-  // 마을 같은 허브는 항목이 다 보여야 하므로 그냥 흘려보내고, 상자가 알아서 스크롤한다.
-  const size = opts.pageSize ?? PAGE_SIZE;
+  /* 쪽 나누기.
+   * 숫자 키는 1~9뿐이다. 항목이 그보다 많으면 **열 번째부터는 키가 없고**,
+   * 높이가 고정된 독에서는 넘친 줄이 스크롤 뒤로 숨는다(실측: 상점에서 6개가 키를 못 받고
+   * 독이 116px 넘쳤다). 그래서 **아홉을 넘으면 저절로 쪽을 나눈다.**
+   * 다 보여야 하는 화면은 `paged: false`로 끈다. */
+  const KEY_MAX = 9;
+  const { cols, cells } = dockCapacity();
+  // 쪽을 나누면 넘김 띠가 **한 줄을 통째로** 쓴다. 칸 하나가 아니다.
+  const keyRoom = KEY_MAX - pinned.length;               // 숫자 키가 닿는 만큼
+  const fitRoom = cells - pinned.length - cols;          // 독에 실제로 들어가는 만큼
+  const size = opts.pageSize ?? Math.max(2, Math.min(keyRoom, fitRoom));
+  const doPage = opts.paged
+    ?? (items.length > Math.max(2, Math.min(keyRoom, cells - pinned.length)));
   const pages = Math.max(1, Math.ceil(items.length / size));
   if (pageAt >= pages) pageAt = pages - 1;
 
   let shown = items;
   const nav = [];
-  if (opts.paged && items.length > size) {
+  if (doPage && items.length > size) {
     shown = items.slice(pageAt * size, (pageAt + 1) * size);
     const go = (d) => { pageAt = (pageAt + d + pages) % pages; choices(list, { ...opts, key }); };
-    nav.push({ label: '◂ 이전', cls: 'ghost', nokey: true, on: () => go(-1) });
-    nav.push({ label: `${pageAt + 1} / ${pages}쪽`, cls: 'ghost', nokey: true, disabled: true });
-    nav.push({ label: '다음 ▸', cls: 'ghost', nokey: true, on: () => go(1) });
+    nav.push({ pager: true, page: pageAt + 1, pages, go });
   }
 
   render(box, [...shown, ...nav, ...pinned]);
@@ -260,6 +267,28 @@ document.addEventListener('pointerdown', (e) => {
 }, true);
 window.addEventListener('resize', hideTip);
 
+/**
+ * 독에 버튼이 몇 개나 들어가는가. 그리기 전에 알아야 쪽 크기를 정할 수 있으므로
+ * 자식이 아니라 **폭과 높이에서 계산한다.**
+ */
+function dockCapacity() {
+  const box = $('choices');
+  if (!box) return { cols: 2, cells: 9 };
+  const cs = getComputedStyle(box);
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const gapX = parseFloat(cs.columnGap) || 0;
+  const gapY = parseFloat(cs.rowGap) || 0;
+  const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const minCol = 9.5 * rem;
+  // gridAutoRows는 fillDock이 늘려 놓은 값이라 여기서 읽으면 스스로를 먹는다.
+  // 기준 높이는 언제나 --btn-h다.
+  const btnH = (parseFloat(cs.getPropertyValue('--btn-h')) || 2.85) * rem;
+  const cols = Math.max(1, Math.floor((w + gapX) / (minCol + gapX)));
+  const rows = Math.max(1, Math.floor((h + gapY) / (btnH + gapY)));
+  return { cols, cells: cols * rows };
+}
+
 function render(box, list) {
   box.replaceChildren();
   keyHandlers = [];
@@ -268,6 +297,18 @@ function render(box, list) {
   let n = 0;
   for (const c of list) {
     if (!c) continue;
+    if (c.pager) {
+      const strip = document.createElement('div');
+      strip.className = 'pager';
+      strip.innerHTML = `<button type="button" class="pg" data-d="-1">◂ 이전</button>`
+        + `<span class="pgn">${c.page} / ${c.pages}쪽</span>`
+        + `<button type="button" class="pg" data-d="1">다음 ▸</button>`;
+      for (const pb of strip.querySelectorAll('.pg')) {
+        pb.addEventListener('click', () => { soundUnlock(); SFX.tap(); c.go(Number(pb.dataset.d)); });
+      }
+      box.append(strip);
+      continue;
+    }
     const b = document.createElement('button');
     b.className = `btn ${c.cls ?? ''}${c.meta ? '' : ' tall'}`;
     b.disabled = Boolean(c.disabled);
@@ -331,7 +372,18 @@ function fillDock(box) {
   if (!btns.length) return;
   const cs = getComputedStyle(box);
   const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
-  const rows = Math.ceil(btns.length / cols);
+  // 쪽 넘김 띠·연출 대기 표시는 한 줄을 통째로 쓴다. 버튼 수만 세면 줄 수가 틀린다
+  let used = 0, rows = 0;
+  for (const el of box.children) {
+    if (el.classList.contains('btn')) {
+      if (used === 0) rows++;
+      if (++used === cols) used = 0;
+    } else {
+      if (used) { used = 0; }
+      rows++;
+    }
+  }
+  rows = Math.max(1, rows);
   const gap = parseFloat(cs.rowGap) || 0;
   const inner = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   const base = parseFloat(cs.gridAutoRows) || btns[0].getBoundingClientRect().height;
@@ -435,6 +487,9 @@ let panelKeys = [];
 export const panel = (html) => {
   const el = $('left');
   el.innerHTML = josa(html);
+  // 세로모드에서 패널은 높이가 묶여 있다. 넘친 부분이 있다는 것을 알려야
+  // 아래에 뭔가 더 있다는 걸 알고 스크롤한다 (실측: 던전에서 몸 도식이 12px 잘렸다)
+  requestAnimationFrame(() => el.classList.toggle('more', el.scrollHeight > el.clientHeight + 1));
   panelKeys = [];
   for (const d of el.querySelectorAll('details[data-sec]')) {
     const k = d.dataset.sec;
@@ -607,29 +662,32 @@ export function combatPanel(cb, save) {
     return `<span class="chip ${f.down ? 'warn' : ''}">${MON_SLOT[f.slot]} ${f.down ? '✕' : Math.round(pct) + '%'}</span>`;
   }).join('');
 
+  /* 적과 골렘을 위아래로 쌓으면 둘이서 화면의 절반을 먹고, 정작 봐야 할
+     장비 내구도(몸 도식)가 접힘 아래로 내려간다. **좌우로 나란히** 세워 둘을 한 줄에 담는다. */
   panel(`
-    <div class="unit foe">
-      <h3>${esc(mon.name)} <span class="tag" ${seen ? elColor(mon.defElement) : ''}>${seen ? mon.defElement : '???'}</span></h3>
-      ${bar(mon.hp, mon.maxHp, true, 'mon')}
-      ${statusChips(mon)}
-      ${monParts ? `<div class="chips">${monParts}</div>` : ''}
-    </div>
-    ${summon ? `<div class="unit">
-      <h3>${esc(summon.name)} <span class="tag">남은 ${cb.summon.left}턴</span></h3>
-      <div class="bar small"><i style="width:${(cb.summon.hp / cb.summon.maxHp) * 100}%"></i></div>
-    </div>` : ''}
-    <hr class="sep">
-    <div class="unit">
-      <h3>누더기 골렘 <span class="tag" ${elColor(g.defElement)}>${g.defElement}</span></h3>
-      ${bar(g.hp, g.maxHp, false, 'golem')}
-      ${statusChips(g)}
-      <div class="chips">
-        <span class="chip good">영력 ${cb.will}/10</span>
-        ${cb.prep && DB.necro_skillsBy[cb.prep]
-          ? `<span class="chip good">🕯 ${esc(DB.necro_skillsBy[cb.prep].name)} 준비</span>` : ''}
-        <span class="chip ${shieldSum < shieldCap ? 'warn' : ''}">방어도 ${shieldSum}/${shieldCap}</span>
+    <div class="duo">
+      <div class="unit foe">
+        <h3>${esc(mon.name)}</h3>
+        <span class="tag" ${seen ? elColor(mon.defElement) : ''}>${seen ? mon.defElement : '???'}</span>
+        ${bar(mon.hp, mon.maxHp, true, 'mon')}
+        ${statusChips(mon)}
+        ${monParts ? `<div class="chips">${monParts}</div>` : ''}
+      </div>
+      <div class="unit">
+        <h3>누더기 골렘</h3>
+        <span class="tag" ${elColor(g.defElement)}>${g.defElement}</span>
+        ${bar(g.hp, g.maxHp, false, 'golem')}
+        ${statusChips(g)}
+        <div class="chips">
+          <span class="chip good">영력 ${cb.will}/10</span>
+          <span class="chip ${shieldSum < shieldCap ? 'warn' : ''}">방어 ${shieldSum}/${shieldCap}</span>
+          ${cb.prep && DB.necro_skillsBy[cb.prep]
+            ? `<span class="chip good">🕯 ${esc(DB.necro_skillsBy[cb.prep].name)}</span>` : ''}
+        </div>
       </div>
     </div>
+    ${summon ? `<div class="chips"><span class="chip good">
+      ${esc(summon.name)} ${cb.summon.hp}/${cb.summon.maxHp} · 남은 ${cb.summon.left}턴</span></div>` : ''}
     ${bodyMapHTML(cells)}`);
 
   // 누르면 그 자리에 끼운 부속을 펼친다. 패널 전체를 다시 그리지 않는다
@@ -679,7 +737,10 @@ export function dungeonPanel(save, floorData) {
   panel(`
     <p class="pt">${esc(place)} ${floorData.floor}층 <span class="sub">방 ${visited}/${floorData.rooms.length}</span></p>
     ${hazardHtml}
+    <div class="sidebyside">
     <div class="map" style="grid-template-columns:repeat(${cols},2.2rem)">${grid}</div>
+    ${bm.html}
+    </div>
     <div class="legend">
       <span class="lg"><i class="sw here"></i>지금</span>
       <span class="lg"><i class="sw unseen"></i>안 가 봄${left ? ` ${left}` : ''}</span>
@@ -693,7 +754,6 @@ export function dungeonPanel(save, floorData) {
       <span class="chip ${g.shieldNowTotal < g.shieldTotal ? 'warn' : ''}">방어도 ${g.shieldNowTotal}/${g.shieldTotal}</span>
       ${risky.map(({ part }) => `<span class="chip warn">⚠ ${esc(partName(part))} ${part.integrity}</span>`).join('')}
     </div>
-    ${bm.html}
     ${sec('stat', '능력치', `공격 ${g.stats.atk} · 방어 ${g.stats.def} · 속도 ${g.stats.spd}`, statGridHTML(g))}`);
   bm.bind();
 }
