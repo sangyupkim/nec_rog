@@ -239,6 +239,20 @@ console.log('몸통 방어 속성 :', bodyElements.join(', '));
 for (const e of elements.elements)
   if (!byElement[e]) warn(`[coverage] '${e}' 속성 공격 스킬이 하나도 없습니다`);
 
+/* ── 판 번호가 어긋나지 않는가 (§12.7-A) ──────────────
+   src/version.js의 BUILD와 sw.js의 BUILD가 다르면, 서비스 워커는 캐시를 새로 열지 않는다.
+   화면에는 새 번호가 뜨는데 실제로는 옛 파일이 돌아, 「껐다 켜도 안 바뀐다」가 된다. */
+{
+  const vsrc = readFileSync(new URL('../src/version.js', import.meta.url), 'utf8');
+  const swsrc = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const a = (vsrc.match(/BUILD\s*=\s*'([^']+)'/) ?? [])[1];
+  const b = (swsrc.match(/BUILD\s*=\s*'([^']+)'/) ?? [])[1];
+  if (!a) err('[version] src/version.js에서 BUILD를 찾지 못했습니다');
+  else if (!b) err('[version] sw.js에서 BUILD를 찾지 못했습니다');
+  else if (a !== b) err(`[version] 판 번호가 어긋납니다 — src/version.js ${a} ≠ sw.js ${b}`);
+  else console.log(`판 번호      : ${a} (src/version.js = sw.js)`);
+}
+
 console.log('');
 if (warns.length) {
   console.log(`── 경고 ${warns.length}건 ────────────────────────────`);

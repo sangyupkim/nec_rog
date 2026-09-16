@@ -420,6 +420,7 @@ function settleAndReport(next) {
 
 function town(intro = true) {
   cb = null;
+  resetShopPick();
   UI.setCombatMode(false);
   // 자정을 넘겼으면 오늘의 일을 새로 건다 (§10.2-A)
   if (refreshDaily(S, rng)) {
@@ -454,7 +455,9 @@ function town(intro = true) {
   // 목표 한 줄 — 이것이 늘 보이는 것이 캠페인의 8할이다 (§7-A.5)
   UI.logLine(`▸ 지금 할 일 — ${CP.objective(S)}`, 'necro');
   UI.choices([
-    { label: '무덤으로 내려간다', cls: 'primary',
+    // 가장 자주 누르는 버튼은 **절대 잘리지 않아야 한다** — 잘리면 손가락으로 두 번 눌러야 한다 (§12.6).
+    // 어디로 가는지는 곁말이 말한다
+    { label: '무덤으로', cls: 'primary',
       meta: CP.nextStage(S) ? stageOf(CP.nextStage(S)).name : '아홉 단계 완료', on: startRun },
     { label: '상성표', cls: 'ghost', meta: '속성 일곱', on: () => affinityScreen(() => town(false)) },
     { label: '저장', cls: 'ghost', on: () => { save(); UI.logLine('기록을 남겼다.', 'dim'); } },
@@ -462,6 +465,20 @@ function town(intro = true) {
     // 설치할 수 있을 때만 뜬다. 이미 앱으로 열었으면 나오지 않는다 (§12.7)
     PWA.canInstall() ? { label: '📲 앱으로 설치', cls: 'primary',
       meta: '홈 화면에 둔다', on: installApp } : null,
+    // 새 판이 와 있으면 그 자리에서 갈아탄다 (§12.7-A)
+    PWA.hasUpdate() ? { label: '🔄 새 판으로 바꾼다', cls: 'primary',
+      meta: '지금 다시 연다', info: '고쳐서 올린 판이 와 있다. 눌러야 바뀐다 — 기록은 그대로다.',
+      on: () => { UI.logLine('새 판으로 바꾼다…', 'good'); PWA.applyUpdate(); } } : null,
+    { label: `판 ${PWA.version()}`, cls: 'ghost', nokey: true,
+      meta: PWA.hasUpdate() ? '새 판 있음' : '최신',
+      info: `지금 돌고 있는 판은 <b>${PWA.version()}</b>이다.<br>눌러 새 판이 있는지 다시 확인한다.`,
+      on: () => {
+        PWA.checkForUpdate();
+        UI.logLine(PWA.hasUpdate()
+          ? '새 판이 와 있다 — 「새 판으로 바꾼다」를 누르면 적용된다.'
+          : `판 ${PWA.version()} — 확인했다. 잠시 뒤에도 새것이 없으면 이게 최신이다.`, 'dim');
+        setTimeout(() => { if (!S.run && !cb) town(false); }, 1500);
+      } },
   ]);
   save();
 }
@@ -749,6 +766,7 @@ function backupScreen() {
       같이 사라지므로, 가끔 내보내 어딘가에 붙여 두는 편이 안전하다.</p>`);
 
   UI.logHead('기록 보관');
+  UI.logLine(`판 ${PWA.version()}${PWA.hasUpdate() ? ' — 새 판이 와 있다' : ''}`, 'dim');
   UI.logLine('네크로맨서의 장부.', 'narrate');
   UI.choices([
     { label: '내보내기', cls: 'primary', meta: '글상자에 띄운다', on: exportSave },
@@ -1079,17 +1097,26 @@ function materialsScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 재료');
   const vatFull = o.rotVat.stored >= O.vatCap(o);
-  UI.listPanel('재료를 만드는 셋', [
+  /* 자율 탐험은 안치소를 세워야 열린다. 그전에는 **줄째로 없었다** —
+     플레이어가 보기엔 기능이 사라진 것이지, 아직 못 여는 것이 아니다 (§16.5-C).
+     자리는 늘 보여 주고, 왜 못 쓰는지를 적는다. */
+  UI.listPanel('재료를 만드는 곳', [
     UI.rowHTML('🫗 부패조', '두면 진액이 고인다', `${o.rotVat.stored}/${O.vatCap(o)}`, vatFull),
     UI.rowHTML('🔪 해체대', '부속을 갈라 재료로', `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`),
-    ...(o.built.laborBay ? [UI.rowHTML('⛓ 자율 탐험', '뚫은 층으로 골렘을 보낸다',
-      `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸`)] : []),
+    UI.rowHTML('⛓ 자율 탐험', o.built.laborBay
+      ? '뚫은 층으로 골렘을 보낸다'
+      : '<span class="empty">제단에서 안치소를 세워야 열린다</span>',
+      o.built.laborBay ? `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸` : '잠김',
+      !o.built.laborBay),
   ], `<p class="note">조각 ${S.scrap} · 진액 ${S.ichor} · 골분 ${S.boneMeal}.<br>
-      셋 다 <b>걸어 두고 나가야</b> 돈다. 부패조는 상한에 닿으면 생산을 멈춘다.</p>`);
+      <b>걸어 두고 나가야</b> 돈다. 부패조는 상한에 닿으면 생산을 멈춘다.</p>`);
 
   UI.logHead('재료');
   UI.logLine('통이 끓고, 칼이 놓여 있고, 사슬이 비어 있다.', 'narrate');
   if (vatFull) UI.logLine('부패조가 가득 찼다. 비우지 않으면 더 고이지 않는다.', 'bad');
+  if (!o.built.laborBay) {
+    UI.logLine(`자율 탐험은 아직 열리지 않았다 — 제단에서 사역 골렘 안치소를 세워야 한다 (영혼재 ${O.FACILITIES.laborBay.unlock}).`, 'dim');
+  }
 
   UI.choices([
     { label: '🫗 부패조', meta: `${o.rotVat.stored}/${O.vatCap(o)}${vatFull ? ' 가득' : ''}`,
@@ -1097,10 +1124,14 @@ function materialsScreen() {
       on: vatScreen },
     { label: '🔪 해체대', meta: `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`,
       info: '부속을 갈라 조각·진액·골분을 얻는다. 희귀할수록 많이 나온다.', on: dissectScreen },
-    o.built.laborBay ? { label: '⛓ 자율 탐험',
-      meta: `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸`,
-      info: '이미 클리어한 단계로 남는 골렘을 보낸다. 길게 보낼수록 많이 얻고 많이 닳는다.',
-      on: laborScreen } : null,
+    { label: '⛓ 자율 탐험',
+      meta: o.built.laborBay ? `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸`
+        : `제단에서 안치소 건설 (영혼재 ${O.FACILITIES.laborBay.unlock})`,
+      disabled: !o.built.laborBay,
+      info: o.built.laborBay
+        ? '이미 클리어한 단계로 남는 골렘을 보낸다. 길게 보낼수록 많이 얻고 많이 닳는다.'
+        : '사역 골렘 안치소를 세워야 열린다. 제단에서 영혼재로 짓는다.',
+      on: laborScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ]);
   save();
@@ -1564,7 +1595,13 @@ function golemCardScreen(id, back = workshopHubScreen) {
       },
     } : null,
     { label: '이름 바꾸기', cls: 'ghost', meta: g.name, on: () => renameGolem(id, back) },
-    g.active ? { label: '부속 손보기', on: () => golemScreen(() => golemCardScreen(id, back)) } : null,
+    /* 탐험 골렘은 정비 화면으로, 사역 골렘은 조립 화면으로 — **어느 쪽이든 여기서 손본다.**
+       전에는 사역 골렘의 부속을 바꾸려면 해체하고 다시 세우는 길밖에 없었다 (§9.7-A). */
+    g.active
+      ? { label: '부속 손보기', on: () => golemScreen(() => golemCardScreen(id, back)) }
+      : { label: '부속 손보기', meta: `부속 ${g.parts.length}개 · 능률 ${g.power}`,
+          info: '자리마다 무엇을 끼울지 고른다. 해체하지 않고 바꿀 수 있다.',
+          on: () => workGolemScreen(id, () => golemCardScreen(id, back)) },
     !g.active && here !== 'repair' && here !== 'labor' ? {
       label: here === 'crew' ? '작업반에서 물린다' : '작업반에 붙인다',
       meta: here === 'crew' ? ''
@@ -1682,9 +1719,9 @@ function newWorkGolem(coreId) {
 }
 
 /** 사역 골렘 한 기 — 자리마다 부속을 붙이고 뗀다 */
-function workGolemScreen(id) {
+function workGolemScreen(id, back = workshopScreen) {
   const g = O.workshopGolems(S).find((x) => x.id === id);
-  if (!g) { workshopScreen(); return; }
+  if (!g) { back(); return; }
   g.slots ??= {};
   const core = DB.coresBy[g.core];
   UI.topbar(S, `납골당 · ${g.name}`);
@@ -1711,31 +1748,31 @@ function workGolemScreen(id) {
       return {
         label: `${SLOT_LABEL[slot]} — ${p ? partName(p) : '비어 있음'}`,
         meta: p ? '바꾸거나 뗀다' : '붙인다',
-        on: () => workSlotScreen(g.id, slot),
+        on: () => workSlotScreen(g.id, slot, back),
       };
     }),
     // 자리가 여섯이라 쪽이 넘어간다. 이 둘은 어느 쪽에서든 눌려야 한다
     g.assigned === 'crew'
       ? { label: '작업반에서 물린다', cls: 'ghost', pin: true,
-          on: () => { g.assigned = null; save(); workGolemScreen(id); } }
+          on: () => { g.assigned = null; save(); workGolemScreen(id, back); } }
       : g.assigned === 'labor'
         ? { label: '파견 나가 있다', cls: 'ghost', pin: true, disabled: true,
             meta: '안치소에서 불러들인다' }
         : { label: '작업반에 붙인다', cls: 'primary', pin: true, meta: `능률 ${O.golemPower(g)}`,
-            on: () => { g.assigned = 'crew'; save(); workGolemScreen(id); } },
+            on: () => { g.assigned = 'crew'; save(); workGolemScreen(id, back); } },
     { label: '이 골렘을 해체한다', cls: 'danger', pin: true,
       meta: g.assigned === 'labor' ? '파견 중에는 해체할 수 없다' : `핵과 부속 ${g.parts.length}개 회수`,
       disabled: g.assigned === 'labor',
       on: () => { disassembleWorkGolem(id); workshopScreen(); } },
-    { label: '돌아간다', cls: 'ghost', pin: true, on: workshopScreen },
+    { label: '돌아간다', cls: 'ghost', pin: true, on: back },
   ]);
   save();
 }
 
 /** 그 자리에 넣을 부속을 고른다 */
-function workSlotScreen(id, slot) {
+function workSlotScreen(id, slot, back = workshopScreen) {
   const g = O.workshopGolems(S).find((x) => x.id === id);
-  if (!g) { workshopScreen(); return; }
+  if (!g) { back(); return; }
   const kind = SLOT_KIND[slot];
   const cur = g.parts.find((p) => p.uid === g.slots[slot]) ?? null;
   const options = sparePool().filter((p) => DB.partsBy[p.defId].slot === kind);
@@ -1774,13 +1811,13 @@ function workSlotScreen(id, slot) {
           g.slots[slot] = p.uid;
           UI.logLine(`${partName(p)}을(를) ${g.name}의 ${SLOT_LABEL[slot]}에 붙였다.`, 'good');
           save();
-          workGolemScreen(id);
+          workGolemScreen(id, back);
         },
       };
     }),
     cur ? { label: '떼어낸다', cls: 'danger',
-      on: () => { detach(); UI.logLine(`${partName(cur)}을(를) 되찾았다.`, 'dim'); save(); workGolemScreen(id); } } : null,
-    { label: '돌아간다', cls: 'ghost', pin: true, on: () => workGolemScreen(id) },
+      on: () => { detach(); UI.logLine(`${partName(cur)}을(를) 되찾았다.`, 'dim'); save(); workGolemScreen(id, back); } } : null,
+    { label: '돌아간다', cls: 'ghost', pin: true, on: () => workGolemScreen(id, back) },
   ]);
 }
 
@@ -2286,78 +2323,113 @@ function questScreen() {
 }
 
 /* ── 상점 ───────────────────────────────── */
+/* 상점에서 고른 물건. 화면을 다시 그려도 고른 것을 기억한다 (§12.10) */
+let shopPick = null;
+const resetShopPick = () => { shopPick = null; };
+
+/**
+ * 썩은 손수레.
+ * 전에는 **같은 재고를 두 벌** 늘어놓았다 — 왼쪽에 읽는 목록, 아래에 사는 버튼.
+ * 그래서 재고가 아홉이면 하단이 일곱 쪽으로 갈렸다.
+ * 이제 **왼쪽 목록을 눌러 고르고, 하단에는 그 물건에 할 수 있는 것만 둔다.**
+ */
 function shopScreen() {
   UI.topbar(S, '시체골 · 썩은 손수레');
   const stock = S.town.stock;
   const supply = tickSupply(S);
+
+  // 고른 것이 팔려 없어졌으면 고름을 푼다
+  const alive = (key) => {
+    if (!key) return false;
+    const [kind, id] = key.split(':');
+    if (kind === 'item') return stock.items.includes(id);
+    if (kind === 'core') return (stock.cores ?? []).includes(id);
+    if (kind === 'part') return stock.parts.some((p) => p.uid === id);
+    if (kind === 'supply') return SUPPLY.some((d) => d.key === id);
+    return false;
+  };
+  if (!alive(shopPick)) shopPick = null;
+
   const rows = [
     ...(stock.cores ?? []).map((id) => {
       const c = DB.coresBy[id];
-      return UI.rowHTML('핵', `${UI.esc(c.name)}<br><span style="color:var(--muted);font-size:.84em">${UI.esc(c.desc)}</span>`, money(c.price));
+      return UI.rowHTML('핵', `${UI.esc(c.name)}<br><span style="color:var(--muted);font-size:.84em">${UI.esc(c.desc)}</span>`,
+        money(c.price), S.silver < c.price, `core:${id}`);
     }),
     ...stock.items.map((id) => {
       const it = DB.itemsBy[id];
-      return UI.rowHTML(it.kind, `${UI.esc(it.name)}<br><span style="color:var(--muted);font-size:.84em">${UI.esc(it.desc)}</span>`, money(it.price));
+      return UI.rowHTML(it.kind, `${UI.esc(it.name)}<br><span style="color:var(--muted);font-size:.84em">${UI.esc(it.desc)}</span>`,
+        money(it.price), S.silver < it.price, `item:${id}`);
     }),
     ...stock.parts.map((p) => UI.rowHTML(KIND_LABEL[DB.partsBy[p.defId].slot] ?? '파츠',
-      UI.partHTML(p), money(partPrice(p)))),
+      UI.partHTML(p), money(partPrice(p)), S.silver < partPrice(p), `part:${p.uid}`)),
+    ...SUPPLY.map((d) => {
+      const st = supply[d.key];
+      const left = supplyRemain(st, d);
+      return UI.rowHTML('보급', UI.esc(d.name),
+        `${st.n}/${d.cap} · ${money(d.price)}` + (left ? ` · +1 ${O.remainText(Date.now(), left)}` : ''),
+        st.n === 0 || S.silver < d.price, `supply:${d.key}`);
+    }),
   ];
-  const supRows = SUPPLY.map((d) => {
-    const st = supply[d.key];
-    const left = supplyRemain(st, d);
-    return UI.rowHTML('보급', UI.esc(d.name),
-      `${st.n}/${d.cap} · ${money(d.price)}` + (left ? ` · +1 ${O.remainText(Date.now(), left)}` : ''),
-      st.n === 0);
-  });
-  UI.listPanel('오늘의 재고', [...rows, ...supRows],
-    `<p class="note">쓰지 않는 파츠는 팔아서 은화로 바꿀 수 있다.<br>
-     보급품은 수레가 시간이 지나며 조금씩 받아 둔다 — 칸이 차면 더는 쌓이지 않는다.</p>`);
+  UI.listPanel('오늘의 재고', rows,
+    `<p class="note">줄을 누르면 아래에 <b>사는 버튼</b>이 뜬다.<br>
+     쓰지 않는 파츠는 팔아서 은화로 바꿀 수 있다.<br>
+     보급품은 수레가 시간이 지나며 조금씩 받아 둔다 — 칸이 차면 더는 쌓이지 않는다.</p>`,
+    (key) => { shopPick = shopPick === key ? null : key; shopScreen(); }, shopPick);
 
   UI.logHead('썩은 손수레');
   UI.logLine('수레 가득 잡동사니가 실려 있다. 주인은 당신과 눈을 마주치지 않는다.', 'narrate');
 
   const list = [];
-  for (const id of stock.items) {
+  const [kind, id] = (shopPick ?? '').split(':');
+  if (!shopPick) {
+    UI.logLine('왼쪽 재고에서 사고 싶은 것을 누르면 여기에 사는 버튼이 뜬다.', 'dim');
+  } else if (kind === 'item') {
     const it = DB.itemsBy[id];
-    list.push({ label: `${it.name} 구입`, meta: money(it.price), disabled: S.silver < it.price, on: () => {
-      S.silver -= it.price;
-      S.consumables[id] = (S.consumables[id] ?? 0) + 1;
-      UI.logLine(`${it.name}을(를) 샀다.`, 'good');
-      shopScreen();
-    } });
-  }
-  for (const cid of stock.cores ?? []) {
-    const c = DB.coresBy[cid];
-    list.push({ label: `${c.name} 구입`, meta: money(c.price), disabled: S.silver < c.price, on: () => {
-      S.silver -= c.price;
-      S.cores.push(cid);
-      S.town.stock.cores = S.town.stock.cores.filter((x) => x !== cid);
-      UI.logLine(`${c.name}을(를) 샀다. 골렘 정비에서 끼울 수 있다.`, 'good');
-      shopScreen();
-    } });
-  }
-  for (const p of stock.parts) {
+    list.push({ label: `${it.name} 구입`, cls: 'primary', meta: money(it.price),
+      info: UI.esc(it.desc), disabled: S.silver < it.price, on: () => {
+        S.silver -= it.price;
+        S.consumables[id] = (S.consumables[id] ?? 0) + 1;
+        UI.logLine(`${it.name}을(를) 샀다.`, 'good');
+        shopScreen();
+      } });
+  } else if (kind === 'core') {
+    const c = DB.coresBy[id];
+    list.push({ label: `${c.name} 구입`, cls: 'primary', meta: money(c.price),
+      info: UI.esc(c.desc), disabled: S.silver < c.price, on: () => {
+        S.silver -= c.price;
+        S.cores.push(id);
+        S.town.stock.cores = S.town.stock.cores.filter((x) => x !== id);
+        shopPick = null;
+        UI.logLine(`${c.name}을(를) 샀다. 골렘 정비에서 끼울 수 있다.`, 'good');
+        shopScreen();
+      } });
+  } else if (kind === 'part') {
+    const p = stock.parts.find((x) => x.uid === id);
     const price = partPrice(p);
-    list.push({ label: `${partName(p)} 구입`, meta: money(price), info: UI.partTip(p),
-      disabled: S.silver < price, on: () => {
-      S.silver -= price;
-      S.inventory.push(p);
-      S.town.stock.parts = S.town.stock.parts.filter((x) => x !== p);
-      UI.logLine(`${partName(p)}을(를) 손에 넣었다.`, 'good');
-      shopScreen();
-    } });
-  }
-  for (const d of SUPPLY) {
+    list.push({ label: `${partName(p)} 구입`, cls: 'primary', meta: money(price),
+      info: UI.partTip(p), disabled: S.silver < price, on: () => {
+        S.silver -= price;
+        S.inventory.push(p);
+        S.town.stock.parts = S.town.stock.parts.filter((x) => x !== p);
+        shopPick = null;
+        UI.logLine(`${partName(p)}을(를) 손에 넣었다.`, 'good');
+        shopScreen();
+      } });
+  } else if (kind === 'supply') {
+    const d = SUPPLY.find((x) => x.key === id);
     const st = supply[d.key];
     const bulk = Math.min(st.n, Math.floor(S.silver / d.price), 10);
-    list.push({ label: `${d.name} 1개 구입`, meta: `${money(d.price)} · 재고 ${st.n}/${d.cap}`,
+    list.push({ label: `${d.name} 1개 구입`, cls: 'primary',
+      meta: `${money(d.price)} · 재고 ${st.n}/${d.cap}`,
       disabled: st.n < 1 || S.silver < d.price, on: () => buySupply(d, 1) });
     if (bulk > 1) {
-      list.push({ label: `${d.name} ${bulk}개 구입`, cls: 'ghost', meta: money(d.price * bulk),
+      list.push({ label: `${d.name} ${bulk}개 구입`, meta: money(d.price * bulk),
         on: () => buySupply(d, bulk) });
     }
   }
-  list.push({ label: '파츠 팔기', on: sellScreen });
+  if (shopPick) list.push({ label: '고르기 취소', cls: 'ghost', on: () => { shopPick = null; shopScreen(); } });
+  list.push({ label: '파츠 팔기', cls: 'ghost', pin: true, on: sellScreen });
   list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: marketScreen });
   UI.choices(list);
   save();
@@ -3881,6 +3953,11 @@ async function boot() {
   PWA.boot();
   // 설치 가능해지면 마을 화면에 버튼이 생겨야 하므로 다시 그린다
   PWA.onChange.push(() => { if (S && !S.run && !cb) town(false); });
+  // 새 판이 준비되면 그 자리에서 알린다 — 껐다 켜도 안 바뀐다는 말이 여기서 나왔다
+  PWA.onUpdate.push(() => {
+    UI.logLine('🔄 새 판이 와 있다. 마을에서 「새 판으로 바꾼다」를 누르면 적용된다.', 'necro');
+    if (S && !S.run && !cb) town(false);
+  });
   try {
     await loadData();
     // 작업반 능률 계산에 파츠 스탯과 핵 체력을 넘긴다

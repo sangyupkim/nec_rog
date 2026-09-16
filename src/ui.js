@@ -189,7 +189,10 @@ export function choices(list, opts = {}) {
   const { cols, cells } = dockCapacity();
   // 쪽을 나누면 넘김 띠가 **한 줄을 통째로** 쓴다. 칸 하나가 아니다.
   const keyRoom = KEY_MAX - pinned.length;               // 숫자 키가 닿는 만큼
-  const fitRoom = cells - pinned.length - cols;          // 독에 실제로 들어가는 만큼
+  /* 쪽 넘김은 **칸 하나**를 쓴다. 전에는 한 줄을 통째로 쓰는 띠라,
+     칸이 넷인 화면에서 한 줄짜리 띠 하나가 칸 넷을 삼켰다 —
+     태블릿에서 여덟 칸 중 셋만 항목에 쓰였다. 고정 독에서 그만한 낭비는 없다. */
+  const fitRoom = cells - pinned.length - 1;             // 독에 실제로 들어가는 만큼
   const size = opts.pageSize ?? Math.max(2, Math.min(keyRoom, fitRoom));
   const doPage = opts.paged
     ?? (items.length > Math.max(2, Math.min(keyRoom, cells - pinned.length)));
@@ -321,12 +324,15 @@ function dockCapacity() {
   const gapY = parseFloat(cs.rowGap) || 0;
   const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const h = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-  // 전투에서는 칸을 좁힌다 — CSS와 같은 값을 써야 칸 수가 맞는다
-  const minCol = (document.getElementById('app')?.classList.contains('combat') ? 8 : 9.5) * rem;
   // gridAutoRows는 fillDock이 늘려 놓은 값이라 여기서 읽으면 스스로를 먹는다.
   // 기준 높이는 언제나 --btn-h다.
   const btnH = (parseFloat(cs.getPropertyValue('--btn-h')) || 2.85) * rem;
-  const cols = Math.max(1, Math.floor((w + gapX) / (minCol + gapX)));
+  /* 칸 수는 **브라우저가 이미 잰 것을 읽는다.** 같은 식을 CSS와 여기 두 군데에 적어 두면
+     한쪽만 고쳤을 때 조용히 어긋난다 — 실제로 8.5rem로 좁히고 나서 계산은 다섯,
+     화면은 넷이 되어 독이 넘칠 뻔했다. 아직 그린 적이 없을 때만 식으로 어림한다. */
+  const drawn = cs.gridTemplateColumns.split(' ').filter((x) => x && x !== 'none').length;
+  const minCol = (document.getElementById('app')?.classList.contains('combat') ? 7 : 8.5) * rem;
+  const cols = Math.max(1, drawn || Math.floor((w + gapX) / (minCol + gapX)));
   const rows = Math.max(1, Math.floor((h + gapY) / (btnH + gapY)));
   return { cols, cells: cols * rows };
 }
@@ -911,14 +917,25 @@ export function golemPanel(save, onPick = null) {
 }
 
 /** 재화·소지품 등 단순 목록 패널 */
-export function listPanel(title, rows, extra = '') {
+/**
+ * 왼쪽 목록. `onPick`을 주면 **줄을 누를 수 있게** 된다 (§12.10) —
+ * 목록과 버튼을 두 벌로 늘어놓는 대신, 읽는 목록을 그대로 고르는 목록으로 쓴다.
+ * 고른 줄은 `picked`로 표시하고, 하단은 그 줄에 할 수 있는 것만 남긴다.
+ */
+export function listPanel(title, rows, extra = '', onPick = null, picked = null) {
   panel(`<p class="pt">${esc(title)}</p>
-    <div class="rows">${rows.length ? rows.join('') : '<p class="empty">비어 있다.</p>'}</div>${extra}`);
+    <div class="rows${onPick ? ' pickable' : ''}">${rows.length ? rows.join('') : '<p class="empty">비어 있다.</p>'}</div>${extra}`);
+  if (!onPick) return;
+  for (const el of document.querySelectorAll('.rows.pickable .row[data-pick]')) {
+    el.classList.toggle('picked', el.dataset.pick === picked);
+    el.addEventListener('click', () => onPick(el.dataset.pick));
+  }
 }
 
-export const rowHTML = (lb, vl, rt = '', warn = false) =>
-  `<div class="row"><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
-   <span class="rt ${warn ? 'warn' : ''}">${esc(rt)}</span></div>`;
+/** pick을 주면 누를 수 있는 줄이 된다 (listPanel의 onPick과 짝이다) */
+export const rowHTML = (lb, vl, rt = '', warn = false, pick = null) =>
+  `<${pick ? 'button type="button"' : 'div'} class="row" ${pick ? `data-pick="${esc(pick)}"` : ''}><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
+   <span class="rt ${warn ? 'warn' : ''}">${esc(rt)}</span></${pick ? 'button' : 'div'}>`;
 
 /* ── 납골당 ─────────────────────────────────
    마을과 같은 방식 — 시설은 왼쪽에 세워 두고 눌러 들어간다. */

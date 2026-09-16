@@ -6,7 +6,9 @@
  *
  * 이 파일을 고칠 때는 VERSION을 반드시 올린다. 안 올리면 옛 캐시가 남는다.
  */
-const VERSION = 'patchwork-v1';
+/* src/version.js의 BUILD와 같은 값이어야 한다 — npm run validate가 어긋나면 잡는다 */
+const BUILD = '0.9.14';
+const VERSION = `patchwork-${BUILD}`;
 const SHELL = [
   './',
   './index.html',
@@ -19,8 +21,14 @@ const SHELL = [
   './data/elements.json', './data/skills.json', './data/parts.json', './data/monsters.json',
   './data/modifiers.json', './data/necro_skills.json', './data/summons.json', './data/items.json',
   './data/attachments.json', './data/quests.json', './data/cores.json',
-  './data/campaign.json', './data/story.json',
+  './data/campaign.json', './data/story.json', './data/naming.json',
+  './src/pwa.js', './src/version.js',
 ];
+
+/* 화면이 「지금 새로 고친다」를 눌렀을 때 — 기다리던 새 워커가 곧장 넘겨받는다 */
+self.addEventListener('message', (e) => {
+  if (e.data === 'skip-waiting') self.skipWaiting();
+});
 
 self.addEventListener('install', (e) => {
   // 한 파일이라도 실패하면 설치가 통째로 깨지므로 하나씩 담는다
