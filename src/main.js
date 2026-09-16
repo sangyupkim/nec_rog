@@ -724,7 +724,7 @@ function affinityScreen(back) {
       방어 속성은 <b>몸통</b>이 혼자 정한다 (§5.3).</p>`);
 
   UI.logHead('속성 상성');
-  UI.logLine('일곱 속성이 서로를 먹고 먹힌다. 외울 필요는 없다 — 여기서 언제든 볼 수 있다.', 'narrate');
+  UI.logLine('일곱 속성이 서로를 먹고 먹힌다.', 'narrate');
   UI.logLine('적의 방어 속성은 한 번 싸워 봐야 알 수 있다. 전투 중 \'관찰\'로도 알아낼 수 있다.', 'dim');
   const mine = assembleGolem(S).defElement;
   if (mine) {
@@ -750,7 +750,7 @@ function backupScreen() {
       같이 사라지므로, 가끔 내보내 어딘가에 붙여 두는 편이 안전하다.</p>`);
 
   UI.logHead('기록 보관');
-  UI.logLine('네크로맨서의 장부. 베껴 두면 잃어버려도 다시 쓸 수 있다.', 'narrate');
+  UI.logLine('네크로맨서의 장부.', 'narrate');
   UI.choices([
     { label: '내보내기', cls: 'primary', meta: '글상자에 띄운다', on: exportSave },
     { label: '가져오기', meta: '붙여넣은 것으로 덮어쓴다', on: importSave },
@@ -967,7 +967,7 @@ function scavengerScreen() {
     UI.logLine('바르그가 수레를 뒤적인다. 낡은 핵과 뼈 몇 조각이 굴러 나온다.', 'narrate');
   } else {
     UI.logLine('"멀쩡히 서 있는 걸 보니 아직은 쓸 만한가 보군."', 'narrate');
-    UI.logLine('바르그는 무덤에서 돌아오지 못한 자들의 부속을 주워다 판다. 당신의 단골이 될 것이다.', 'dim');
+    UI.logLine('바르그는 무덤에서 돌아오지 못한 자들의 부속을 주워다 판다.', 'dim');
   }
 
   // 핵이 없거나 부속이 바닥났으면 손을 내민다
@@ -1089,7 +1089,7 @@ function materialsScreen() {
       셋 다 <b>걸어 두고 나가야</b> 돈다. 부패조는 상한에 닿으면 생산을 멈춘다.</p>`);
 
   UI.logHead('재료');
-  UI.logLine('통이 끓고, 칼이 놓여 있고, 사슬이 비어 있다. 여기서는 시간이 재료를 만든다.', 'narrate');
+  UI.logLine('통이 끓고, 칼이 놓여 있고, 사슬이 비어 있다.', 'narrate');
   if (vatFull) UI.logLine('부패조가 가득 찼다. 비우지 않으면 더 고이지 않는다.', 'bad');
 
   UI.choices([
@@ -1127,7 +1127,7 @@ function workshopHubScreen() {
   ], '<p class="note">골렘을 세우는 일과 부속을 손보는 일이 여기 모여 있다.</p>');
 
   UI.logHead('공방');
-  UI.logLine('받침대와 모루, 끓는 통. 몸을 세우고 고치는 자리다.', 'narrate');
+  UI.logLine('받침대와 모루, 끓는 통.', 'narrate');
 
   UI.choices([
     { label: '📋 골렘 명부', cls: 'primary', meta: `${O.workshopGolems(S).length + 1}기 · 어디에 있는가`,
@@ -1162,13 +1162,13 @@ function ossuaryScreen() {
   ossPanel();
   const o = S.ossuary;
   UI.logHead('납골당');
-  UI.logLine('네크로맨서의 작업장. 여기서는 시간이 재료를 만든다.', 'narrate');
+  UI.logLine('네크로맨서의 작업장.', 'narrate');
   if (!S.log.hintOssuary) {
     S.log.hintOssuary = true;
     UI.logLine('— 여기는 셋으로 나뉜다 —', 'necro');
-    UI.logLine('🫗 재료 — 부패조·해체대·자율 탐험. 걸어 두고 나가면 시간이 알아서 한다.', 'necro');
+    UI.logLine('🫗 재료 — 부패조·해체대·자율 탐험.', 'necro');
     UI.logLine('⚙ 공방 — 골렘을 세우고, 고치고, 부속을 손본다. 날것 정착도 여기다.', 'necro');
-    UI.logLine('🕯 제단 — 영혼재를 태워 영원히 남는 것을 산다.', 'necro');
+    UI.logLine('🕯 제단 — 영혼재로 영구 해금을 산다.', 'necro');
     UI.logLine('공방에 세운 여분 골렘을 작업반에 붙이면 모든 작업 시간이 짧아진다.', 'good');
     save();
   }
@@ -1274,7 +1274,7 @@ function vaultScreen() {
   UI.topbar(S, '납골당 · 표본실');
   ossPanel();
   UI.logHead('표본실');
-  UI.logLine('여기 맡긴 것은 무슨 일이 있어도 그대로 남는다.', 'narrate');
+  UI.logLine('선반마다 유리병이 놓여 있다.', 'narrate');
   UI.logLine(`무덤에 들고 내려간 여분은 골렘이 무너질 때 하나당 ${SPARE_LOSS}%씩 흘린다. 여기 둔 것은 흘리지 않는다.`, 'necro');
   UI.logLine(`칸 ${o.vault.parts.length}/${o.vault.capacity} — 제단에서 늘린다.`, 'dim');
   if (o.vault.lostRecords.length) {
@@ -1327,7 +1327,7 @@ function overhaulScreen() {
      맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다 — <b>골렘 명부</b>에서 다른 몸을 탐험 자리에 올려라.</p>`);
 
   UI.logHead('정비대');
-  UI.logLine('부서진 것을 원래대로 돌리는 자리. 망가진 만큼 오래 걸린다.', 'narrate');
+  UI.logLine('부서진 것을 원래대로 돌리는 자리.', 'narrate');
   for (const j of o.overhaul) {
     const who = j.golemId === S.golem.id ? S.golem.name
       : (O.workshopGolems(S).find((x) => x.id === j.golemId)?.name ?? '골렘');
@@ -1491,7 +1491,7 @@ function rosterScreen(back = workshopHubScreen) {
       작업반 ${onCrew}/${cap}기 · 자율 탐험 ${S.ossuary.laborBay.dispatch.length}/${O.laborSlots(S.ossuary)}칸</p>`);
 
   UI.logHead('골렘 명부');
-  UI.logLine('핵 하나에 골렘 하나. 어느 몸으로 내려갈지는 당신이 고른다.', 'narrate');
+  UI.logLine('핵 하나에 골렘 하나.', 'narrate');
 
   UI.choices([
     ...list.map((g) => ({
@@ -1622,10 +1622,10 @@ function workshopScreen() {
       세운 골렘은 작업반에 붙여 작업 시간을 줄인다. 배치한 부속은 탐험에 쓸 수 없다.</p>`);
 
   UI.logHead('조립대');
-  UI.logLine('핵을 놓고 부속을 맞춘다. 전투에 나갈 골렘이 아니라, 여기 남아 손을 놀릴 골렘이다.', 'narrate');
+  UI.logLine('핵을 놓고 부속을 맞춘다.', 'narrate');
   if (!S.cores.length) {
     UI.logLine('여분 핵이 없다. 상점에서 사거나 단계를 끝내면 들어온다.', 'dim');
-    UI.logLine('지금 골렘에 박혀 있는 핵은 뽑아 쓸 수 없다 — 그건 당신이 탈 몸이다.', 'dim');
+    UI.logLine('지금 골렘에 박혀 있는 핵은 뽑아 쓸 수 없다.', 'dim');
   }
 
   UI.choices([
@@ -1704,7 +1704,7 @@ function workGolemScreen(id) {
       작업반에 붙이면 해체대·접합로 작업 시간이 줄어든다 (상한 60%).</p>`);
 
   UI.logHead(g.name);
-  UI.logLine('전투에 나갈 골렘이 아니다. 여기 남아 손을 놀릴 몸이다.', 'narrate');
+  UI.logLine('핵을 올려 새 골렘을 세운다.', 'narrate');
   if (!g.parts.length) UI.logLine('아직 부속이 하나도 없다. 능률은 핵 몫뿐이다.', 'dim');
 
   UI.choices([
@@ -1812,7 +1812,7 @@ function crewScreen() {
       부속만으로는 일을 시킬 수 없다. <b>조립대</b>에서 핵을 넣어 세운 골렘만 붙일 수 있다.</p>`);
 
   UI.logHead('작업반');
-  UI.logLine('세워 둔 골렘에게 일을 맡긴다. 핵이 좋을수록, 부속이 좋을수록 일이 빠르다.', 'narrate');
+  UI.logLine('세워 둔 골렘에게 일을 맡긴다.', 'narrate');
   if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 먼저 핵을 넣어 한 기를 세워야 한다.', 'dim');
 
   UI.choices([
@@ -1850,7 +1850,7 @@ function forgeJobScreen() {
   const free = O.forgeSlots(o) - o.forge.slots.length;
   const equippedF = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
   const spareCount = S.inventory.filter((p) => !equippedF.has(p.uid)).length;
-  UI.logLine('버린 파츠에 두 번째 생명을 준다.', 'narrate');
+  UI.logLine('불이 낮게 깔려 있다.', 'narrate');
   // 장착 중인 날것은 여기서 정착시킬 수 없다 — 세는 것도 따로 센다
   const rawSpare = S.inventory.filter((p) => p.raw && !equippedF.has(p.uid)).length;
   const rawWorn = S.inventory.filter((p) => p.raw && equippedF.has(p.uid)).length;
@@ -2010,7 +2010,7 @@ function laborScreen() {
       나가 있는 동안 그 골렘은 쓸 수 없다. 돌아올 때 부속 하나가 닳을 수 있다.</p>`);
 
   UI.logHead('자율 탐험');
-  UI.logLine('지나온 길을 다시 훑게 한다. 아는 길이라 죽지는 않지만, 몸은 닳는다.', 'narrate');
+  UI.logLine('지나온 길을 다시 훑게 한다.', 'narrate');
   for (const d of o.laborBay.dispatch) {
     UI.logLine(`${d.stageName} — ${byId(d.golemId)?.name ?? '?'} · ${O.remainText(d.startedAt, d.durationMs)}`, 'dim');
   }
@@ -2114,7 +2114,7 @@ function altarScreen() {
   UI.topbar(S, '납골당 · 제단');
   ossPanel();
   UI.logHead('제단');
-  UI.logLine('영혼재는 오직 무덤에서만 나온다. 여기서 그것을 태워 영구적인 것을 산다.', 'narrate');
+  UI.logLine('영혼재를 태우는 자리.', 'narrate');
 
   // 모자랄 때는 곁말 자리를 부족분에 내준다 — 못 누르는 이유가 먼저 읽혀야 한다
   const buy = (label, cost, meta, fn, disabled = false) => ({
@@ -2211,7 +2211,7 @@ function boardScreen() {
       오늘의 일은 자정에 새로 걸리고, 남은 것은 사라진다.</p>`);
 
   UI.logHead('의뢰소');
-  UI.logLine('널빤지에 종이 여섯 장. 위쪽 셋은 오래 걸려 있고, 아래쪽 셋은 오늘 붙은 것이다.', 'narrate');
+  UI.logLine('널빤지에 종이 여섯 장.', 'narrate');
 
   UI.choices([
     { label: '의뢰 세 건', cls: questsAllDone(S) ? 'primary' : '',
@@ -2235,10 +2235,10 @@ function marketScreen() {
     UI.rowHTML('🔨 뼈 모루', '부착물 제작 · 핵 강화', bs.forge),
     UI.rowHTML('🕯 조합', '네크로맨서의 술법', bs.conclave),
   ], `<p class="note">은화 ${S.silver} · 영혼재 ${S.soulAsh}.
-      손수레는 은화로, 조합은 영혼재로 산다 — 둘은 서로를 대신하지 못한다.</p>`);
+      손수레는 은화로, 조합은 영혼재로 산다.</p>`);
 
   UI.logHead('저잣거리');
-  UI.logLine('좁은 골목에 수레 하나, 모루 하나, 초 켜진 문 하나. 이 마을에서 물건이 오가는 곳은 여기뿐이다.', 'narrate');
+  UI.logLine('좁은 골목에 수레 하나, 모루 하나, 초 켜진 문 하나.', 'narrate');
 
   UI.choices([
     { label: '🛒 손수레', meta: bs.shop, info: '부속과 소모품을 은화로 사고, 안 쓰는 부속을 판다.', on: shopScreen },
@@ -2501,7 +2501,7 @@ function retuneScreen() {
   const g = assembleGolem(S);
   UI.topbar(S, '시체골 · 속성 도가니');
   UI.logHead('속성 도가니');
-  UI.logLine('도가니가 열을 머금는다. 스킬 하나의 속성을 바꿀 수 있다.', 'narrate');
+  UI.logLine('도가니가 열을 머금는다.', 'narrate');
   const attacks = g.active.filter((sid) => DB.skillsBy[sid].power > 0);
   UI.listPanel('현재 스킬 속성',
     attacks.map((sid) => UI.rowHTML(skillElement(S, sid), UI.esc(DB.skillsBy[sid].name),
@@ -2986,7 +2986,7 @@ function storyScreen(id, res) {
 function endingScreen() {
   UI.topbar(S, '미궁 · 원형의 방');
   UI.logHead('원형의 방');
-  UI.logLine('작업대 위의 것은 아직 아무것도 아니다. 당신이 정하는 대로 될 것이다.', 'narrate');
+  UI.logLine('작업대 위에 아직 아무것도 아닌 것이 놓여 있다.', 'narrate');
   UI.choices([
     { label: '일으킨다', cls: 'primary', meta: '여기까지 온 이유', on: () => finishEnding('raise') },
     { label: '놓아준다', meta: '오르넬이 하지 못한 것', on: () => finishEnding('release') },
@@ -3083,7 +3083,7 @@ function enterRoom(room, first = false) {
       case 'workshop':
         room.cleared = true;
         if (!room.used) {
-          UI.logLine('버려진 작업대. 공구는 삭았지만 한 번은 버텨 줄 것이다.', 'narrate');
+          UI.logLine('버려진 작업대. 공구는 삭았다.', 'narrate');
           if (!S.log.hintBench) {
             S.log.hintBench = true;
             UI.logLine('— 작업대는 한 번뿐이다 —', 'necro');
@@ -3163,7 +3163,7 @@ function repairScreen() {
   UI.topbar(S, `무덤 ${fd.floor}층 · 수리`);
   UI.dungeonPanel(S, fd);
   UI.logHead('수리');
-  UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도도, 닳은 자리도 되돌릴 수 있다.', 'narrate');
+  UI.logLine('녹슨 도구로 이음새를 조인다.', 'narrate');
   UI.logLine('공구가 버텨 주는 것은 한 부위뿐이다. 어디를 고칠지 골라야 한다.', 'dim');
 
   const PER_SCRAP = 35;        // 시체 조각 1당 되돌아오는 방어도 (밸런스 도구가 정한 값)
@@ -3616,7 +3616,7 @@ function winBattle() {
         }
         if (!S.log.hintSwap) {
           S.log.hintSwap = true;
-          UI.logLine('— 부속을 왜 바꾸는가 —', 'necro');
+          UI.logLine('— 부속 교체 —', 'necro');
           UI.logLine('부속은 능력치만이 아니라 기술을 들고 온다. 팔을 바꾸면 쓸 수 있는 기술이 통째로 바뀐다.', 'necro');
           UI.logLine('그래서 좋은 부속이 아니라 지금 빌드에 맞는 부속을 고르는 것이 이 게임의 결정이다.', 'necro');
           UI.logLine('교체 화면에서 부속에 손을 얹으면 바꿨을 때 무엇이 오르내리는지 전부 보여 준다.', 'good');
@@ -3688,7 +3688,7 @@ function destroyPart(p) {
  */
 function collapseRun() {
   UI.logHead('철수');
-  UI.logLine('마지막 부속까지 떨어져 나갔다. 핵만 남은 것은 골렘이 아니다.', 'narrate');
+  UI.logLine('마지막 부속까지 떨어져 나갔다.', 'narrate');
   UI.logLine('핵은 성하다. 남은 부속을 수레에 싣고 돌아선다.', 'good');
   S.golem.coreHp = S.run.golemHp;      // 핵 체력은 런을 넘어 남는다
   const ash = 15 + S.run.kills * 3;
@@ -3765,9 +3765,9 @@ function reportDismantle(r) {
     UI.logLine(`쓰러지며 짐도 쏟았다 — ${r.spareLost.map(partName).join(', ')}.`, 'bad');
     if (!S.log.hintVault) {
       S.log.hintVault = true;
-      UI.logLine('— 아까운 것은 맡겨 두어라 —', 'necro');
+      UI.logLine('— 표본실 —', 'necro');
       UI.logLine(`무덤에 들고 내려간 여분은 무너질 때 하나당 ${r.rate}%씩 흘린다.`, 'necro');
-      UI.logLine('납골당 표본실에 맡긴 것은 무슨 일이 있어도 그대로 남는다. 그것이 표본실이다.', 'good');
+      UI.logLine('납골당 표본실에 맡긴 것은 무너져도 그대로 남는다.', 'good');
     }
   }
 }

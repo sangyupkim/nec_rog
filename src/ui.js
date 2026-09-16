@@ -996,7 +996,7 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
     ${sec('idle', '돌아가는 일', jobs_.length ? `${jobs_.length}건${soon_ ? ` · 가장 빠른 것 ${soon_}` : ''}` : '없다',
       (jobs_.length
         ? `<div class="rows jobs">${jobs_.map((j) => rowHTML(j.where, esc(j.what), j.when, j.warn)).join('')}</div>`
-        : '<p class="empty">걸어 둔 일이 없다. 걸어 두지 않으면 시간은 아무것도 만들지 않는다.</p>')
+        : '<p class="empty">걸어 둔 일이 없다.</p>')
       + `<div class="chips">
         <span class="chip">상한 ${Math.round(o.offlineCapMs / 3600000)}시간</span>
         <span class="chip">부패조 Lv${o.rotVat.level}</span>
