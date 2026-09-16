@@ -540,7 +540,7 @@ function coreManaScreen() {
   UI.choices([
     { label: `마력 +${CORE_MANA_STEP} (${lv} → ${lv + 1}단계)`, cls: 'primary',
       meta: !can ? (core ? '더는 못 올린다' : '핵이 없다')
-        : lack ?? `은화 ${c.silver} · 조각 ${c.scrap} · 골분 ${c.boneMeal}`,
+        : `${priceText(c)}${lack ? ` (${lack})` : ''}`,
       disabled: !can || Boolean(lack),
       on: () => {
         S.silver -= c.silver; S.scrap -= c.scrap; S.boneMeal -= c.boneMeal;
@@ -898,6 +898,15 @@ const RES_SHORT = { silver: '은화', soulAsh: '영혼재', scrap: '조각', ich
  * 그냥 '재료가 모자라다'라고만 적으면 무엇을 구해 와야 하는지 알 수 없어
  * 창을 나갔다 들어오며 재화를 일일이 대조하게 된다. 부족분을 숫자로 적는다. (§16.5)
  */
+/**
+ * 값을 통째로 적는다 — 「은화 120 · 조각 20」 (§12.12).
+ * 은화만 적고 재료를 숨기면, 누른 뒤에야 무엇이 빠져나갔는지 안다.
+ */
+function priceText(cost) {
+  return Object.entries(cost ?? {}).filter(([, v]) => v)
+    .map(([k, v]) => `${RES_SHORT[k] ?? k} ${v}`).join(' · ');
+}
+
 function shortText(cost) {
   const out = [];
   for (const [k, v] of Object.entries(cost ?? {})) {
@@ -2255,11 +2264,16 @@ function altarScreen() {
   UI.logHead('제단');
   UI.logLine('영혼재를 태우는 자리.', 'narrate');
 
-  // 모자랄 때는 곁말 자리를 부족분에 내준다 — 못 누르는 이유가 먼저 읽혀야 한다
+  /* 값은 **언제나** 앞에 적는다 (§12.12). 전에는 곁말 자리를 얻는 것에 내주는 바람에
+     「안치소 증설 — 받침대 4기 · 자율 탐험 2칸」처럼 영혼재가 얼마나 드는지가 통째로
+     사라진 단추가 있었다. 모자랄 때는 부족분까지 함께 적는다. */
   const buy = (label, cost, meta, fn, disabled = false) => ({
     label,
-    meta: (S.soulAsh < cost ? `영혼재 ${cost - S.soulAsh} 모자라다` : null) ?? meta ?? `영혼재 ${cost}`,
+    meta: `영혼재 ${cost}${S.soulAsh < cost ? ` (${cost - S.soulAsh} 모자라다)` : ''}${meta && !/^영혼재 \d+$/.test(meta) ? ` · ${meta}` : ''}`,
     disabled: disabled || S.soulAsh < cost,
+    info: `<div class="trow"><span>값</span><b>영혼재 ${cost}</b></div>`
+      + `<div class="trow"><span>지금 가진 것</span><b>영혼재 ${S.soulAsh}</b></div>`
+      + `<div class="trow"><span>치르고 나면</span><b>영혼재 ${Math.max(0, S.soulAsh - cost)}</b></div>`,
     on: () => { S.soulAsh -= cost; fn(); altarScreen(); },
   });
 
@@ -2579,8 +2593,7 @@ function forgeScreen() {
     DB.attachments.map((a) => UI.rowHTML(
       owned.includes(a.id) ? (equipped.includes(a.id) ? '장착' : '보유') : '미보유',
       `${UI.esc(a.name)}<br><span style="color:var(--muted);font-size:.84em">${UI.esc(a.desc)}</span>`,
-      `${a.price} · ${Object.entries(a.materials ?? {}).map(([k, v]) =>
-        `${{ scrap: '조각', ichor: '진액', boneMeal: '골분' }[k]}${v}`).join(' ')}`)),
+      priceText({ silver: a.price, ...(a.materials ?? {}) }))),
     `<p class="note">부착물은 파츠 슬롯을 쓰지 않는다. 골렘당 ${ATTACH_SLOTS}칸.</p>`);
 
   UI.logHead('뼈 모루');
@@ -2590,8 +2603,13 @@ function forgeScreen() {
   for (const a of DB.attachments) {
     if (a.effect.op === 'retune') continue;
     if (!S.owned.attachments.includes(a.id)) {
-      const lack = shortText({ silver: a.price, ...(a.materials ?? {}) });
-      list.push({ label: `${a.name} 제작`, meta: lack ?? money(a.price), disabled: Boolean(lack), on: () => {
+      const cost = { silver: a.price, ...(a.materials ?? {}) };
+      const lack = shortText(cost);
+      list.push({ label: `${a.name} 제작`,
+        meta: `${priceText(cost)}${lack ? ` (${lack})` : ''}`,
+        disabled: Boolean(lack),
+        info: `<span class="tt">${UI.esc(a.name)}</span><div class="trow"><span>값</span><b>${priceText(cost)}</b></div>`,
+        on: () => {
         craft(S, a);
         UI.logLine(`${a.name}을(를) 만들었다.`, 'good');
         forgeScreen();
@@ -3869,9 +3887,23 @@ function afterBattle(isBoss, room) {
     notifyQuests({ kind: 'floorclear', noLoss: S.run.noLoss });
     notifyQuests({ kind: 'progress', floor: S.run.floor });
     UI.logLine(`${S.run.floor}층을 정리했다.`, 'good');
+    /* 마지막 층의 주인을 눕혔으면 **그것으로 단계가 끝난 것이다** (§7-A.5).
+       전에는 여기서도 「더 내려간다 / 여기서 돌아간다」를 내밀었다. 더 내려갈 곳이 없는
+       마당에 「돌아간다」를 고르면 abandonRun이 돌아 단계가 깨지지 않은 채로 끝났다 —
+       주인을 잡고도 걸어온 길이 0/9에 머물렀다. 갈림길이 아닌 곳에 갈림길을 두지 않는다. */
+    const last = S.run.floor >= (stageOf(S.run.stage)?.floors ?? 3);
+    if (last) {
+      UI.logLine('더 내려갈 곳이 없다. 이 단계의 바닥이다.', 'necro');
+      UI.choices([{ label: '단계를 끝내고 돌아간다', cls: 'primary', pin: true, on: runComplete }]);
+      save();
+      return;
+    }
     UI.choices([
       { label: '더 내려간다', cls: 'primary', on: nextFloor },
-      { label: '여기서 돌아간다', cls: 'ghost', on: () => abandonRun(true) },
+      { label: '여기서 돌아간다', cls: 'ghost',
+        meta: '단계는 깨지지 않는다 — 바닥까지 가야 깬 것이다',
+        info: '지금 돌아가면 주운 것은 남지만 이 단계는 여전히 「아직 못 깬 곳」이다.',
+        on: () => abandonRun(true) },
     ]);
     save();
     return;
