@@ -603,8 +603,10 @@ const CELL_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR: '우�
 export function bodyMapHTML(cells) {
   return `<div class="bodymap">${cells.map((c) => {
     if (c.empty) {
-      return `<div class="bcell empty" style="grid-area:${c.slot}">
-        <span class="bl">${CELL_LABEL[c.slot]}</span><span class="bv">—</span></div>`;
+      // 빈 자리야말로 누르고 싶은 자리다. 그림만 그려 두면 끼울 길이 없다
+      return `<button type="button" class="bcell empty" style="grid-area:${c.slot}"
+        data-slot="${c.slot}" aria-label="${CELL_LABEL[c.slot]} 비어 있음">
+        <span class="bl">${CELL_LABEL[c.slot]}</span><span class="bv">—</span></button>`;
     }
     const pct = Math.max(0, Math.min(100, Math.round(c.pct)));
     const state = c.down ? 'down' : pct <= 35 ? 'low' : pct <= 70 ? 'mid' : 'ok';
@@ -615,30 +617,39 @@ export function bodyMapHTML(cells) {
       <span class="bfill" style="height:${c.down ? 0 : pct}%"></span>
     </button>`;
   }).join('')}</div>
-  <div id="bodydetail" class="bodydetail"><span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span></div>`;
+  <div id="bodydetail" class="bodydetail"></div>`;
 }
 
 /** 전투 중 펼쳐 둔 부위. 턴이 바뀌어 패널을 다시 그려도 보던 자리를 유지한다. */
 let openSlot = null;
 export const resetBodyPick = () => { openSlot = null; };
 
-/** detailFor(slot) → 아래에 펼칠 HTML. null이면 비어 있는 자리. */
-export function bindBody(detailFor) {
+/**
+ * detailFor(slot) → 아래에 펼칠 HTML. null이면 비어 있는 자리.
+ * onPick(slot)을 주면 **펼치는 대신 그 자리로 곧장 넘어간다** — 정비 화면에서
+ * 부위를 누르면 하단이 바로 그 자리의 교체 목록이 되게 하는 길이다 (§12.9).
+ */
+export function bindBody(detailFor, onPick = null) {
   const box = $('bodydetail');
   if (!box) return;
-  const HINT = '<span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span>';
+  const HINT = onPick
+    ? '<span class="hint">부위를 누르면 거기에 끼울 것들이 아래에 뜬다.</span>'
+    : '<span class="hint">부위를 누르면 무엇을 끼웠는지 보인다.</span>';
   const show = (slot) => { box.innerHTML = detailFor(slot) ?? '<span class="hint">비어 있는 자리다.</span>'; };
   const mark = () => {
     for (const o of document.querySelectorAll('.bodymap .bcell')) o.classList.toggle('picked', o.dataset.slot === openSlot);
   };
   for (const b of document.querySelectorAll('.bodymap .bcell[data-slot]')) {
     b.addEventListener('click', () => {
+      if (onPick) { openSlot = b.dataset.slot; mark(); onPick(b.dataset.slot); return; }
       openSlot = openSlot === b.dataset.slot ? null : b.dataset.slot;
       mark();
       if (openSlot) show(openSlot); else box.innerHTML = HINT;
     });
   }
-  if (openSlot && detailFor(openSlot)) { mark(); show(openSlot); }
+  if (box.innerHTML === '') box.innerHTML = HINT;
+  if (!onPick && openSlot && detailFor(openSlot)) { mark(); show(openSlot); }
+  if (onPick) mark();
 }
 
 /** 부속 하나를 펼쳐 보여 주는 칸 — 전투와 정비가 같은 모양을 쓴다 */
@@ -675,7 +686,7 @@ export function golemBody(save) {
     const now = shieldNow(p, slot);
     return partDetailHTML(p, { shield: now, shieldMax: max, down: now <= 0 });
   };
-  return { html: bodyMapHTML(cells), bind: () => bindBody(detail) };
+  return { html: bodyMapHTML(cells), bind: (onPick) => bindBody(detail, onPick) };
 }
 
 function bindBodyCells(cb) {
@@ -861,7 +872,7 @@ export function townPanel(save, status, go = {}) {
 /* ── 골렘 정비 ───────────────────────────────
    장착 여섯 줄 + 능력치 일곱 + 스킬 열 줄이 한 화면에 전부 쏟아져 있었다.
    도식 하나와 경고만 남기고, 나머지는 제목만 두고 접는다. */
-export function golemPanel(save) {
+export function golemPanel(save, onPick = null) {
   const g = assembleGolem(save);
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
   const coreHp = save.golem.coreHp ?? g.stats.hp;
@@ -896,7 +907,7 @@ export function golemPanel(save) {
     ${sec('att', '부착물', `${att.length}/2`,
       att.length ? `<div class="chips">${att.map((n) => `<span class="chip good">${esc(n)}</span>`).join('')}</div>`
         : '<p class="empty">없음</p>')}`);
-  bm.bind();
+  bm.bind(onPick);
 }
 
 /** 재화·소지품 등 단순 목록 패널 */

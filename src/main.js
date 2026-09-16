@@ -2592,7 +2592,10 @@ const canEditNow = (canEdit) => canEdit && (!S.run || benchRoom !== null);
 function golemScreen(back = town, canEdit = true) {
   canEdit = canEditNow(canEdit);
   UI.topbar(S, canEdit ? '골렘 정비' : '골렘 상태');
-  UI.golemPanel(S);
+  /* 도식의 부위를 누르면 **하단이 곧장 그 자리의 교체 목록**이 된다 (§12.9).
+     「좌완 교체」 같은 버튼을 여섯 개 늘어놓으면 글자를 키운 화면에서는 네 쪽으로 갈린다 —
+     이미 눈이 가 있는 그림을 누르는 쪽이 짧다. */
+  UI.golemPanel(S, canEdit ? (slot) => slotScreen(slot, back, canEdit) : null);
   const g = assembleGolem(S);
   if (g.over) UI.logLine(`스킬이 ${g.active.length}개다. ${SKILL_CAP}개를 넘으면 일부를 봉인해야 한다.`, 'bad');
   const raws = g.worn.filter(({ part }) => part.raw);
@@ -2604,11 +2607,11 @@ function golemScreen(back = town, canEdit = true) {
     UI.logLine(S.run ? '이 작업대는 다 썼다. 손볼 곳은 마을이나 다음 작업대다.'
       : '여기서는 손볼 수 없다. 작업대가 있는 방이나 마을에서 정비한다.', 'dim');
   }
+  if (canEdit) UI.logLine('왼쪽 도식에서 부위를 누르면 거기에 끼울 것들이 아래에 뜬다.', 'dim');
   UI.choices([
-    ...(canEdit ? [{ label: '핵 교체', meta: g.core ? g.core.name : '없음', on: () => coreScreen(back, canEdit) }] : []),
-    ...(canEdit
-      ? SLOTS.map((slot) => ({ label: `${SLOT_LABEL[slot]} 교체`, on: () => slotScreen(slot, back, canEdit) }))
-      : []),
+    ...(canEdit ? [{ label: '핵 교체', meta: g.core ? g.core.name : '없음',
+      info: '핵은 몸이 아니라 골렘 그 자체다. 도식에 자리가 없어 여기서 고른다.',
+      on: () => coreScreen(back, canEdit) }] : []),
     canEdit && g.skills.length > SKILL_CAP ? { label: '스킬 봉인 관리', on: () => banScreen(back, canEdit) } : null,
     canEdit ? { label: '골렘 명부', cls: 'ghost', info: '내 골렘들이 어디에 있는지 보고, 데려갈 몸을 고른다.',
       on: () => rosterScreen(() => golemScreen(back, canEdit)) } : null,
@@ -2666,7 +2669,8 @@ function slotScreen(slot, back, canEdit = true) {
     DB.partsBy[p.defId].slot === kind && !equipped.has(p.uid));
 
   UI.topbar(S, `골렘 · ${SLOT_LABEL[slot]}`);
-  UI.golemPanel(S);
+  // 도식에서 다른 부위를 누르면 그 자리로 곧장 건너뛴다 (§12.9)
+  UI.golemPanel(S, (next) => slotScreen(next, back, canEdit));
   UI.logHead(`${SLOT_LABEL[slot]} 교체`);
   if (cur) {
     UI.logLine(`현재: ${partName(cur)} (내구도 ${cur.integrity}/${cur.maxIntegrity})`);
@@ -2694,7 +2698,7 @@ function slotScreen(slot, back, canEdit = true) {
           : `마력 ${partMana(p)} · ${p.raw ? '날것 · ' : ''}${diffText(slot, p)} · ${p.integrity}/${p.maxIntegrity}`,
         // 버튼에 얹기만 해도 전후 비교가 왼쪽에 뜬다 — 암산을 시키지 않는다
         hover: () => previewSwap(slot, p, before),
-        unhover: () => UI.golemPanel(S),
+        unhover: () => UI.golemPanel(S, (next) => slotScreen(next, back, canEdit)),
         on: () => {
           S.golem[slot] = p.uid;
           const after = assembleGolem(S);
