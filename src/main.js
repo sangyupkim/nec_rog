@@ -1487,7 +1487,8 @@ function rosterScreen(back = workshopHubScreen) {
       <span style="color:var(--muted);font-size:.84em">${UI.esc(DB.coresBy[g.core]?.name ?? '핵 없음')}
       · 부속 ${g.parts.length}</span>`, rt, whereOf(g) === 'repair');
   }), `<p class="note">탐험 자리에 서는 골렘은 한 기뿐이다. 나머지는 정비대·작업반·자율 탐험에 보내거나 세워 둔다.<br>
-      작업반 ${onCrew}/${cap}기 · 자율 탐험 ${S.ossuary.laborBay.dispatch.length}/${O.laborSlots(S.ossuary)}칸</p>`);
+      작업반 ${onCrew}/${cap}기 · 자율 탐험 ${S.ossuary.laborBay.dispatch.length}/${O.laborSlots(S.ossuary)}칸<br>
+      자율 탐험은 <b>납골당 → 재료</b>에서 보낸다.</p>`);
 
   UI.logHead('골렘 명부');
   UI.logLine('핵 하나에 골렘 하나.', 'narrate');
@@ -1539,6 +1540,10 @@ function golemCardScreen(id, back = workshopHubScreen) {
     : here === 'crew' ? '작업반에 붙어 있다.'
     : here === 'labor' ? '자율 탐험을 나가 있다.'
     : '받침대에 세워 둔 채다.', 'dim');
+  // 내보내는 자리는 납골당 「재료」 한 곳뿐이다 (§9.10-A). 여기서는 어디로 가야 하는지만 적는다
+  if (!g.active && here === 'idle' && canWork(g.ref)) {
+    UI.logLine('자율 탐험은 납골당 → 재료 → 자율 탐험에서 보낸다.', 'dim');
+  }
 
   const busyWhy = here === 'repair' ? '정비 중이다'
     : here === 'labor' ? '자율 탐험 중이다' : null;
@@ -1576,12 +1581,6 @@ function golemCardScreen(id, back = workshopHubScreen) {
         golemCardScreen(id, back);
       },
     } : null,
-    // 내보내는 일은 납골당 「재료」에 모았다 (§9.10-A). 여기서는 길만 알려 준다
-    !g.active && here === 'idle' ? { label: '자율 탐험 보내기', cls: 'ghost',
-      meta: canWork(g.ref) ? '납골당 · 재료' : '부속이 없다',
-      disabled: !canWork(g.ref),
-      info: '자율 탐험은 재료를 캐는 일이라 납골당 「재료」에 모여 있다.',
-      on: laborScreen } : null,
     !g.active && here === 'idle' ? {
       label: '해체한다', cls: 'danger', meta: '핵과 부속을 되찾는다',
       on: () => { disassembleWorkGolem(id); rosterScreen(back); },
