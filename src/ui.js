@@ -1,5 +1,5 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
-import { DB, SLOTS, SLOT_LABEL, partName, partSkills, assembleGolem, SKILL_CAP, josa,
+import { DB, SLOTS, SLOT_LABEL, partName, partSkills, partStats, assembleGolem, SKILL_CAP, josa,
          shieldMax, shieldNow, partOf } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 import * as CP from './campaign.js';
@@ -175,26 +175,137 @@ export function choices(list, opts = {}) {
   render(box, [...shown, ...nav, ...pinned]);
 }
 
+/**
+ * 부속 하나를 쪽지 한 장에 담는다 — 목록에서 잘려 안 보이는 것을 그대로 펼친다.
+ * 버튼의 `info`에 넣어 쓴다.
+ */
+export function partTip(part, extra = '') {
+  const def = DB.partsBy[part.defId] ?? {};
+  const st = typeof part.defId === 'string' ? partStats(part) : {};
+  const KIND = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
+  const SL = { atk: '공격', def: '방어', eva: '회피', spd: '속도', focus: '집중', hp: '체력' };
+  const stats = Object.entries(st).filter(([, v]) => v)
+    .map(([k, v]) => `<b>${SL[k] ?? k}</b> ${v > 0 ? '+' : ''}${v}`).join(' · ');
+  const sk = partSkills(part).map((id) => DB.skillsBy[id]).filter(Boolean);
+  const mod = part.mod ? DB.modifiersBy[part.mod] : null;
+  return `
+    <span class="tt">${partHTML(part)}</span>
+    <span class="tm">${KIND[def.slot] ?? ''} · ${RARITY_LABEL[def.rarity] ?? ''}`
+      + `${part.raw ? ' · 날것' : ''}${def.def_element ? ` · 방어 ${def.def_element}` : ''}</span>
+    <div class="trow">
+      <span>내구도 <b>${part.integrity}/${part.maxIntegrity}</b></span>
+      <span>요구 마력 <b>${DB.partsBy[part.defId]?.mana ?? '—'}</b></span>
+      ${part.upgrade ? `<span>강화 <b>+${part.upgrade}</b></span>` : ''}
+      ${part.refined ? `<span>정제 <b>+${part.refined}</b></span>` : ''}
+    </div>
+    ${stats ? `<div class="trow">${stats}</div>` : '<div class="trow">능력치 보정 없음</div>'}
+    ${sk.length ? `<div class="tsk">기술 — ${sk.map((x) =>
+        `${esc(x.name)}(${x.element}${x.power ? ` ${x.power}` : ''})`).join(', ')}</div>` : ''}
+    ${mod ? `<div class="tsk">이상 — ${esc(mod.prefix)}</div>` : ''}
+    ${part.raw ? '<div class="tsk" style="color:var(--danger)">날것 — 성능 60%, 기술 25% 불발, 내구도 2배 소모</div>' : ''}
+    ${extra}`;
+}
+
+/* ── 쪽지 ─────────────────────────────────────
+   버튼 폭이 좁아 이름과 곁말이 잘린다. 잘린 것을 볼 방법이 없으면
+   "무엇이 붙어 있는지 모른 채" 고르게 된다.
+   · 마우스: 올리면 뜬다 — 누르는 것은 그대로 한 번이다.
+   · 손가락: 한 번 누르면 뜨고, **같은 것을 한 번 더 눌러야 실행된다.**
+   더 보여 줄 것이 없는 버튼(다 보이고 info도 없는 것)은 예전처럼 한 번에 눌린다. */
+let lastTouch = false;
+let armedBtn = null;
+document.addEventListener('pointerdown', (e) => { lastTouch = e.pointerType === 'touch'; }, true);
+
+const tipEl = () => $('tip');
+
+export function hideTip() {
+  const t = tipEl();
+  if (t) t.hidden = true;
+  if (armedBtn) { armedBtn.classList.remove('armed'); armedBtn = null; }
+}
+
+function showTip(html, anchor) {
+  const t = tipEl();
+  if (!t) return;
+  t.innerHTML = josa(html);
+  t.hidden = false;
+  // 버튼 위에 띄우고, 화면 밖으로 나가면 안쪽으로 당긴다
+  const r = anchor.getBoundingClientRect();
+  const tr = t.getBoundingClientRect();
+  const pad = 8;
+  let left = r.left + r.width / 2 - tr.width / 2;
+  left = Math.max(pad, Math.min(left, window.innerWidth - tr.width - pad));
+  let top = r.top - tr.height - 6;
+  if (top < pad) top = Math.min(r.bottom + 6, window.innerHeight - tr.height - pad);
+  t.style.left = `${Math.round(left)}px`;
+  t.style.top = `${Math.round(top)}px`;
+}
+
+/** 이 버튼이 더 보여 줄 것이 있는가 — 글자가 잘렸거나 info가 붙어 있거나 */
+function hasMore(btn, c) {
+  if (c.info) return true;
+  for (const el of btn.querySelectorAll('.nm, .meta')) {
+    if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) return true;
+  }
+  return false;
+}
+
+/** 쪽지에 넣을 기본 내용 — 버튼에 있던 것을 그대로, 잘리지 않게 */
+const plainTip = (c) => `<span class="tt">${c.label}</span>`
+  + (c.meta ? `<span class="tm">${c.meta}</span>` : '');
+
+/* 바깥을 누르면 쪽지를 접는다 */
+document.addEventListener('pointerdown', (e) => {
+  if (armedBtn && !armedBtn.contains(e.target)) hideTip();
+}, true);
+window.addEventListener('resize', hideTip);
+
 function render(box, list) {
   box.replaceChildren();
   keyHandlers = [];
+  hideTip();
   for (const fn of onChoicesRendered) fn();
   let n = 0;
   for (const c of list) {
     if (!c) continue;
     const b = document.createElement('button');
-    b.className = `btn ${c.cls ?? ''}`;
+    b.className = `btn ${c.cls ?? ''}${c.meta ? '' : ' tall'}`;
     b.disabled = Boolean(c.disabled);
     let k = '';
     if (!c.disabled && !c.nokey && n < 9) { n++; k = String(n); keyHandlers[n] = c.on; }
     b.innerHTML = josa(`${k ? `<span class="k">${k}</span>` : ''}<span class="nm">${c.label}</span>`
       + (c.meta ? `<span class="meta">${c.meta}</span>` : ''));
+
+    const tip = () => (c.info ? c.info : plainTip(c))
+      + (lastTouch ? '<span class="thint">한 번 더 누르면 고른다</span>' : '');
+
+    // 못 누르는 버튼도 이유를 끝까지 읽을 수 있어야 한다 — 쪽지는 붙여 준다
+    b.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'touch') return;
+      if (hasMore(b, c)) showTip(tip(), b);
+    });
+    b.addEventListener('pointerleave', () => { if (!armedBtn) hideTip(); });
+
     // 인자를 넘기지 않는다. 그대로 넘기면 클릭 이벤트가 첫 인자로 들어가
     // golemScreen(back) 같은 기본 인자를 덮어써 버린다.
     if (!c.disabled && c.on) {
-      b.addEventListener('click', () => { soundUnlock(); SFX.tap(); c.on(); });
+      b.addEventListener('click', () => {
+        // 손가락으로 처음 누른 것이고 더 보여 줄 게 있으면, 이번 누름은 '보기'다
+        if (lastTouch && armedBtn !== b && hasMore(b, c)) {
+          hideTip();
+          armedBtn = b;
+          b.classList.add('armed');
+          showTip(tip(), b);
+          return;
+        }
+        hideTip();
+        soundUnlock(); SFX.tap(); c.on();
+      });
+    } else if (c.disabled) {
+      b.addEventListener('click', () => { if (hasMore(b, c)) showTip(tip(), b); });
     }
-    // 미리보기 — 마우스는 올리면, 손가락은 길게 누르면 뜬다
+
+    // 미리보기 — 마우스는 올리면 전후 비교가 왼쪽에 뜬다
     if (!c.disabled && c.hover) {
       b.addEventListener('pointerenter', () => c.hover());
       b.addEventListener('focus', () => c.hover());
@@ -205,6 +316,43 @@ function render(box, list) {
     }
     box.append(b);
   }
+  fillDock(box);
+}
+
+/**
+ * 버튼이 몇 개뿐이어도 독의 높이는 고정이다. 그대로 두면 아래가 텅 빈다 —
+ * 실측으로 164px 중 102px이 비었다. 그 높이를 버튼에 돌려주면
+ * 이름이 두 줄까지 펴져 잘리는 일이 줄어든다. 대신 버튼이 우스꽝스럽게
+ * 커지지 않도록 기본 높이의 두 배까지만 늘린다.
+ */
+function fillDock(box) {
+  box.style.gridAutoRows = '';
+  const btns = box.querySelectorAll('.btn');
+  if (!btns.length) return;
+  const cs = getComputedStyle(box);
+  const cols = cs.gridTemplateColumns.split(' ').filter(Boolean).length || 1;
+  const rows = Math.ceil(btns.length / cols);
+  const gap = parseFloat(cs.rowGap) || 0;
+  const inner = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const base = parseFloat(cs.gridAutoRows) || btns[0].getBoundingClientRect().height;
+  const fit = (inner - (rows - 1) * gap) / rows;
+  const rowH = fit > base ? Math.floor(Math.min(fit, base * 2)) : base;
+  if (rowH !== base) box.style.gridAutoRows = `${rowH}px`;
+
+  /* 이름을 몇 줄까지 풀지는 **칸의 높이가 정한다.**
+     무조건 두 줄로 두면 칸이 낮을 때 곁말이 잘려 나가 오히려 못 읽게 된다. */
+  const b0 = btns[0];
+  const bs = getComputedStyle(b0);
+  const pad = parseFloat(bs.paddingTop) + parseFloat(bs.paddingBottom) + 2;
+  const nm = b0.querySelector('.nm');
+  const lineH = nm ? parseFloat(getComputedStyle(nm).lineHeight) : 16;
+  const metaEl = [...btns].map((b) => b.querySelector('.meta')).find(Boolean);
+  const metaH = metaEl ? parseFloat(getComputedStyle(metaEl).lineHeight) : 0;
+  const lines = Math.max(1, Math.min(3, Math.floor((rowH - pad - metaH) / lineH)));
+  box.style.setProperty('--nm-lines', String(lines));
+
+  // 독이 넘치면 그 사실이 보여야 한다 — 높이가 고정이라 넘친 줄은 소리 없이 가려진다
+  box.classList.toggle('more', box.scrollHeight > box.clientHeight + 1);
 }
 
 document.addEventListener('keydown', (e) => {

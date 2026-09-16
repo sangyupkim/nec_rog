@@ -1032,6 +1032,7 @@ function dissectScreen() {
         // 누르면 상세 화면에서 무엇인지 확인한 뒤에 올린다
         label: UI.partHTML(p),
         meta: `${KIND_LABEL[def.slot]} · ${p.integrity}/${p.maxIntegrity} · 조각 ${spec.scrap[0]}~${spec.scrap[1]}`,
+        info: UI.partTip(p),
         disabled: free <= 0,
         on: () => partDetailScreen(p, dissectScreen, {
           title: '납골당 · 해체 확인',
@@ -1082,7 +1083,7 @@ function vaultScreen() {
   const spare = S.inventory.filter((p) => !equipped.has(p.uid));
   UI.choices([
     ...o.vault.parts.map((p) => ({
-      label: `${partName(p)} 꺼내기`, meta: `${p.integrity}/${p.maxIntegrity}`, on: () => {
+      label: `${partName(p)} 꺼내기`, meta: `${p.integrity}/${p.maxIntegrity}`, info: UI.partTip(p), on: () => {
         o.vault.parts = o.vault.parts.filter((x) => x.uid !== p.uid);
         S.inventory.push(p);
         UI.logLine(`${partName(p)}을(를) 꺼냈다.`, 'good');
@@ -1090,7 +1091,7 @@ function vaultScreen() {
       },
     })),
     ...spare.map((p) => ({
-      label: `${partName(p)} 보관`, cls: 'ghost',
+      label: `${partName(p)} 보관`, cls: 'ghost', info: UI.partTip(p),
       disabled: o.vault.parts.length >= o.vault.capacity,
       on: () => {
         S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
@@ -1328,6 +1329,7 @@ function workSlotScreen(id, slot) {
       return {
         label: UI.partHTML(p),
         meta: `공${st.atk} 방${st.def} 속${st.spd} 집${st.focus} · ${p.integrity}/${p.maxIntegrity}`,
+        info: UI.partTip(p),
         on: () => {
           detach();
           S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
@@ -1508,6 +1510,7 @@ function recipeScreen(key, first = null) {
         // 이름이 잘려도 자리·내구도로 구분되고, 누르면 상세를 확인한 뒤에 건다
         label: UI.partHTML(p),
         meta: `${KIND_LABEL[def.slot]} · ${p.integrity}/${p.maxIntegrity}${p.raw ? ' · 날것' : ''}`,
+        info: UI.partTip(p),
         on: () => partDetailScreen(p, () => recipeScreen(key, first), {
           title: `접합로 · ${r.name}`,
           ask: pick ? `${partName(p)}을(를) 바탕으로 삼을까?` : `${partName(p)}에 ${r.name}을(를) 걸까?`,
@@ -1807,7 +1810,8 @@ function shopScreen() {
   }
   for (const p of stock.parts) {
     const price = partPrice(p);
-    list.push({ label: `${partName(p)} 구입`, meta: money(price), disabled: S.silver < price, on: () => {
+    list.push({ label: `${partName(p)} 구입`, meta: money(price), info: UI.partTip(p),
+      disabled: S.silver < price, on: () => {
       S.silver -= price;
       S.inventory.push(p);
       S.town.stock.parts = S.town.stock.parts.filter((x) => x !== p);
@@ -1854,7 +1858,7 @@ function sellScreen() {
   UI.logLine('무엇을 넘길까.', 'dim');
   UI.choices([
     ...sellable.map((p) => ({
-      label: `${partName(p)} 판매`, meta: money(sellPrice(p)), on: () => {
+      label: `${partName(p)} 판매`, meta: money(sellPrice(p)), info: UI.partTip(p), on: () => {
         S.silver += sellPrice(p);
         S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
         UI.logLine(`${partName(p)}을(를) 넘겼다. (+${sellPrice(p)})`, 'good');
@@ -2138,6 +2142,9 @@ function slotScreen(slot, back, canEdit = true) {
       return {
         label: UI.partHTML(p),
         disabled: short > 0,
+        info: UI.partTip(p, short > 0
+          ? `<div class="tsk" style="color:var(--danger)">마력 ${after}/${before.manaMax} — ${short} 모자라다</div>`
+          : `<div class="tsk">${diffText(slot, p)}</div>`),
         meta: short > 0
           ? `마력 ${after}/${before.manaMax} — ${short} 모자라다`
           : `마력 ${partMana(p)} · ${p.raw ? '날것 · ' : ''}${diffText(slot, p)} · ${p.integrity}/${p.maxIntegrity}`,
@@ -2994,6 +3001,7 @@ function winBattle() {
     ...loot.map((p) => ({
       label: `${partName(p)} 수습`,
       meta: `${KIND_LABEL[DB.partsBy[p.defId].slot]} · 날것 · 내구 ${p.integrity}`,
+      info: UI.partTip(p),
       on: () => {
         S.inventory.push(p);
         UI.logLine(`${partName(p)}을(를) 챙겼다.`, 'good');
