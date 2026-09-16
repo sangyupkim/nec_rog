@@ -4,7 +4,7 @@ export const DB = {};
 
 const FILES = ['elements', 'skills', 'parts', 'monsters', 'modifiers',
                'necro_skills', 'summons', 'items', 'attachments', 'quests', 'cores',
-               'campaign', 'story'];
+               'campaign', 'story', 'naming'];
 
 export async function loadData() {
   const loaded = await Promise.all(
@@ -105,7 +105,12 @@ export const syncUidSeq = (n) => { uidSeq = Math.max(uidSeq, n); };
 export function makePart(defId, modId = null) {
   const def = DB.partsBy[defId];
   const mod = modId ? DB.modifiersBy[modId] : null;
-  const integrity = Math.max(1, Math.round(def.integrity * (mod?.integrity_multiplier ?? 1)));
+  // 겹치면 더 세게, 엇갈리면 반쯤만 — 내구도에 걸린 것도 같은 규칙을 따른다 (§3.8)
+  const fl = partFlavor({ defId, mod: modId });
+  const gain = fl.kind === 'merge' ? (DB.naming?.merge_boost ?? 1.5)
+    : fl.kind === 'clash' ? (DB.naming?.clash_damp ?? 0.5) : 1;
+  const im = mod?.integrity_multiplier == null ? 1 : 1 + (mod.integrity_multiplier - 1) * gain;
+  const integrity = Math.max(1, Math.round(def.integrity * im));
   // shield(현재 방어도)는 파츠에 붙어 다닌다. 전투를 넘어, 런을 넘어 남는다.
   return { uid: nextUid(), defId, mod: modId, integrity, maxIntegrity: integrity, shield: null };
 }
@@ -116,15 +121,52 @@ export const shieldNow = (part, slot) => {
   return part.shield == null ? max : Math.max(0, Math.min(part.shield, max));
 };
 
+/* ── 이름 합치기 (§3.8) ──────────────────────────────
+   「얼어붙은 얼어붙은 시체의 언 팔」처럼 같은 말이 두 번 나오는 이름이 많았다.
+   수식어와 주인이 **같은 속성**이면 둘을 하나로 합쳐 더 센 한 단어로 바꾸고,
+   **반대 속성**이면 서로 깎아 「엇갈린」이 된다.
+   이름이 짧아지는 동시에, 이름만 보고 좋은 물건인지 알 수 있게 된다. */
+
+const isOpposite = (a, b) =>
+  (DB.naming?.opposites ?? []).some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+
+/**
+ * 이 부속의 수식어와 주인이 어떻게 만나는가.
+ * @returns { kind: 'plain'|'merge'|'clash', prefix, owner, flavor }
+ */
+export function partFlavor(p) {
+  const def = DB.partsBy[p.defId];
+  const mod = p.mod ? DB.modifiersBy[p.mod] : null;
+  const owner = def.owner ?? '';
+  const info = DB.naming?.owners?.[owner];
+  const plain = { kind: 'plain', prefix: mod ? mod.prefix : '', owner };
+  if (!mod?.flavor || !info) return plain;
+
+  if (mod.flavor === info.flavor) {
+    const m = DB.naming.merge?.[mod.flavor];
+    if (!m) return plain;
+    // 같은 속성이 겹쳤다 — 주인의 속성어를 걷어내고 더 센 한 단어로 바꾼다
+    return { kind: 'merge', prefix: m.prefix, owner: info.bare, flavor: mod.flavor, note: m.note };
+  }
+  if (isOpposite(mod.flavor, info.flavor)) {
+    // 엇갈릴 때는 **주인은 그대로 둔다.** 주인까지 지우면 얼음 팔과 불 팔이
+    // 똑같이 「엇갈린 시체의 팔」이 되어 소지품에서 구별할 수 없다.
+    const c = DB.naming.clash;
+    return { kind: 'clash', prefix: c.prefix, owner, flavor: null, note: c.note };
+  }
+  return plain;
+}
+
 export function partName(p) {
   const def = DB.partsBy[p.defId];
-  const prefix = (p.mod ? `${DB.modifiersBy[p.mod].prefix} ` : '')
+  const fl = partFlavor(p);
+  const prefix = (fl.prefix ? `${fl.prefix} ` : '')
     + (p.fused ? '이어붙인 ' : '')
     + (p.refined ? '정제된 ' : '');
   const suffix = p.upgrade ? ` +${p.upgrade}` : '';
   return def.name_template
     .replace('{mod}', prefix)
-    .replace('{owner}', def.owner ?? '')
+    .replace('{owner}', fl.owner)
     .replace(/\s+/g, ' ')
     .trim() + suffix;
 }
@@ -136,10 +178,17 @@ export function partStats(p) {
   // 접합로에서 융합·정제된 파츠는 자체 스탯을 들고 다닌다 (§9.3-③)
   const base = p.fused?.stats ?? def.stats;
   const refine = 1 + 0.1 * (p.refined ?? 0) + 0.08 * (p.upgrade ?? 0);
+  // 겹치면 더 세게, 엇갈리면 반쯤만 (§3.8). 1에서 얼마나 떨어져 있는지를 늘리거나 줄인다
+  const fl = partFlavor(p);
+  const gain = fl.kind === 'merge' ? (DB.naming?.merge_boost ?? 1.5)
+    : fl.kind === 'clash' ? (DB.naming?.clash_damp ?? 0.5) : 1;
+  const bend = (m) => (m == null ? 1 : 1 + (m - 1) * gain);
+
   const out = {};
   for (const [k, v0] of Object.entries(base)) {
     const v = v0 * refine;
-    out[k] = Math.round(v * (mod?.stat_multiplier?.[k] ?? 1) + (mod?.flat_bonus?.[k] ?? 0));
+    out[k] = Math.round(v * bend(mod?.stat_multiplier?.[k])
+      + (mod?.flat_bonus?.[k] ?? 0) * gain);
   }
   // 부패한 파츠는 성능이 절반
   if (p.integrity <= 0) for (const k of Object.keys(out)) out[k] = Math.round(out[k] / 2);

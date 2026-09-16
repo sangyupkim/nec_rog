@@ -20,7 +20,7 @@ import { Combat } from '../src/combat.js';
 /* core.js의 loadData()는 브라우저 fetch를 쓴다. 노드에서는 같은 모양으로 직접 채운다. */
 const L = (n) => JSON.parse(readFileSync(new URL(`../data/${n}.json`, import.meta.url), 'utf8'));
 const FILES = ['elements', 'skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
-               'summons', 'items', 'attachments', 'quests', 'cores', 'campaign', 'story'];
+               'summons', 'items', 'attachments', 'quests', 'cores', 'campaign', 'story', 'naming'];
 for (const f of FILES) DB[f] = L(f);
 for (const k of ['skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
                  'summons', 'items', 'attachments', 'cores']) {

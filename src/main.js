@@ -4,6 +4,7 @@ import {
   assembleGolem, SLOTS, SLOT_LABEL, SLOT_KIND, SKILL_CAP,
   rollMonster, rollElite, rollBoss, rollLoot, syncUidSeq, skillElement, AIM, RAW_WEAR,
   stageOf, partOf, shieldNow, shieldMax, partMana, coreMana, CORE_MANA_STEP, CORE_MANA_MAX_LV,
+  partFlavor,
   rollSpareLoss,
 } from './core.js';
 import { Combat } from './combat.js';
@@ -508,6 +509,10 @@ function partDetailScreen(part, back, action = null) {
   ];
   if (def.def_element) rows.push(UI.rowHTML('방어 속성', def.def_element, '몸통만 가진다'));
   if (mod) rows.push(UI.rowHTML('이상', UI.esc(mod.prefix), mod.added_skill ? '기술 추가' : ''));
+  // 수식어와 주인의 속성이 겹쳤는지 엇갈렸는지 (§3.8)
+  const fl = partFlavor(part);
+  if (fl.kind === 'merge') rows.push(UI.rowHTML('겹침', UI.esc(fl.note), '효과 1.5배'));
+  if (fl.kind === 'clash') rows.push(UI.rowHTML('엇갈림', UI.esc(fl.note), '효과 절반', true));
   if (part.upgrade) rows.push(UI.rowHTML('강화', `+${part.upgrade}`, `능력치 +${part.upgrade * 8}%`));
   if (part.refined) rows.push(UI.rowHTML('정제', `+${part.refined}`, `능력치 +${part.refined * 10}%`));
 

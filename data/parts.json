@@ -390,7 +390,7 @@
   },
   {
     "id": "part_head_ember_skull",
-    "name_template": "{mod}{owner} 그을린 두개골",
+    "name_template": "{mod}{owner} 두개골",
     "owner": "불탄 시체의",
     "slot": "head",
     "rarity": "common",
@@ -513,7 +513,7 @@
   },
   {
     "id": "part_body_frost_ribcage",
-    "name_template": "{mod}{owner} 언 흉곽",
+    "name_template": "{mod}{owner} 흉곽",
     "owner": "얼어붙은 시체의",
     "slot": "body",
     "rarity": "common",
@@ -635,7 +635,7 @@
   },
   {
     "id": "part_arm_flame",
-    "name_template": "{mod}{owner} 불타는 팔",
+    "name_template": "{mod}{owner} 팔",
     "owner": "불탄 시체의",
     "slot": "arm",
     "rarity": "common",
@@ -659,7 +659,7 @@
   },
   {
     "id": "part_arm_ice",
-    "name_template": "{mod}{owner} 언 팔",
+    "name_template": "{mod}{owner} 팔",
     "owner": "얼어붙은 시체의",
     "slot": "arm",
     "rarity": "common",
@@ -683,7 +683,7 @@
   },
   {
     "id": "part_arm_venom",
-    "name_template": "{mod}{owner} 독 갈퀴팔",
+    "name_template": "{mod}{owner} 갈퀴팔",
     "owner": "곰팡이 시체의",
     "slot": "arm",
     "rarity": "common",
@@ -707,7 +707,7 @@
   },
   {
     "id": "part_arm_rot",
-    "name_template": "{mod}{owner} 썩은 팔",
+    "name_template": "{mod}{owner} 팔",
     "owner": "살가죽 직조공의",
     "slot": "arm",
     "rarity": "common",
@@ -875,7 +875,7 @@
   },
   {
     "id": "part_leg_frost",
-    "name_template": "{mod}{owner} 언 다리",
+    "name_template": "{mod}{owner} 다리",
     "owner": "얼어붙은 시체의",
     "slot": "leg",
     "rarity": "common",

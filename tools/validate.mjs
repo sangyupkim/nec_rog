@@ -15,6 +15,7 @@ const skills    = load('skills');
 const parts     = load('parts');
 const monsters  = load('monsters');
 const modifiers = load('modifiers');
+const naming    = load('naming');
 
 const errors = [];
 const warns  = [];
@@ -187,6 +188,40 @@ for (const s of skills)
 const droppedParts = new Set(monsters.flatMap((m) => m.drops ?? []));
 for (const p of parts)
   if (!droppedParts.has(p.id)) warn(`[part ${p.id}] 어떤 몬스터도 드랍하지 않습니다`);
+
+/* ---- 이름에 같은 말이 두 번 나오지 않는가 (§3.8) ----
+   「얼어붙은 얼어붙은 시체의 언 팔」 같은 이름을 다시 만들지 않기 위한 그물이다.
+   수식어 × 파츠를 전부 조립해 보고, 한 이름 안에 같은 속성어가 두 번 들어가면 잡는다. */
+{
+  const WORD = {
+    '얼어붙은': '냉기', '언': '냉기', '서리': '냉기', '혹한에': '냉기',
+    '불타는': '화염', '불탄': '화염', '타오르는': '화염', '업화에': '화염',
+    '독을': '독', '독': '독', '맹독이': '독',
+    '썩어가는': '부패', '썩은': '부패', '곰팡이': '부패', '창궐한': '부패',
+  };
+  const opp = (a, b) => naming.opposites.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+  for (const part of parts) {
+    for (const mod of [null, ...modifiers]) {
+      // core.js의 partFlavor와 같은 규칙으로 조립한다
+      const info = naming.owners[part.owner ?? ''];
+      let prefix = mod ? mod.prefix : '';
+      let owner = part.owner ?? '';
+      if (mod?.flavor && info) {
+        if (mod.flavor === info.flavor) { prefix = naming.merge[mod.flavor].prefix; owner = info.bare; }
+        else if (opp(mod.flavor, info.flavor)) { prefix = naming.clash.prefix; }
+      }
+      const name = part.name_template
+        .replace('{mod}', prefix ? prefix + ' ' : '')
+        .replace('{owner}', owner).replace(/\s+/g, ' ').trim();
+      const seen = [];
+      for (const w of name.split(/\s+/)) { const f = WORD[w]; if (f) seen.push(f); }
+      const dup = seen.filter((x, i) => seen.indexOf(x) !== i);
+      // 서로 다른 속성이 섞이는 것은 괜찮다(「불타는 곰팡이 시체의 다리」).
+      // 반대 속성끼리는 애초에 「엇갈린」으로 합쳐지므로 여기까지 오지 않는다.
+      if (dup.length) errors.push(`[naming ${part.id}] 같은 속성이 두 번 들어간 이름: "${name}"`);
+    }
+  }
+}
 
 // ---- 커버리지 리포트 ----
 const bySlot = Object.fromEntries(SLOTS.map((s) => [s, parts.filter((p) => p.slot === s).length]));

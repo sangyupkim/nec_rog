@@ -1,5 +1,5 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
-import { DB, SLOTS, SLOT_LABEL, partName, partSkills, partStats, assembleGolem, SKILL_CAP, josa,
+import { DB, SLOTS, SLOT_LABEL, partName, partSkills, partStats, partFlavor, assembleGolem, SKILL_CAP, josa,
          shieldMax, shieldNow, partOf } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 import * as CP from './campaign.js';
@@ -209,6 +209,12 @@ export function partTip(part, extra = '') {
     ${sk.length ? `<div class="tsk">기술 — ${sk.map((x) =>
         `${esc(x.name)}(${x.element}${x.power ? ` ${x.power}` : ''})`).join(', ')}</div>` : ''}
     ${mod ? `<div class="tsk">이상 — ${esc(mod.prefix)}</div>` : ''}
+    ${(() => {   // 겹쳤는가, 엇갈렸는가 (§3.8)
+      const fl = partFlavor(part);
+      if (fl.kind === 'merge') return `<div class="tsk" style="color:var(--gold)">겹침 — ${esc(fl.note)} (효과 1.5배)</div>`;
+      if (fl.kind === 'clash') return `<div class="tsk" style="color:var(--danger)">엇갈림 — ${esc(fl.note)} (효과 절반)</div>`;
+      return '';
+    })()}
     ${part.raw ? '<div class="tsk" style="color:var(--danger)">날것 — 성능 60%, 기술 25% 불발, 내구도 2배 소모</div>' : ''}
     ${extra}`;
 }

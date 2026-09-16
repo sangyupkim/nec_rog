@@ -20,7 +20,7 @@ import { Combat } from '../src/combat.js';
 const P = (n) => new URL(`../data/${n}.json`, import.meta.url);
 const L = (n) => JSON.parse(readFileSync(P(n), 'utf8'));
 const FILES = ['elements', 'skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
-               'summons', 'items', 'attachments', 'quests', 'cores', 'campaign', 'story'];
+               'summons', 'items', 'attachments', 'quests', 'cores', 'campaign', 'story', 'naming'];
 for (const f of FILES) DB[f] = L(f);
 for (const k of ['skills', 'parts', 'monsters', 'modifiers', 'necro_skills',
                  'summons', 'items', 'attachments', 'cores']) {
