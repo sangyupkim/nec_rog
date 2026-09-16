@@ -603,6 +603,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .row .rt{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
 .row .rt.warn{color:var(--danger)}
 
+/* 오른쪽 곁말이 길면 「auto」 칸이 통째로 버티면서 가운데 이름 칸을 한 글자 폭까지
+   짜부라뜨린다 — 「시궁 아래 · 젖은 입구」가 세로로 서 버렸다. 긴 곁말은 칸을 다투지
+   않고 이름 아래 한 줄로 내려앉는다 (§12.11) */
+.row.stack{grid-template-columns:2.7rem 1fr;row-gap:.15rem}
+.row.stack .rt{grid-column:2/-1;white-space:normal;overflow-wrap:anywhere}
+
 /* 누를 수 있는 줄 — 목록을 그대로 고르는 목록으로 쓴다 (§12.10) */
 .rows.pickable .row{
   width:100%;text-align:left;background:none;border:1px solid transparent;

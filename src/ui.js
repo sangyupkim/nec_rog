@@ -933,9 +933,12 @@ export function listPanel(title, rows, extra = '', onPick = null, picked = null)
 }
 
 /** pick을 주면 누를 수 있는 줄이 된다 (listPanel의 onPick과 짝이다) */
-export const rowHTML = (lb, vl, rt = '', warn = false, pick = null) =>
-  `<${pick ? 'button type="button"' : 'div'} class="row" ${pick ? `data-pick="${esc(pick)}"` : ''}><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
+export const rowHTML = (lb, vl, rt = '', warn = false, pick = null) => {
+  /* 곁말이 길면 한 줄 아래로 내린다 — 같은 줄에서 다투면 이름 칸이 세로로 선다 (§12.11) */
+  const stack = String(rt).length > 14;
+  return `<${pick ? 'button type="button"' : 'div'} class="row${stack ? ' stack' : ''}" ${pick ? `data-pick="${esc(pick)}"` : ''}><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
    <span class="rt ${warn ? 'warn' : ''}">${esc(rt)}</span></${pick ? 'button' : 'div'}>`;
+};
 
 /* ── 납골당 ─────────────────────────────────
    마을과 같은 방식 — 시설은 왼쪽에 세워 두고 눌러 들어간다. */

@@ -143,6 +143,15 @@ export const workshopGolems = (save) => save.ossuary?.workshop?.golems ?? [];
  */
 export const crewCap = (o) => 1 + (o?.laborBay?.level ?? 1);
 
+/**
+ * 세워 둘 수 있는 사역 골렘 수 (§9.11).
+ * 전에는 여분 핵만 있으면 얼마든지 세울 수 있었다. 핵은 단계를 깨거나 사면 계속
+ * 들어오니 사실상 무한이었고, 골렘을 쌓을수록 작업반·자율 탐험이 전부 공짜가 된다.
+ * 골렘은 이제 **자리**를 먹는다 — 받침대 둘이 기본이고, 안치소를 넓혀야 늘어난다.
+ * (던전에 데려가는 몸은 여기 들지 않는다. 그건 내가 조종하는 한 기다.)
+ */
+export const golemCap = (o) => 2 + (o?.built?.laborBay ? (o.laborBay?.level ?? 1) : 0);
+
 export function crewSpeed(save) {
   const crew = workshopGolems(save).filter((g) => g.assigned === 'crew');
   if (!crew.length) return { power: 0, cut: 0, count: 0 };

@@ -1170,7 +1170,7 @@ function workshopHubScreen() {
     { label: '🔧 정비대', meta: oh.length ? O.remainText(oh[0].startedAt, oh[0].durationMs) : '방어도 · 핵',
       cls: oh.length ? '' : '', info: '방어도와 핵 체력을 되돌린다. 망가진 만큼 시간이 걸린다.',
       on: overhaulScreen },
-    { label: '🔩 조립대', meta: `여분 핵 ${S.cores.length}개`,
+    { label: '🔩 조립대', meta: `${O.workshopGolems(S).length}/${O.golemCap(S.ossuary)}기 · 여분 핵 ${S.cores.length}개`,
       info: '여분 핵으로 새 골렘을 세운다. 세운 골렘은 데려가거나 일을 시킨다.', on: workshopScreen },
     o.built.forge ? { label: '🕯 접합로', meta: rawN ? `정착 대기 ${rawN}개` : `${o.forge.slots.length}/${O.forgeSlots(o)}칸`,
       cls: rawN ? 'primary' : '',
@@ -1726,8 +1726,9 @@ function workshopScreen() {
     golems.map((g) => UI.rowHTML(
       DB.coresBy[g.core]?.name ?? '?', UI.esc(g.name),
       `능률 ${O.golemPower(g)}${g.assigned === 'crew' ? ' · 작업반' : ''}`)),
-    `<p class="note"><b>여분 핵 ${S.cores.length}개</b> · 여분 부속 ${sparePool().length}개<br>
+    `<p class="note"><b>받침대 ${golems.length}/${O.golemCap(S.ossuary)}기</b> · 여분 핵 ${S.cores.length}개 · 여분 부속 ${sparePool().length}개<br>
       핵 하나에 골렘 하나. 지금 골렘에 끼운 핵은 쓸 수 없다 — 여분이 있어야 세운다.<br>
+      받침대가 꽉 차면 더 세울 수 없다. 제단에서 안치소를 넓히면 한 자리씩 늘어난다.<br>
       세운 골렘은 작업반에 붙여 작업 시간을 줄인다. 배치한 부속은 탐험에 쓸 수 없다.</p>`);
 
   UI.logHead('조립대');
@@ -1736,13 +1737,20 @@ function workshopScreen() {
     UI.logLine('여분 핵이 없다. 상점에서 사거나 단계를 끝내면 들어온다.', 'dim');
     UI.logLine('지금 골렘에 박혀 있는 핵은 뽑아 쓸 수 없다.', 'dim');
   }
+  if (golems.length >= O.golemCap(S.ossuary)) {
+    UI.logLine(`받침대가 꽉 찼다 — ${O.golemCap(S.ossuary)}기까지 세울 수 있다.`, 'bad');
+  }
 
   UI.choices([
     ...S.cores.map((cid) => {
       const c = DB.coresBy[cid];
+      const full = golems.length >= O.golemCap(S.ossuary);
       return {
         label: `${c.name}으로 새 골렘`,
-        meta: `체력 ${c.hp} · 부속은 직접 고른다`,
+        meta: full ? `받침대가 꽉 찼다 (${golems.length}/${O.golemCap(S.ossuary)})`
+          : `체력 ${c.hp} · 부속은 직접 고른다`,
+        disabled: full,
+        info: full ? '한 기를 해체하거나 제단에서 안치소를 넓혀야 자리가 난다.' : null,
         on: () => { const g = newWorkGolem(cid); if (g) workGolemScreen(g.id); },
       };
     }),
@@ -1772,6 +1780,10 @@ function newWorkGolem(coreId) {
   const o = S.ossuary;
   if (!S.cores.includes(coreId)) {          // 여분 핵이 아니면 세울 수 없다
     UI.logLine('그 핵은 여분이 아니다.', 'bad');
+    return null;
+  }
+  if (O.workshopGolems(S).length >= O.golemCap(o)) {   // 받침대가 모자라면 못 세운다 (§9.11)
+    UI.logLine(`받침대가 꽉 찼다 — ${O.golemCap(o)}기까지다. 한 기를 해체하거나 제단에서 안치소를 넓혀야 한다.`, 'bad');
     return null;
   }
   S.cores = S.cores.filter((x) => x !== coreId);
@@ -2277,10 +2289,10 @@ function altarScreen() {
   if (o.built.laborBay && o.laborBay.level < 3) {
     const c = 120 * o.laborBay.level;
     list.push(buy(`안치소 증설 (${o.laborBay.level} → ${o.laborBay.level + 1})`, c,
-      `자율 탐험 ${o.laborBay.level + 1}칸 · 작업반 ${o.laborBay.level + 2}기`,
+      `받침대 ${O.golemCap(o) + 1}기 · 자율 탐험 ${o.laborBay.level + 1}칸 · 작업반 ${o.laborBay.level + 2}기`,
       () => {
         o.laborBay.level++;
-        UI.logLine(`안치소가 넓어졌다. 자율 탐험 ${O.laborSlots(o)}칸 · 작업반 ${O.crewCap(o)}기.`, 'good');
+        UI.logLine(`안치소가 넓어졌다. 받침대 ${O.golemCap(o)}기 · 자율 탐험 ${O.laborSlots(o)}칸 · 작업반 ${O.crewCap(o)}기.`, 'good');
       }));
   }
   if (o.built.vault && o.vault.capacity < 10) {
