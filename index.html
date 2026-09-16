@@ -600,6 +600,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .row .vl{min-width:0;overflow-wrap:anywhere}
 .row .rt{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
 .row .rt.warn{color:var(--danger)}
+
+/* 「돌아가는 일」은 앞칸에 시설 이름이 통째로 들어간다 — 2.7rem이면 「접합로」가 잘려 접힌다 */
+.rows.jobs .row{grid-template-columns:4.6rem 1fr auto}
+.rows.jobs .row .lb{white-space:nowrap;color:var(--ink-soft)}
 .empty{color:var(--muted);font-style:italic}
 
 .statgrid{

@@ -467,11 +467,21 @@ function town(intro = true) {
   save();
 }
 
+/**
+ * 마을 타일 한 줄. **시간이 드는 것을 하나도 빼지 않고 센다** (§9.5-A) —
+ * 정비대와 대장간을 빼고 세는 바람에, 정비를 걸어 둔 채 '비어 있음'이라고 적혀 있었다.
+ */
 function ossuaryBadge() {
   const o = S.ossuary;
-  const busy = o.dissection.slots.length + o.forge.slots.length + o.laborBay.dispatch.length;
+  const running = [
+    ...o.dissection.slots, ...(o.forge?.slots ?? []), ...o.laborBay.dispatch,
+    ...(o.overhaul ?? []), ...(S.town?.smithy ?? []),
+  ];
   if (o.rotVat.stored >= O.vatCap(o)) return '통이 가득';
-  return busy ? `작업 ${busy}건` : '비어 있음';
+  if (!running.length) return '비어 있음';
+  const soonest = running.reduce((a, b) =>
+    (a.startedAt + a.durationMs <= b.startedAt + b.durationMs ? a : b));
+  return `${running.length}건 · ${O.remainText(soonest.startedAt, soonest.durationMs)}`;
 }
 
 /* ── 영혼석 강화 — 마력을 늘린다 (§3.7) ──────────────────

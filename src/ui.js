@@ -942,6 +942,45 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
 
   t('altar', '🕯', '제단', `영혼재 ${save.soulAsh}`);
 
+  /* ── 돌아가는 일 (§9.5-A) ────────────────────────────
+     시간이 드는 것은 여섯 군데에 흩어져 있다 — 부패조·해체대·접합로·정비대·자율 탐험·대장간.
+     각 화면에 들어가 봐야 알 수 있으면, 걸어 둔 것을 잊고 그냥 나간다.
+     **여기 한 줄씩 모아 놓는다.** 끝나는 순서대로. */
+  const jobs_ = [];
+  /** endsAt이 없으면(부패조처럼) 끝이 없는 상시 진행이다 */
+  const push_ = (where, what, job, warn = false) => {
+    const endsAt = job ? job.startedAt + job.durationMs : 0;
+    jobs_.push({ where, what, endsAt, warn,
+      when: job ? O.remainText(job.startedAt, job.durationMs, now) : '계속' });
+  };
+
+  if (o.built.rotVat) {
+    const cap = O.vatCap(o);
+    if (o.rotVat.stored >= cap) push_('부패조', '가득 찼다 — 비워야 다시 고인다', null, true);
+    else if (o.rotVat.input > 0) push_('부패조', `진액이 고이는 중 ${o.rotVat.stored}/${cap}`, null);
+    else push_('부패조', '재료를 넣지 않았다 — 아무것도 고이지 않는다', null, true);
+  }
+  for (const j of o.dissection?.slots ?? []) {
+    push_('해체대', j.name ?? '부속 해체', j);
+  }
+  for (const j of o.forge?.slots ?? []) {
+    push_('접합로', O.RECIPES[j.recipe]?.name ?? '작업', j);
+  }
+  for (const j of o.overhaul ?? []) {
+    push_('정비대', O.OVERHAUL[j.kind]?.name ?? '정비', j);
+  }
+  for (const d of o.laborBay?.dispatch ?? []) {
+    const g = (o.workshop?.golems ?? []).find((x) => x.id === d.golemId);
+    push_('자율 탐험', `${g?.name ?? '골렘'} — ${d.stageName ?? ''}`, d);
+  }
+  for (const j of save.town?.smithy ?? []) {
+    push_('뼈 모루', j.part ? partName(j.part) : '강화', j);
+  }
+  // 끝나는 순서대로. 상시 진행(부패조)은 맨 뒤로 보내 '언제 끝나는가'가 위에 오게 한다
+  jobs_.sort((a, b) => (a.endsAt || Infinity) - (b.endsAt || Infinity));
+  const soonest_ = jobs_.find((j) => j.endsAt);
+  const soon_ = soonest_ ? soonest_.when : null;
+
   /* 날것은 **장착 중인 것과 소지품에 있는 것을 갈라 세어야 한다.**
      접합로의 정착은 소지품에 있는 것만 받는데, 배지가 둘을 합쳐 세는 바람에
      "정착 대기 1개"라고 알리면서 정작 정착 버튼은 "정착할 날것이 없다"가 됐다. */
@@ -954,13 +993,16 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
       ${rawN ? `<span class="chip warn">정착 대기 ${rawN}개</span>` : ''}
       ${rawWorn ? `<span class="chip warn">장착 중 날것 ${rawWorn}개</span>` : ''}
     </div>` : ''}
-    ${sec('idle', '오프라인 정산', `상한 ${Math.round(o.offlineCapMs / 3600000)}시간`,
-      `<div class="chips">
+    ${sec('idle', '돌아가는 일', jobs_.length ? `${jobs_.length}건${soon_ ? ` · 가장 빠른 것 ${soon_}` : ''}` : '없다',
+      (jobs_.length
+        ? `<div class="rows jobs">${jobs_.map((j) => rowHTML(j.where, esc(j.what), j.when, j.warn)).join('')}</div>`
+        : '<p class="empty">걸어 둔 일이 없다. 걸어 두지 않으면 시간은 아무것도 만들지 않는다.</p>')
+      + `<div class="chips">
         <span class="chip">상한 ${Math.round(o.offlineCapMs / 3600000)}시간</span>
         <span class="chip">부패조 Lv${o.rotVat.level}</span>
       </div>
       <p class="note">자리를 비운 사이 흐른 시간만큼 한 번에 정산된다.
-        부패조는 상한에 닿으면 생산을 멈춘다.</p>`)}`);
+        상한을 넘긴 시간은 버려지므로, 오래 비울 거면 제단에서 상한을 늘려 둔다.</p>`, true)}`);
   bindTiles(go);
 }
 
