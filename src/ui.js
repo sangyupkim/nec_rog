@@ -436,7 +436,7 @@ document.addEventListener('keydown', (e) => {
 /* ── 글상자 — 세이브를 주고받는 자리 ──────────────────
    아티팩트 샌드박스에서는 파일 다운로드가 막힌다. 링크로 내려받게 하면
    조용히 아무 일도 일어나지 않으므로, 텍스트를 직접 보여 주고 받는다. */
-function textBox(title, value, readOnly, onOk) {
+function textBox(title, value, readOnly, onOk, okLabel = '가져오기') {
   const box = $('choices');
   box.replaceChildren();
   keyHandlers = [];
@@ -464,7 +464,7 @@ function textBox(title, value, readOnly, onOk) {
   if (readOnly) {
     row.append(mk('전체 선택', 'primary', () => { ta.focus(); ta.select(); }));
   } else {
-    row.append(mk('가져오기', 'primary', () => onOk?.(ta.value)));
+    row.append(mk(okLabel, 'primary', () => onOk?.(ta.value)));
   }
   row.append(mk('닫기', 'ghost', () => onOk?.(readOnly ? null : undefined, true)));
 
@@ -476,11 +476,11 @@ function textBox(title, value, readOnly, onOk) {
 export function showText(title, value) {
   textBox(title, value, true, () => { for (const fn of onTextClosed) fn(); });
 }
-export function askText(title, onOk) {
-  textBox(title, '', false, (v, closed) => {
+export function askText(title, onOk, okLabel = '가져오기', value = '') {
+  textBox(title, value, false, (v, closed) => {
     for (const fn of onTextClosed) fn();
     if (!closed) onOk(v);
-  });
+  }, okLabel);
 }
 /** 글상자를 닫았을 때 원래 화면으로 돌아가기 위한 갈고리 */
 export const onTextClosed = [];
