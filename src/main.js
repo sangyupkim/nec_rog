@@ -3490,6 +3490,15 @@ function combatTurn() {
         : ready ? `${ready}개 준비됨 — 눌러 고른다`
         : spells.every((n) => n.cd > 0) ? '재사용 대기 중' : '영력이 모자라다',
       cls: prep ? 'primary' : 'ghost',
+      // 무엇이 걸렸는지 눌러 보지 않고도 알아야 한다 — 소환수는 얼마나 대신 맞는지까지
+      info: prep
+        ? `<span class="tt">${UI.esc(prep.name)}</span>`
+          + `<span class="tm">영력 ${prep.will}${prep.cooldown ? ` · 재사용 ${prep.cooldown}턴` : ''}</span>`
+          + `<div class="trow"><span>${UI.esc(DB.necro_skillsBy[prep.id]?.desc ?? '')}</span></div>`
+        : `<span class="tt">네크로맨서 술법</span>`
+          + `<span class="tm">골렘의 공격과 함께 나간다</span>`
+          + spells.map((n) => `<div class="trow"><span>${UI.esc(n.name)}</span>`
+            + `<span>${n.usable ? `영력 ${n.will}` : n.cd > 0 ? `${n.cd}턴 대기` : '영력 부족'}</span></div>`).join(''),
       disabled: !ready,
       nokey: true,
       on: () => { cb.cyclePrep(); combatTurn(); },

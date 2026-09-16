@@ -629,11 +629,11 @@ export class Combat {
       this.say(info.text, 'necro');
     }
 
-    s.left--;
-    if (s.left <= 0) {
-      this.say(`${info.name}이(가) 먼지가 되어 흩어진다.`, 'dim');
-      this.summon = null;
-    }
+    /* 남은 턴은 **턴이 끝날 때** 센다 (endOfTurn).
+       여기서 깎으면 소환수가 제 몫을 다 하기 전에 사라진다 —
+       소환수는 골렘보다 먼저 움직이므로, 마지막 턴에 움직이자마자 흩어져
+       *그 턴의 적 공격을 대신 맞지 못했다.* 「2턴간 대신 받는다」던 뼈 방패가
+       실제로는 한 번만 막아 준 이유가 이것이다. */
   }
 
   /* ── 아이템 · 관찰 ────────────────────────────────── */
@@ -678,6 +678,14 @@ export class Combat {
 
   /* ── 턴 종료 ──────────────────────────────────────── */
   endOfTurn() {
+    // 소환수의 남은 턴은 여기서 센다 — 그 턴의 적 공격까지 막아 준 뒤에 흩어진다
+    if (this.summon) {
+      const info = DB.summonsBy[this.summon.id];
+      if (--this.summon.left <= 0) {
+        this.say(`${info.name}이(가) 먼지가 되어 흩어진다.`, 'dim');
+        this.summon = null;
+      }
+    }
     for (const u of [this.mon, this.golem]) this.tickStatuses(u);
     // 다음 턴에 적이 쓸 기술을 지금 정한다. 관찰했다면 그것이 화면에 보인다
     this.monNext = this.pickMonsterSkill();

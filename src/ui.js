@@ -740,7 +740,9 @@ export function combatPanel(cb, save) {
       </div>
     </div>
     ${summon ? `<div class="chips"><span class="chip good">
-      ${esc(summon.name)} ${cb.summon.hp}/${cb.summon.maxHp} · 남은 ${cb.summon.left}턴</span></div>` : ''}
+      ${esc(summon.name)} ${cb.summon.hp}/${cb.summon.maxHp} · 남은 ${cb.summon.left}턴</span>
+      ${summon.taunt ? `<span class="chip">대신 맞음 ${summon.taunt}%</span>`
+        : '<span class="chip">대신 맞지 않는다</span>'}</div>` : ''}
     ${bodyMapHTML(cells)}`);
 
   // 누르면 그 자리에 끼운 부속을 펼친다. 패널 전체를 다시 그리지 않는다
