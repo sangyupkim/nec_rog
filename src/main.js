@@ -421,6 +421,7 @@ function settleAndReport(next) {
 function town(intro = true) {
   cb = null;
   resetShopPick();
+  overhaulPick = null;
   UI.setCombatMode(false);
   // 자정을 넘겼으면 오늘의 일을 새로 건다 (§10.2-A)
   if (refreshDaily(S, rng)) {
@@ -1336,57 +1337,129 @@ function vaultScreen() {
 }
 
 /* ── 정비대: 방어도·핵 회복 ─────────────── */
+/* 정비대에서 지금 올려다보고 있는 골렘. 화면을 다시 그려도 기억한다 */
+let overhaulPick = null;
+
+/**
+ * 골렘 한 기를 정비대의 눈으로 본다 — 탐험 골렘이든 사역 골렘이든 같은 모양으로.
+ * 전에는 **탐험 골렘만** 고칠 수 있었다. 사역 골렘은 자율 탐험에서 내구도가 닳는데
+ * 되돌릴 길이 없어, 닳으면 해체하는 수밖에 없었다 (§9.9-A).
+ */
+function repairView(id) {
+  if (id === S.golem.id) {
+    const g = assembleGolem(S);
+    return {
+      id: S.golem.id, name: S.golem.name, active: true,
+      coreName: g.core?.name ?? null, coreHp: S.golem.coreHp ?? g.stats.hp, coreMax: g.stats.hp,
+      worn: g.worn.map(({ slot, part, shieldMax: max, shield }) => ({ slot, part, shield, shieldMax: max })),
+      where: 'active',
+    };
+  }
+  const w = O.workshopGolems(S).find((x) => x.id === id);
+  if (!w) return null;
+  const core = DB.coresBy[w.core];
+  const coreMax = Math.max(1, core?.hp ?? 1);
+  const worn = SLOTS.map((slot) => {
+    const uid = w.slots?.[slot];
+    const part = uid ? (w.parts ?? []).find((x) => x.uid === uid) : null;
+    return part ? { slot, part, shield: shieldNow(part, slot), shieldMax: shieldMax(part, slot) } : null;
+  }).filter(Boolean);
+  return {
+    id: w.id, name: w.name, active: false, ref: w,
+    coreName: core?.name ?? null, coreHp: w.coreHp ?? coreMax, coreMax, worn,
+    where: whereOf({ id: w.id, assigned: w.assigned }),
+  };
+}
+
+/** 정비대에 올릴 수 있는 골렘들 — 나가 있는 몸은 여기 없다 */
+function repairable() {
+  const out = [repairView(S.golem.id)].filter(Boolean);
+  for (const w of O.workshopGolems(S)) {
+    const v = repairView(w.id);
+    if (v) out.push(v);
+  }
+  return out;
+}
+
+const gapsOf = (v) => ({
+  shield: v.worn.reduce((n, w) => n + Math.max(0, w.shieldMax - w.shield), 0),
+  core: Math.max(0, v.coreMax - v.coreHp),
+  wear: v.worn.reduce((n, w) => n + Math.max(0, w.part.maxIntegrity - w.part.integrity), 0),
+});
+
 function overhaulScreen() {
   const o = S.ossuary;
   o.overhaul ??= [];
-  const g = assembleGolem(S);
+  const list = repairable();
+  if (!list.some((v) => v.id === overhaulPick)) overhaulPick = S.golem.id;
+  const v = list.find((x) => x.id === overhaulPick) ?? list[0];
   UI.topbar(S, '납골당 · 정비대');
 
-  const coreHp = S.golem.coreHp ?? g.stats.hp;
+  const jobsOf = (id) => o.overhaul.filter((j) => j.golemId === id);
+  const gaps = v ? gapsOf(v) : { shield: 0, core: 0, wear: 0 };
+
+  /* 왼쪽에 골렘을 늘어놓고 **눌러서 고른다** (§12.10).
+     고른 골렘의 부위는 그 아래에 이어 적는다 — 무엇이 얼마나 상했는지가 고르는 근거다. */
   const rows = [
-    UI.rowHTML('핵', g.core ? UI.esc(g.core.name) : '<span class="empty">없음</span>',
-      `${coreHp}/${g.stats.hp}`, coreHp < g.stats.hp),
-    ...g.worn.map(({ slot, part, shieldMax: max, shield }) =>
+    ...list.map((x) => {
+      const gp = gapsOf(x);
+      const busy = jobsOf(x.id);
+      const state = busy.length ? `정비 중 ${O.remainText(busy[0].startedAt, busy[0].durationMs)}`
+        : x.where === 'labor' ? '나가 있다'
+        : (gp.shield + gp.core + gp.wear) === 0 ? '온전하다'
+        : `방 ${gp.shield} · 핵 ${gp.core} · 내 ${gp.wear} 모자라다`;
+      return UI.rowHTML(x.active ? '탐험' : WHERE[x.where]?.label ?? '대기',
+        `${UI.esc(x.name)}<br><span style="color:var(--muted);font-size:.84em">${UI.esc(x.coreName ?? '핵 없음')}</span>`,
+        state, busy.length > 0 || (gp.shield + gp.core + gp.wear) > 0, `g:${x.id}`);
+    }),
+  ];
+  const detail = v ? [
+    UI.rowHTML('─', `<b>${UI.esc(v.name)}</b>의 부위`, ''),
+    UI.rowHTML('핵', v.coreName ? UI.esc(v.coreName) : '<span class="empty">없음</span>',
+      `${v.coreHp}/${v.coreMax}`, v.coreHp < v.coreMax),
+    ...v.worn.map(({ slot, part, shieldMax: max, shield }) =>
       UI.rowHTML(SLOT_LABEL[slot], UI.partHTML(part),
         `방 ${shield}/${max} · 내 ${part.integrity}/${part.maxIntegrity}`,
         shield < max || wornLow(part))),
-  ];
-  UI.listPanel(`정비 대상 · ${S.golem.name}`, rows,
-    `<p class="note">방어도는 포션으로 돌아오지 않는다. 작업대나 여기서만 되돌릴 수 있다.<br>
+  ] : [];
+
+  UI.listPanel('정비대에 올릴 골렘', [...rows, ...detail],
+    `<p class="note">줄을 누르면 그 골렘을 올린다. 지금 올라간 것은 <b>${UI.esc(v?.name ?? '없음')}</b>.<br>
      <b>방</b>은 방어도(맞으면 깎인다), <b>내</b>는 내구도(쓰면 닳는다). 둘 다 여기서 되돌린다.<br>
-     맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다 — <b>골렘 명부</b>에서 다른 몸을 탐험 자리에 올려라.</p>`);
+     맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다.</p>`,
+    (key) => { overhaulPick = key.slice(2); overhaulScreen(); }, `g:${v?.id}`);
 
   UI.logHead('정비대');
   UI.logLine('부서진 것을 원래대로 돌리는 자리.', 'narrate');
   for (const j of o.overhaul) {
-    const who = j.golemId === S.golem.id ? S.golem.name
-      : (O.workshopGolems(S).find((x) => x.id === j.golemId)?.name ?? '골렘');
+    const who = repairView(j.golemId)?.name ?? '골렘';
     UI.logLine(`${who} · ${O.OVERHAUL[j.kind].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
   }
+  if (v && v.where === 'labor') UI.logLine(`${v.name}은(는) 자율 탐험을 나가 있다. 돌아와야 올릴 수 있다.`, 'dim');
 
-  const costText = (c) => Object.entries(c).map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
-  const afford = (c) => Object.entries(c).every(([k, v]) => (S[k] ?? 0) >= v);
-  const running = (kind) => o.overhaul.some((j) => j.kind === kind && j.golemId === S.golem.id);
-  const shieldGap = g.worn.reduce((n, w) => n + Math.max(0, w.shieldMax - w.shield), 0);
-  const coreGapN = Math.max(0, g.stats.hp - coreHp);
-  const wearGap = g.worn.reduce((n, w) => n + Math.max(0, w.part.maxIntegrity - w.part.integrity), 0);
+  const costText = (c) => Object.entries(c).map(([k, v2]) => `${O.RES_LABEL[k]} ${v2}`).join(' · ');
+  const afford = (c) => Object.entries(c).every(([k, v2]) => (S[k] ?? 0) >= v2);
+  const running = (kind) => o.overhaul.some((j) => j.kind === kind && j.golemId === v?.id);
 
   UI.choices([
     ...Object.entries(O.OVERHAUL).map(([kind, r]) => {
-      const missing = kind === 'shield' ? shieldGap : kind === 'wear' ? wearGap : coreGapN;
+      const missing = gaps[kind === 'shield' ? 'shield' : kind === 'wear' ? 'wear' : 'core'];
       const ms = O.jobDuration(S, O.overhaulMs(kind, missing));
+      const away = v?.where === 'labor';
       return {
         label: r.name,
         info: `${r.desc}\n망가진 만큼 시간이 늘어난다. 작업반 골렘을 붙이면 줄어든다.`,
-        meta: running(kind) ? '진행 중'
+        meta: !v ? '올릴 골렘이 없다'
+          : away ? '나가 있다'
+          : running(kind) ? '진행 중'
           : !missing ? '온전하다'
           : `${costText(r.cost)} · ${Math.round(ms / 60000)}분`,
-        disabled: running(kind) || !missing || !afford(r.cost),
+        disabled: !v || away || running(kind) || !missing || !afford(r.cost),
         on: () => {
-          for (const [k, v] of Object.entries(r.cost)) S[k] -= v;
-          o.overhaul.push({ kind, golemId: S.golem.id, startedAt: Date.now(), durationMs: ms });
-          UI.logLine(`${S.golem.name}을(를) 정비대에 올렸다. ${Math.round(ms / 60000)}분 뒤에 끝난다.`, 'good');
-          UI.logLine('그동안 다른 골렘을 데려가려면 골렘 명부에서 바꿔 올려라.', 'dim');
+          for (const [k, n] of Object.entries(r.cost)) S[k] -= n;
+          o.overhaul.push({ kind, golemId: v.id, startedAt: Date.now(), durationMs: ms });
+          UI.logLine(`${v.name}을(를) 정비대에 올렸다. ${Math.round(ms / 60000)}분 뒤에 끝난다.`, 'good');
+          if (v.active) UI.logLine('그동안 다른 골렘을 데려가려면 골렘 명부에서 바꿔 올려라.', 'dim');
           overhaulScreen();
         },
       };
@@ -1394,7 +1467,7 @@ function overhaulScreen() {
     // 급하면 물릴 수 있어야 한다. 그러지 않으면 정비를 걸어 둔 채 몇 시간을 못 내려간다
     ...o.overhaul.map((j) => ({
       label: `${O.OVERHAUL[j.kind].name} 물린다`, cls: 'danger',
-      meta: '쓴 재료는 돌아오지 않는다',
+      meta: `${repairView(j.golemId)?.name ?? '골렘'} · 쓴 재료는 돌아오지 않는다`,
       on: () => {
         o.overhaul = o.overhaul.filter((x) => x !== j);
         UI.logLine(`${O.OVERHAUL[j.kind].name}을(를) 중간에 걷어냈다. 쓴 재료는 돌아오지 않는다.`, 'bad');

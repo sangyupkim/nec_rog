@@ -7,7 +7,7 @@
  * 이 파일을 고칠 때는 VERSION을 반드시 올린다. 안 올리면 옛 캐시가 남는다.
  */
 /* src/version.js의 BUILD와 같은 값이어야 한다 — npm run validate가 어긋나면 잡는다 */
-const BUILD = '0.9.14';
+const BUILD = '0.9.15';
 const VERSION = `patchwork-${BUILD}`;
 const SHELL = [
   './',

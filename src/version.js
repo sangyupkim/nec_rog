@@ -7,5 +7,5 @@
  * 고칠 때마다 BUILD를 올린다. `sw.js`의 VERSION도 같은 값이어야 하고,
  * 어긋나면 `npm run validate`가 잡는다 — 캐시가 옛 판에 눌러앉는 것을 막는 그물이다.
  */
-export const BUILD = '0.9.14';
+export const BUILD = '0.9.15';
 export const BUILT_AT = '2026-09-16';
