@@ -5,7 +5,7 @@
     "owner": "고블린의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -29,7 +29,7 @@
     "owner": "뼈사냥개의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 2,
@@ -51,7 +51,7 @@
     "owner": "곰팡이 시체의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 24,
       "atk": 0,
@@ -75,7 +75,7 @@
     "owner": "곰팡이 시체의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 8,
+    "integrity": 32,
     "def_element": "부패",
     "stats": {
       "hp": 340,
@@ -100,7 +100,7 @@
     "owner": "고블린의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "def_element": "참격",
     "stats": {
       "hp": 280,
@@ -125,7 +125,7 @@
     "owner": "오우거의",
     "slot": "body",
     "rarity": "rare",
-    "integrity": 7,
+    "integrity": 28,
     "def_element": "타격",
     "stats": {
       "hp": 440,
@@ -151,7 +151,7 @@
     "owner": "고블린의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 5,
@@ -176,7 +176,7 @@
     "owner": "무덤파괴자의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 11,
@@ -200,7 +200,7 @@
     "owner": "뼈사냥개의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 7,
@@ -224,7 +224,7 @@
     "owner": "곰팡이 시체의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 16,
       "atk": 4,
@@ -249,7 +249,7 @@
     "owner": "고블린의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -273,7 +273,7 @@
     "owner": "뼈사냥개의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 2,
@@ -298,7 +298,7 @@
     "owner": "오우거의",
     "slot": "leg",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 40,
       "atk": 2,
@@ -322,7 +322,7 @@
     "owner": "시체까마귀의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -346,7 +346,7 @@
     "owner": "살가죽 직조공의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -370,7 +370,7 @@
     "owner": "무덤파괴자의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 18,
       "atk": 2,
@@ -394,7 +394,7 @@
     "owner": "불탄 시체의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 3,
@@ -418,7 +418,7 @@
     "owner": "썩은 사제의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -442,7 +442,7 @@
     "owner": "뼈사냥개의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 230,
       "atk": 2,
@@ -467,7 +467,7 @@
     "owner": "시체까마귀의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 200,
       "atk": 0,
@@ -492,7 +492,7 @@
     "owner": "살가죽 직조공의",
     "slot": "body",
     "rarity": "rare",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 300,
       "atk": 0,
@@ -517,7 +517,7 @@
     "owner": "얼어붙은 시체의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 260,
       "atk": 0,
@@ -542,7 +542,7 @@
     "owner": "순교자의",
     "slot": "body",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 250,
       "atk": 0,
@@ -567,7 +567,7 @@
     "owner": "살가죽 직조공의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 6,
@@ -591,7 +591,7 @@
     "owner": "무덤파괴자의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 13,
@@ -615,7 +615,7 @@
     "owner": "고블린의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 6,
@@ -639,7 +639,7 @@
     "owner": "불탄 시체의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 8,
@@ -663,7 +663,7 @@
     "owner": "얼어붙은 시체의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 9,
@@ -687,7 +687,7 @@
     "owner": "곰팡이 시체의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 5,
@@ -711,7 +711,7 @@
     "owner": "살가죽 직조공의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 6,
       "atk": 8,
@@ -735,7 +735,7 @@
     "owner": "순교자의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 9,
@@ -759,7 +759,7 @@
     "owner": "무덤파괴자의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 10,
@@ -783,7 +783,7 @@
     "owner": "시체까마귀의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 5,
@@ -807,7 +807,7 @@
     "owner": "시체까마귀의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -831,7 +831,7 @@
     "owner": "살가죽 직조공의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -855,7 +855,7 @@
     "owner": "곰팡이 시체의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 12,
       "atk": 0,
@@ -879,7 +879,7 @@
     "owner": "얼어붙은 시체의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -903,7 +903,7 @@
     "owner": "무덤파괴자의",
     "slot": "leg",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 16,
       "atk": 3,
@@ -928,7 +928,7 @@
     "owner": "무덤군주의",
     "slot": "head",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 20,
       "atk": 4,
@@ -952,7 +952,7 @@
     "owner": "무덤군주의",
     "slot": "body",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 380,
       "atk": 4,
@@ -978,7 +978,7 @@
     "owner": "무덤군주의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 0,
       "atk": 15,
@@ -1002,7 +1002,7 @@
     "owner": "무덤군주의",
     "slot": "leg",
     "rarity": "unique",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 20,
       "atk": 0,
@@ -1027,7 +1027,7 @@
     "owner": "살가죽 직조공의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 11,
@@ -1051,7 +1051,7 @@
     "owner": "무덤파괴자의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 16,
@@ -1076,7 +1076,7 @@
     "owner": "익사체의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 300,
       "atk": 0,
@@ -1101,7 +1101,7 @@
     "owner": "익사체의",
     "slot": "leg",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 18,
       "atk": 0,
@@ -1125,7 +1125,7 @@
     "owner": "거머리의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 6,
@@ -1150,7 +1150,7 @@
     "owner": "거머리의",
     "slot": "head",
     "rarity": "common",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -1172,7 +1172,7 @@
     "owner": "자동인형의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 0,
       "atk": 10,
@@ -1196,7 +1196,7 @@
     "owner": "자동인형의",
     "slot": "body",
     "rarity": "rare",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 290,
       "atk": 0,
@@ -1221,7 +1221,7 @@
     "owner": "포식자의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 3,
@@ -1243,7 +1243,7 @@
     "owner": "포식자의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 12,
@@ -1268,7 +1268,7 @@
     "owner": "시궁쥐 왕의",
     "slot": "head",
     "rarity": "unique",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 15,
       "atk": 3,
@@ -1290,7 +1290,7 @@
     "owner": "시궁쥐 왕의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 0,
       "atk": 12,
@@ -1315,7 +1315,7 @@
     "owner": "수문지기의",
     "slot": "body",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 360,
       "atk": 3,
@@ -1340,7 +1340,7 @@
     "owner": "수문지기의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 0,
       "atk": 14,
@@ -1365,7 +1365,7 @@
     "owner": "어머니의",
     "slot": "body",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 420,
       "atk": 2,
@@ -1390,7 +1390,7 @@
     "owner": "어머니의",
     "slot": "leg",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 36,
       "atk": 0,
@@ -1414,7 +1414,7 @@
     "owner": "묘지기의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -1436,7 +1436,7 @@
     "owner": "묘지기의",
     "slot": "leg",
     "rarity": "rare",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -1461,7 +1461,7 @@
     "owner": "합장체의",
     "slot": "body",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 330,
       "atk": 2,
@@ -1486,7 +1486,7 @@
     "owner": "합장체의",
     "slot": "arm",
     "rarity": "common",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 9,
@@ -1510,7 +1510,7 @@
     "owner": "사제의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 2,
@@ -1532,7 +1532,7 @@
     "owner": "사제의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 5,
+    "integrity": 20,
     "stats": {
       "hp": 0,
       "atk": 10,
@@ -1557,7 +1557,7 @@
     "owner": "관 나르는 자의",
     "slot": "body",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 340,
       "atk": 3,
@@ -1582,7 +1582,7 @@
     "owner": "관 나르는 자의",
     "slot": "leg",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 20,
       "atk": 0,
@@ -1606,7 +1606,7 @@
     "owner": "완전체의",
     "slot": "head",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 10,
       "atk": 2,
@@ -1628,7 +1628,7 @@
     "owner": "완전체의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 0,
       "atk": 13,
@@ -1653,7 +1653,7 @@
     "owner": "파수병의",
     "slot": "body",
     "rarity": "rare",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 350,
       "atk": 2,
@@ -1678,7 +1678,7 @@
     "owner": "파수병의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 8,
+    "integrity": 32,
     "stats": {
       "hp": 0,
       "atk": 12,
@@ -1702,7 +1702,7 @@
     "owner": "잔상의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -1724,7 +1724,7 @@
     "owner": "잔상의",
     "slot": "leg",
     "rarity": "rare",
-    "integrity": 4,
+    "integrity": 16,
     "stats": {
       "hp": 0,
       "atk": 0,
@@ -1749,7 +1749,7 @@
     "owner": "필경사의",
     "slot": "head",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 1,
@@ -1771,7 +1771,7 @@
     "owner": "필경사의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 11,
@@ -1796,7 +1796,7 @@
     "owner": "굶주림의",
     "slot": "body",
     "rarity": "rare",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 320,
       "atk": 4,
@@ -1821,7 +1821,7 @@
     "owner": "굶주림의",
     "slot": "leg",
     "rarity": "rare",
-    "integrity": 7,
+    "integrity": 28,
     "stats": {
       "hp": 0,
       "atk": 1,
@@ -1845,7 +1845,7 @@
     "owner": "시작품의",
     "slot": "arm",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 0,
       "atk": 15,
@@ -1870,7 +1870,7 @@
     "owner": "시작품의",
     "slot": "leg",
     "rarity": "rare",
-    "integrity": 6,
+    "integrity": 24,
     "stats": {
       "hp": 24,
       "atk": 0,
@@ -1894,7 +1894,7 @@
     "owner": "문지기의",
     "slot": "head",
     "rarity": "unique",
-    "integrity": 9,
+    "integrity": 36,
     "stats": {
       "hp": 20,
       "atk": 4,
@@ -1916,7 +1916,7 @@
     "owner": "문지기의",
     "slot": "body",
     "rarity": "unique",
-    "integrity": 9,
+    "integrity": 36,
     "stats": {
       "hp": 400,
       "atk": 3,
@@ -1941,7 +1941,7 @@
     "owner": "미궁의",
     "slot": "body",
     "rarity": "unique",
-    "integrity": 9,
+    "integrity": 36,
     "stats": {
       "hp": 460,
       "atk": 4,
@@ -1966,7 +1966,7 @@
     "owner": "미궁의",
     "slot": "leg",
     "rarity": "unique",
-    "integrity": 9,
+    "integrity": 36,
     "stats": {
       "hp": 30,
       "atk": 0,
@@ -1990,7 +1990,7 @@
     "owner": "오르넬의",
     "slot": "head",
     "rarity": "unique",
-    "integrity": 10,
+    "integrity": 40,
     "stats": {
       "hp": 25,
       "atk": 5,
@@ -2012,7 +2012,7 @@
     "owner": "오르넬의",
     "slot": "arm",
     "rarity": "unique",
-    "integrity": 10,
+    "integrity": 40,
     "stats": {
       "hp": 0,
       "atk": 18,

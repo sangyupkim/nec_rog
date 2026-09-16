@@ -2,7 +2,7 @@
 import {
   DB, loadData, makeRng, makePart, partName, partStats, partSkills,
   assembleGolem, SLOTS, SLOT_LABEL, SLOT_KIND, SKILL_CAP,
-  rollMonster, rollElite, rollBoss, rollLoot, syncUidSeq, skillElement, AIM, RAW_WEAR,
+  rollMonster, rollElite, rollBoss, rollLoot, syncUidSeq, skillElement, AIM, RAW_WEAR, wornLow,
   stageOf, partOf, shieldNow, shieldMax, partMana, coreMana, CORE_MANA_STEP, CORE_MANA_MAX_LV,
   partFlavor,
   rollSpareLoss,
@@ -82,12 +82,9 @@ function save() {
  * 이걸 빠뜨리거나 잘못 부르면 새로 만든 파츠가 기존 uid와 겹쳐
  * 골렘이 엉뚱한 부속을 집는다. syncUidSeq는 **숫자**를 받는다 — 세이브가 아니라.
  */
-function resyncUids(s) {
-  let max = 0;
-  // 파츠가 머무는 자리를 **하나도 빼놓지 않고** 훑어야 한다.
-  // 해체대·접합로·대장간을 빠뜨렸더니, 거기 올려 둔 파츠의 번호를 새 파츠가
-  // 다시 쓰는 일이 생겼다 — 같은 uid가 둘이면 장착 표시가 엉뚱한 것에 붙는다.
-  const all = [
+/** 파츠가 머무는 모든 자리를 한 줄로 — 마이그레이션과 uid 재동기화가 같은 목록을 본다 */
+function allStoredParts(s) {
+  return [
     ...(s.inventory ?? []),
     ...(s.ossuary?.vault?.parts ?? []),
     ...(s.ossuary?.crew?.parts ?? []),
@@ -97,6 +94,14 @@ function resyncUids(s) {
     ...(s.ossuary?.forge?.slots ?? []).flatMap((j) => j.inputs ?? []),
     ...(s.town?.smithy ?? []).map((j) => j.part).filter(Boolean),
   ];
+}
+
+function resyncUids(s) {
+  let max = 0;
+  // 파츠가 머무는 자리를 **하나도 빼놓지 않고** 훑어야 한다.
+  // 해체대·접합로·대장간을 빠뜨렸더니, 거기 올려 둔 파츠의 번호를 새 파츠가
+  // 다시 쓰는 일이 생겼다 — 같은 uid가 둘이면 장착 표시가 엉뚱한 것에 붙는다.
+  const all = allStoredParts(s);
   for (const p of all) max = Math.max(max, Number(String(p.uid).slice(1)) || 0);
   syncUidSeq(max + 1);
 }
@@ -147,6 +152,14 @@ function migrate(s) {
   // 골렘도 명부에 오른다 — 이름과 번호가 있어야 갈아탈 수 있다 (§9.7)
   s.golem.id ??= 'g0';
   s.golem.name ??= '누더기 골렘';
+  /* 내구도 상한을 4배로 올렸다(§3.3-B). 옛 세이브의 파츠는 옛 눈금(4~10)을 쓰고 있어
+     그대로 두면 새로 주운 것만 오래 버틴다 — 가진 것도 같은 눈금으로 끌어올린다.
+     정제(+8) 이후의 값까지 옛 눈금에 들어오므로, 12 이하만 옛것으로 본다. */
+  for (const p of allStoredParts(s)) {
+    if (p.maxIntegrity > 12) continue;
+    p.maxIntegrity *= 4;
+    p.integrity = Math.max(1, Math.min(p.maxIntegrity, p.integrity * 4));
+  }
   // 정비 작업은 이제 골렘 한 기에 묶인다 (§9.8). 옛 기록은 지금 몸에 붙인 것으로 본다
   for (const j of s.ossuary?.overhaul ?? []) j.golemId ??= s.golem.id;
   s.consumables ??= {};
@@ -526,7 +539,7 @@ function partDetailScreen(part, back, action = null) {
     UI.rowHTML('요구 마력', String(partMana(part)), '핵이 감당해야 한다'),
     // 둘은 서로 다른 축이다 — 내구도는 '쓰면 닳고', 방어도는 '맞으면 깎인다' (§3.3-A)
     UI.rowHTML('내구도', `${part.integrity}/${part.maxIntegrity}`,
-      part.integrity <= 2 ? '위험 · 쓰면 닳는다' : '쓰면 닳는다', part.integrity <= 2),
+      wornLow(part) ? '위험 · 쓰면 닳는다' : '쓰면 닳는다', wornLow(part)),
     UI.rowHTML('방어도', `${shieldNow(part, slot)}/${shieldMax(part, slot)}`,
       equipped ? '장착 중 · 맞으면 깎인다' : '맞으면 깎인다'),
     ...Object.entries(st).filter(([, v]) => v).map(([k, v]) =>
@@ -1284,10 +1297,13 @@ function overhaulScreen() {
     UI.rowHTML('핵', g.core ? UI.esc(g.core.name) : '<span class="empty">없음</span>',
       `${coreHp}/${g.stats.hp}`, coreHp < g.stats.hp),
     ...g.worn.map(({ slot, part, shieldMax: max, shield }) =>
-      UI.rowHTML(SLOT_LABEL[slot], UI.partHTML(part), `${shield}/${max}`, shield < max)),
+      UI.rowHTML(SLOT_LABEL[slot], UI.partHTML(part),
+        `방 ${shield}/${max} · 내 ${part.integrity}/${part.maxIntegrity}`,
+        shield < max || wornLow(part))),
   ];
   UI.listPanel(`정비 대상 · ${S.golem.name}`, rows,
     `<p class="note">방어도는 포션으로 돌아오지 않는다. 작업대나 여기서만 되돌릴 수 있다.<br>
+     <b>방</b>은 방어도(맞으면 깎인다), <b>내</b>는 내구도(쓰면 닳는다). 둘 다 여기서 되돌린다.<br>
      맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다 — <b>골렘 명부</b>에서 다른 몸을 탐험 자리에 올려라.</p>`);
 
   UI.logHead('정비대');
@@ -1303,10 +1319,11 @@ function overhaulScreen() {
   const running = (kind) => o.overhaul.some((j) => j.kind === kind && j.golemId === S.golem.id);
   const shieldGap = g.worn.reduce((n, w) => n + Math.max(0, w.shieldMax - w.shield), 0);
   const coreGapN = Math.max(0, g.stats.hp - coreHp);
+  const wearGap = g.worn.reduce((n, w) => n + Math.max(0, w.part.maxIntegrity - w.part.integrity), 0);
 
   UI.choices([
     ...Object.entries(O.OVERHAUL).map(([kind, r]) => {
-      const missing = kind === 'shield' ? shieldGap : coreGapN;
+      const missing = kind === 'shield' ? shieldGap : kind === 'wear' ? wearGap : coreGapN;
       const ms = O.jobDuration(S, O.overhaulMs(kind, missing));
       return {
         label: r.name,
@@ -2710,7 +2727,7 @@ function inventoryScreen(back = town) {
   const parts = S.inventory.map((p) => UI.rowHTML(
     slotOf.has(p.uid) ? SLOT_LABEL[slotOf.get(p.uid)] : KIND_LABEL[DB.partsBy[p.defId].slot],
     `${slotOf.has(p.uid) ? '<span class="chip good">장착</span> ' : ''}${p.raw ? '<span class="chip warn">날것</span> ' : ''}${UI.partHTML(p)}`,
-    `${p.integrity}/${p.maxIntegrity}`, p.integrity <= 2));
+    `${p.integrity}/${p.maxIntegrity}`, wornLow(p)));
   const rows = [...mats, ...items, ...parts];
   const away = [
     ['표본실', (S.ossuary?.vault?.parts ?? []).length],
@@ -2745,11 +2762,13 @@ function inventoryScreen(back = town) {
           on: () => partDetailScreen(p, () => inventoryScreen(back)),
         };
       }),
+    // 회복량은 데이터가 정한다. 여기에 숫자를 박아 두면 items.json을 고쳐도 안 따라온다
     ...S.inventory.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
       .map((p) => ({
-        label: `${partName(p)}에 역청`, meta: `+3 (${S.consumables.it_bitumen}개 남음)`, on: () => {
+        label: `${partName(p)}에 역청`,
+        meta: `+${BITUMEN()} (${S.consumables.it_bitumen}개 남음)`, on: () => {
           S.consumables.it_bitumen--;
-          p.integrity = Math.min(p.maxIntegrity, p.integrity + 3);
+          p.integrity = Math.min(p.maxIntegrity, p.integrity + BITUMEN());
           UI.logLine(`${partName(p)}의 내구도를 메웠다. (${p.integrity}/${p.maxIntegrity})`, 'good');
           inventoryScreen(back);
         },
@@ -2757,6 +2776,9 @@ function inventoryScreen(back = town) {
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => back(false) },
   ]);
 }
+
+/** 역청 한 병이 메우는 내구도 — items.json이 정한다 */
+const BITUMEN = () => DB.itemsBy.it_bitumen?.effect?.value ?? 3;
 
 /* ── 런 시작 ────────────────────────────── */
 /* ── 단계 선택 — 어디로 내려갈 것인가 (§7-A) ────────── */
@@ -3054,7 +3076,7 @@ function roomChoices(room) {
     } else {
       list.push({ label: '부속 한 자리 교체', cls: 'primary', meta: '한 번뿐',
         on: () => { benchRoom = room; golemScreen(backToRoom, true); } });
-      list.push({ label: '한 부위 방어도 수리', cls: 'primary', meta: '한 번뿐 · 시체 조각',
+      list.push({ label: '한 부위 수리', cls: 'primary', meta: '한 번뿐 · 방어도 또는 내구도',
         on: () => { benchRoom = room; repairScreen(); } });
     }
   }
@@ -3096,34 +3118,57 @@ function spendBench(kind) {
 }
 
 /** 작업대 방에서 방어도를 즉석 수리한다. 재료를 먹고 시간은 걸리지 않는다 */
+/**
+ * 던전 작업대 — 한 부위만, 한 번만. 방어도와 내구도 둘 다 여기서 되돌린다 (§6.4-A, §3.3-B).
+ * 내구도가 수리되지 않으면 좋은 부속은 계속 데려갈 물건이 아니라 소모품이 된다.
+ */
 function repairScreen() {
   const g = assembleGolem(S);
   const fd = S.run.floorData;
-  UI.topbar(S, `무덤 ${fd.floor}층 · 방어도 수리`);
+  UI.topbar(S, `무덤 ${fd.floor}층 · 수리`);
   UI.dungeonPanel(S, fd);
-  UI.logHead('방어도 수리');
-  UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도를 되돌릴 수 있다.', 'narrate');
+  UI.logHead('수리');
+  UI.logLine('녹슨 도구로 이음새를 조인다. 깎인 방어도도, 닳은 자리도 되돌릴 수 있다.', 'narrate');
   UI.logLine('공구가 버텨 주는 것은 한 부위뿐이다. 어디를 고칠지 골라야 한다.', 'dim');
 
   const PER_SCRAP = 35;        // 시체 조각 1당 되돌아오는 방어도 (밸런스 도구가 정한 값)
-  const rows = g.worn.map(({ slot, part, shieldMax: max, shield: cur }) => {
-    const missing = max - cur;
-    const cost = Math.max(1, Math.ceil(missing / PER_SCRAP));
-    return { slot, part, max, cur, missing, cost };
-  }).filter((r) => r.missing > 0)
-    .sort((a, b) => b.missing - a.missing);     // 가장 많이 깎인 곳이 위에
+  const WEAR_PER_SCRAP = 3;    // 시체 조각 1당 메워지는 내구도
+  const rows = [];
+  for (const { slot, part, shieldMax: max, shield: cur } of g.worn) {
+    if (max - cur > 0) {
+      rows.push({ kind: 'shield', slot, part, max, cur, missing: max - cur,
+        cost: Math.max(1, Math.ceil((max - cur) / PER_SCRAP)) });
+    }
+    const wm = part.maxIntegrity - part.integrity;
+    if (wm > 0) {
+      rows.push({ kind: 'wear', slot, part, max: part.maxIntegrity, cur: part.integrity, missing: wm,
+        cost: Math.max(1, Math.ceil(wm / WEAR_PER_SCRAP)) });
+    }
+  }
+  // 가장 급한 것이 위로 — 내구도는 0이면 부속이 사라지므로 비율로 재서 앞세운다
+  rows.sort((a, b) => (a.kind === 'wear' ? a.cur / a.max : 1) - (b.kind === 'wear' ? b.cur / b.max : 1)
+    || b.missing - a.missing);
 
-  if (!rows.length) UI.logLine('모든 부위의 방어도가 온전하다.', 'dim');
+  if (!rows.length) UI.logLine('고칠 곳이 없다. 방어도도 내구도도 온전하다.', 'dim');
 
   UI.choices([
     ...rows.map((r) => ({
-      label: `${SLOT_LABEL[r.slot]} — ${partName(r.part)}`,
-      meta: `${r.cur}/${r.max} · 조각 ${r.cost}`,
+      label: `${r.kind === 'wear' ? '🩹' : '🛡'} ${SLOT_LABEL[r.slot]} — ${partName(r.part)}`,
+      meta: `${r.kind === 'wear' ? '내구도' : '방어도'} ${r.cur}/${r.max} · 조각 ${r.cost}`,
+      cls: r.kind === 'wear' && wornLow(r.part) ? 'primary' : '',
+      info: r.kind === 'wear'
+        ? '내구도는 쓰면 닳는다. 0이 되면 부속이 영영 사라진다.'
+        : '방어도는 맞으면 깎인다. 0이 되면 그 부위의 기술을 쓸 수 없다.',
       disabled: S.scrap < r.cost,
       on: () => {
         S.scrap -= r.cost;
-        r.part.shield = r.max;
-        UI.logLine(`${partName(r.part)}의 방어도를 ${r.max}까지 되돌렸다.`, 'good');
+        if (r.kind === 'wear') {
+          r.part.integrity = r.part.maxIntegrity;
+          UI.logLine(`${partName(r.part)}의 닳은 자리를 ${r.max}까지 메웠다.`, 'good');
+        } else {
+          r.part.shield = r.max;
+          UI.logLine(`${partName(r.part)}의 방어도를 ${r.max}까지 되돌렸다.`, 'good');
+        }
         spendBench('repair');
         backToRoom();
       },
@@ -3294,8 +3339,8 @@ function eventRoom(room) {
       ...spare.map((p) => ({
         label: `${partName(p)}을(를) 바친다`, on: () => {
           S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
-          for (const { part } of g.worn) part.integrity = Math.min(part.maxIntegrity, part.integrity + 2);
-          UI.logLine('해부대가 피를 삼키고, 골렘의 이음새가 단단해진다. (전 파츠 내구도 +2)', 'good');
+          for (const { part } of g.worn) part.integrity = Math.min(part.maxIntegrity, part.integrity + 8);
+          UI.logLine('해부대가 피를 삼키고, 골렘의 이음새가 단단해진다. (전 파츠 내구도 +8)', 'good');
           notifyQuests({ kind: 'dismantle', count: 1 });
           done();
         },
@@ -3503,7 +3548,7 @@ function winBattle() {
         && DB.partsBy[p.defId].slot === 'leg';
       p.integrity -= (p.raw ? RAW_WEAR : 1) * (flooded ? 2 : 1);
       if (p.integrity <= 0) destroyPart(p);
-      else if (p.integrity <= 2) UI.logLine(`⚠ ${partName(p)}의 내구도가 ${p.integrity}밖에 남지 않았다.`, 'bad');
+      else if (wornLow(p)) UI.logLine(`⚠ ${partName(p)}의 내구도가 ${p.integrity}밖에 남지 않았다.`, 'bad');
     }
   } else UI.logLine('철제 이음쇠가 마모를 받아냈다.', 'dim');
 

@@ -1,6 +1,6 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
 import { DB, SLOTS, SLOT_LABEL, partName, partSkills, partStats, partFlavor, assembleGolem, SKILL_CAP, josa,
-         shieldMax, shieldNow, partOf } from './core.js';
+         shieldMax, shieldNow, partOf, wornLow } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 import * as CP from './campaign.js';
 import { SFX, unlock as soundUnlock, isOn as soundOn, toggle as soundToggle } from './sound.js';
@@ -258,7 +258,8 @@ const tipEl = () => $('tip');
 
 export function hideTip() {
   const t = tipEl();
-  if (t) t.hidden = true;
+  // 내용까지 비운다 — 숨기기만 하면 다음 화면에서 지난 쪽지의 글이 남아 있다
+  if (t) { t.hidden = true; t.innerHTML = ''; }
   if (armedBtn) { armedBtn.classList.remove('armed'); armedBtn = null; }
 }
 
@@ -650,7 +651,7 @@ export function partDetailHTML(part, { shield, shieldMax: sMax, down = false, ex
     </div>
     <div class="bd-row">
       <span>방어도 <b>${Math.max(0, shield)}/${sMax}</b></span>
-      <span>내구도 <b class="${part.integrity <= 2 ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</b></span>
+      <span>내구도 <b class="${wornLow(part) ? 'warn' : ''}">${part.integrity}/${part.maxIntegrity}</b></span>
     </div>
     ${down ? '<div class="bd-down">방어가 무너졌다 — 이 부속의 기술을 쓸 수 없다.</div>' : ''}
     ${sk.length ? `<div class="bd-row"><span>기술 ${sk.map(esc).join(', ')}</span></div>` : ''}
@@ -774,7 +775,7 @@ export function dungeonPanel(save, floorData) {
   const sealed = floorData.rooms.filter((r) => r.type === 'sealed' && (r.seen || r.visited) && !r.cleared);
   const visited = floorData.rooms.filter((r) => r.visited).length;
   const g = assembleGolem(save);
-  const risky = g.worn.filter(({ part }) => part.integrity <= 2);
+  const risky = g.worn.filter(({ part }) => wornLow(part));
 
   // 지금 어디에 있고, 무엇이 목을 조이는가 (§7-A)
   const place = partOf(save.run?.stage)?.place ?? '무덤';
@@ -863,7 +864,7 @@ export function golemPanel(save) {
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
   const coreHp = save.golem.coreHp ?? g.stats.hp;
   const att = (save.golem.attachments ?? []).map((id) => DB.attachmentsBy[id]?.name).filter(Boolean);
-  const risky = g.worn.filter(({ part }) => part.integrity <= 2);
+  const risky = g.worn.filter(({ part }) => wornLow(part));
   const raw = g.worn.filter(({ part }) => part.raw);
   const bm = golemBody(save);
 

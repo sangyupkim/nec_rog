@@ -5,7 +5,7 @@
  * 돌아왔을 때 `now - lastSeenAt`을 한 번에 계산한다.
  * settle()은 DOM과 무관한 순수 계산이라 "72시간 경과" 같은 검증을 즉시 할 수 있다.
  */
-import { DB, makePart, partName, makeRng } from './core.js';
+import { DB, makePart, partName, makeRng, wornLow } from './core.js';
 
 export const HOUR = 3600_000;
 export const CAP_STEPS = [8 * HOUR, 12 * HOUR, 18 * HOUR, 24 * HOUR];
@@ -64,7 +64,7 @@ export const RECIPES = {
              cost: { ichor: 2, scrap: 10 } },
   mend:    { name: '수복', ms: 30 * 60_000, desc: '닳거나 부패한 부속의 내구도를 상한까지 되돌린다.',
              cost: { scrap: 12, boneMeal: 2 } },
-  refine:  { name: '정제', ms: 60 * 60_000, desc: '내구도 상한 +2, 스탯 +10%.',
+  refine:  { name: '정제', ms: 60 * 60_000, desc: '내구도 상한 +8, 스탯 +10%.',
              cost: { boneMeal: 5 } },
   revive:  { name: '소생', ms: 240 * 60_000, desc: '런에서 잃은 파츠를 복원한다.',
              cost: { ichor: 10, boneMeal: 8 } },
@@ -184,6 +184,13 @@ export const OVERHAUL = {
     cost: { ichor: 5, boneMeal: 4 },
     base: 3 * 60_000, per: 30, step: 60_000, cap: 20 * 60_000,
   },
+  // 내구도도 고칠 수 있어야 좋은 부속을 계속 데려간다 (§3.3-B).
+  // 접합로의 '수복'은 한 부속씩 30분이라 상비 정비로는 무겁다 — 여기서는 골렘 통째로 한 번에.
+  wear: {
+    name: '부속 수복', desc: '장착한 모든 부속의 내구도를 상한까지 되돌린다.',
+    cost: { scrap: 25, boneMeal: 3 },
+    base: 3 * 60_000, per: 8, step: 60_000, cap: 20 * 60_000,
+  },
 };
 
 /** 망가진 양(missing)에 따른 정비 시간. 작업반 단축은 jobDuration이 따로 먹인다 */
@@ -250,6 +257,10 @@ function settleOverhaul(save, now, lines) {
       const parts = target ? (target.parts ?? []) : save.inventory;
       for (const p of parts) p.shield = null;        // null = 상한까지 회복
       lines.push({ facility: '정비대', text: `${name} — 방어도 재건 완료, 모든 부위가 온전해졌다` });
+    } else if (j.kind === 'wear') {
+      const parts = target ? (target.parts ?? []) : save.inventory;
+      for (const p of parts) p.integrity = p.maxIntegrity;
+      lines.push({ facility: '정비대', text: `${name} — 부속 수복 완료, 닳은 자리가 메워졌다` });
     } else {
       if (target) target.coreHp = null; else save.golem.coreHp = null;   // null = 가득
       lines.push({ facility: '정비대', text: `${name} — 핵 안정화 완료, 박동이 고르다` });
@@ -359,7 +370,7 @@ function finishRecipe(save, job, rng) {
       const a = inputs[0];
       if (!a) return null;
       const part = makePart(a.defId, a.mod);
-      part.maxIntegrity = a.maxIntegrity + 2;
+      part.maxIntegrity = a.maxIntegrity + 8;
       part.integrity = part.maxIntegrity;
       part.refined = (a.refined ?? 0) + 1;
       if (a.fused) part.fused = a.fused;
@@ -455,7 +466,7 @@ function settleLabor(save, o, elapsed, rng, lines) {
 }
 
 const lowIntegrityWarn = (g) => {
-  const low = (g.parts ?? []).filter((p) => p.integrity <= 2);
+  const low = (g.parts ?? []).filter((p) => wornLow(p));
   return low.length ? `${low.map(partName).join(', ')} 내구도 위험` : null;
 };
 

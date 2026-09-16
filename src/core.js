@@ -210,6 +210,15 @@ export const RAW_STAT_RATIO = 0.6;    // 날것 파츠의 스탯 발휘율
 export const RAW_FAIL_CHANCE = 25;    // 스킬 사용 실패 확률 %
 export const RAW_WEAR = 2;            // 전투당 내구도 소모
 
+/* ── 내구도 (§3.3) ────────────────────────────────────
+   상한을 4배로 올렸다(§3.3-B). 좋은 부속은 강화해서 계속 데려가는 물건이어야지,
+   스무 번 쓰면 사라지는 소모품이면 강화할 이유가 없다.
+   그래서 "위험"의 기준도 고정 2가 아니라 **남은 비율**로 본다 — 상한이 16이든 40이든
+   같은 시점에 같은 경고가 떠야 한다. */
+export const WEAR_WARN_RATIO = 0.2;
+export const wornLow = (p) =>
+  p.integrity <= Math.max(2, Math.ceil((p.maxIntegrity ?? 0) * WEAR_WARN_RATIO));
+
 /** 골렘의 자리 여섯. 팔도 다리도 두 짝이다 — 사람 몸이 그러니까. */
 export const SLOTS = ['head', 'body', 'armL', 'armR', 'legL', 'legR'];
 export const SLOT_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR: '우완',
