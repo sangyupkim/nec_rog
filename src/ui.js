@@ -690,6 +690,8 @@ export function combatPanel(cb, save) {
       <div class="unit foe">
         <h3>${esc(mon.name)}</h3>
         <span class="tag" ${seen ? elColor(mon.defElement) : ''}>${seen ? mon.defElement : '???'}</span>
+        ${cb.watched && cb.monNext && DB.skillsBy[cb.monNext]
+          ? `<div class="next">다음 — <b>${esc(DB.skillsBy[cb.monNext].name)}</b></div>` : ''}
         ${bar(mon.hp, mon.maxHp, true, 'mon')}
         ${statusChips(mon)}
         ${monParts ? `<div class="chips">${monParts}</div>` : ''}

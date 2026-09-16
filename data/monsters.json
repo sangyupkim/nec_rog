@@ -592,7 +592,7 @@
       1
     ],
     "hp": 235,
-    "def_element": "신성",
+    "def_element": "진혼",
     "stats": {
       "atk": 13,
       "def": 6,
@@ -975,7 +975,7 @@
       1
     ],
     "hp": 785,
-    "def_element": "신성",
+    "def_element": "진혼",
     "stats": {
       "atk": 24,
       "def": 18,
@@ -1053,7 +1053,7 @@
       1
     ],
     "hp": 585,
-    "def_element": "신성",
+    "def_element": "진혼",
     "stats": {
       "atk": 27,
       "def": 19,

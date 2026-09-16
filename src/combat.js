@@ -57,6 +57,8 @@ export class Combat {
     this.will = WILL_START;
     this.necroCd = {};
     this.prep = null;        // 이번 턴 골렘의 공격에 얹어 나갈 술법
+    this.watched = false;    // 관찰했는가 — 적의 다음 수가 보인다 (§5.9)
+    this.monNext = null;     // 적이 다음에 쓸 기술 (관찰했을 때만 보여 준다)
     this.summon = null;
     this.usedParts = new Set();
 
@@ -282,9 +284,16 @@ export class Combat {
       case 'lifesteal': break; // dealDamage에서 처리
       case 'crit_bonus': break;
       case 'reveal':
+        // 「죽은 자의 시야」 같은 기술은 관찰과 같은 것을 준다 —
+        // 때리면서 보는 셈이라, 턴을 내주는 관찰보다 낫다. 그게 이 기술의 값어치다
         this.save.seen ??= {};
         this.save.seen[this.mon.defId] = true;
+        this.watched = true;
+        this.monNext ??= this.pickMonsterSkill();
         this.say(`${this.mon.name}의 약점이 드러난다. (방어 속성: ${this.mon.defElement})`, 'good');
+        if (DB.skillsBy[this.monNext]) {
+          this.say(`다음 수까지 들여다보인다 — 「${DB.skillsBy[this.monNext].name}」.`, 'good');
+        }
         break;
       default: break;
     }
@@ -361,7 +370,9 @@ export class Combat {
       this.say(`${this.mon.name}이(가) 경련하며 움직이지 못한다.`, 'good');
       return;
     }
-    const sid = this.pickMonsterSkill();
+    // 다음 수는 턴이 끝날 때 미리 뽑아 둔다 — 관찰한 플레이어에게 보여 주려면 먼저 정해져 있어야 한다
+    const sid = this.monNext ?? this.pickMonsterSkill();
+    this.monNext = null;
     this.mon.repeats = sid === this.mon.lastSkill ? this.mon.repeats + 1 : 0;
     this.mon.lastSkill = sid;
 
@@ -644,16 +655,32 @@ export class Combat {
     }
   }
 
+  /**
+   * 관찰 (§5.9) — 한 턴을 내주고 **이 전투 내내 적의 다음 수를 본다.**
+   *
+   * 전에는 방어 속성만 알려 줬는데, 그건 한 대 때려 보면 「효과가 굉장했다」로 그냥 알 수 있었다.
+   * 턴을 쓰고 맞기까지 하면서 살 정보가 아니었다. 이제 세 가지를 준다 —
+   * 상성 표시, **적의 다음 기술**, 그리고 몸을 낮춘 그 턴의 회피.
+   */
   observe() {
     this.save.seen ??= {};
     this.save.seen[this.mon.defId] = true;
-    this.say(`${this.mon.name}을(를) 관찰한다. 방어 속성은 ${this.mon.defElement}.`, 'necro');
-    this.say('이제 스킬 옆에 상성이 표시된다.', 'dim');
+    this.watched = true;
+    this.monNext ??= this.pickMonsterSkill();
+    this.say(`${this.mon.name}을(를) 살핀다. 방어 속성은 ${this.mon.defElement}.`, 'necro');
+    const nx = DB.skillsBy[this.monNext];
+    if (nx) this.say(`숨을 고르는 품이 보인다 — 다음은 「${nx.name}」다.`, 'necro');
+    this.say('이제 이 싸움이 끝날 때까지 다음 수가 보인다.', 'good');
+    // 몸을 낮추고 살피는 동안은 덜 맞는다
+    this.golem.ranks.eva = Math.min(4, (this.golem.ranks.eva ?? 0) + 1);
+    this.say('골렘이 자세를 낮춘다. 회피가 올랐다.', 'good');
   }
 
   /* ── 턴 종료 ──────────────────────────────────────── */
   endOfTurn() {
     for (const u of [this.mon, this.golem]) this.tickStatuses(u);
+    // 다음 턴에 적이 쓸 기술을 지금 정한다. 관찰했다면 그것이 화면에 보인다
+    this.monNext = this.pickMonsterSkill();
     for (const [sid, left] of Object.entries(this.rechargeClock)) {
       const s = DB.skillsBy[sid];
       const speed = 1 + Math.floor((this.golem.stats.focus ?? 0) / 6);

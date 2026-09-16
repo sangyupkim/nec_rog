@@ -10,8 +10,8 @@
     "effect": { "op": "cleanse" } },
 
   { "id": "nk_soulspear", "name": "영혼 창", "school": "공격", "will": 3, "cooldown": 1,
-    "cost": { "soulAsh": 0 }, "desc": "신성 속성으로 34의 피해를 준다.",
-    "effect": { "op": "damage", "power": 34, "element": "신성" } },
+    "cost": { "soulAsh": 0 }, "desc": "진혼 속성으로 34의 피해를 준다.",
+    "effect": { "op": "damage", "power": 34, "element": "진혼" } },
   { "id": "nk_rottouch", "name": "부패의 손길", "school": "공격", "will": 3, "cooldown": 2,
     "cost": { "soulAsh": 35 }, "desc": "부패 피해 20과 함께 중독 4를 부여한다.",
     "effect": { "op": "damage", "power": 20, "element": "부패", "status": { "id": "중독", "stacks": 4 } } },

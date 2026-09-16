@@ -551,7 +551,7 @@
       "spd": 0,
       "focus": 3
     },
-    "def_element": "신성",
+    "def_element": "진혼",
     "skills": [
       "sk_second_wind"
     ],
@@ -731,7 +731,7 @@
   },
   {
     "id": "part_arm_holy",
-    "name_template": "{mod}{owner} 성유 바른 팔",
+    "name_template": "{mod}{owner} 마르지 않은 팔",
     "owner": "순교자의",
     "slot": "arm",
     "rarity": "rare",
@@ -1932,7 +1932,7 @@
     "drop_from": [
       "m_janu"
     ],
-    "def_element": "신성",
+    "def_element": "진혼",
     "mana": 5
   },
   {

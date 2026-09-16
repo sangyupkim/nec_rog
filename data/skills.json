@@ -201,7 +201,7 @@
   {
     "id": "sk_insight",
     "name": "죽은 자의 시야",
-    "element": "신성",
+    "element": "진혼",
     "power": 0,
     "accuracy": 100,
     "priority": 0,
@@ -555,7 +555,7 @@
   {
     "id": "sk_focus_mind",
     "name": "집중",
-    "element": "신성",
+    "element": "진혼",
     "power": 0,
     "accuracy": 100,
     "priority": 1,
@@ -818,8 +818,8 @@
   },
   {
     "id": "sk_holy_brand",
-    "name": "성흔 낙인",
-    "element": "신성",
+    "name": "지워지지 않는 낙인",
+    "element": "진혼",
     "power": 44,
     "accuracy": 90,
     "priority": 0,
@@ -833,7 +833,7 @@
         "duration": 2
       }
     ],
-    "text": "{user}가(이) 빛나는 낙인을 찍는다."
+    "text": "{user}가(이) 지워지지 않는 낙인을 찍는다."
   },
   {
     "id": "sk_shatter_blow",
@@ -946,7 +946,7 @@
   {
     "id": "sk_soul_harvest",
     "name": "영혼 수확",
-    "element": "신성",
+    "element": "진혼",
     "power": 55,
     "accuracy": 90,
     "priority": 0,
@@ -1467,7 +1467,7 @@
   {
     "id": "sk_wr_touch",
     "name": "서늘한 손",
-    "element": "신성",
+    "element": "진혼",
     "power": 48,
     "accuracy": 90,
     "priority": 0,
@@ -1479,7 +1479,7 @@
   {
     "id": "sk_wr_wail",
     "name": "곡소리",
-    "element": "신성",
+    "element": "진혼",
     "power": 32,
     "accuracy": 100,
     "priority": 0,
@@ -1862,7 +1862,7 @@
   {
     "id": "sk_ja_open",
     "name": "여는 얼굴",
-    "element": "신성",
+    "element": "진혼",
     "power": 56,
     "accuracy": 90,
     "priority": 0,
@@ -1918,7 +1918,7 @@
   {
     "id": "sk_ja_judge",
     "name": "통행 불가",
-    "element": "신성",
+    "element": "진혼",
     "power": 76,
     "accuracy": 85,
     "priority": 0,
@@ -1992,7 +1992,7 @@
   {
     "id": "sk_or_edict",
     "name": "최초의 선고",
-    "element": "신성",
+    "element": "진혼",
     "power": 70,
     "accuracy": 90,
     "priority": 0,
@@ -2049,7 +2049,7 @@
   {
     "id": "sk_or_first",
     "name": "첫 번째 골렘",
-    "element": "신성",
+    "element": "진혼",
     "power": 88,
     "accuracy": 85,
     "priority": 0,

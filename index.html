@@ -26,7 +26,7 @@
   --gold:#D6B65C;
   --rare:#7FB6D8;        /* 희귀 부속 — 차가운 푸른빛 */
   --el-참격:#C9CDD4; --el-타격:#C79A6B; --el-화염:#E0794A; --el-냉기:#7FB6D8;
-  --el-독:#9FBF5A; --el-부패:#8A9B57; --el-신성:#E6D99B;
+  --el-독:#9FBF5A; --el-부패:#8A9B57; --el-진혼:#E6D99B;
   --display:"Gowun Batang","Nanum Myeongjo",Georgia,serif;
   --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
@@ -510,6 +510,13 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .duo .hpnum{font-size:.7rem;margin-top:.15rem}
 .duo .chips{gap:.2rem;margin-top:.25rem}
 .duo .chip{font-size:.62rem;padding:.06rem .3rem}
+/* 관찰로 드러난 적의 다음 수 (§5.9) */
+.duo .next{
+  font-family:var(--mono);font-size:.66rem;color:var(--gold);
+  border:1px dashed var(--gold);border-radius:2px;padding:.08rem .3rem;
+  margin:.2rem 0;display:inline-block;
+}
+.duo .next b{font-weight:600}
 @media (max-width:360px){ .duo{flex-direction:column;gap:.4rem} }
 .unit h3{
   font-family:var(--display);font-size:1.08rem;font-weight:700;margin:0 0 .25rem;

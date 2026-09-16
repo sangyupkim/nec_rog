@@ -3002,7 +3002,9 @@ function combatTurn() {
      기술과 나란히 늘어놓으면 커맨드가 열 몇 개가 되어 쪽이 나뉘고,
      전투 중에 쪽을 넘겨 가며 기술을 찾게 된다. 매 턴 고르는 것은 기술이다. */
   const items = cb.combatItems();
-  const canObserve = !S.seen?.[cb.mon.defId];
+  // 관찰은 '처음 보는 적'에만 쓰던 것이었으나, 이제 **다음 수를 읽는** 수단이라
+  // 아는 적에게도 쓸 이유가 있다. 이미 살핀 적에게만 가린다 (§5.9)
+  const canObserve = !cb.watched;
   if (items.length || canObserve) {
     list.push({
       label: '🎒 지닌 것', cls: 'ghost',
@@ -3025,7 +3027,12 @@ function itemTurnScreen(items, canObserve) {
         + `<span class="tm">${UI.esc(it.desc ?? '')}</span>`,
       on: () => resolve({ kind: 'item', id: it.id }),
     })),
-    canObserve ? { label: '관찰', meta: '약점을 본다 · 턴 소모', on: () => resolve({ kind: 'observe' }) } : null,
+    canObserve ? { label: '관찰', meta: '다음 수를 읽는다 · 턴 소모',
+      info: '<span class="tt">관찰</span><span class="tm">한 턴을 쓴다</span>'
+        + '<div class="trow"><span>이 싸움이 끝날 때까지 <b>적의 다음 기술</b>이 보인다</span></div>'
+        + '<div class="trow"><span>방어 속성을 기록해 상성 표시가 켜진다</span></div>'
+        + '<div class="trow"><span>몸을 낮춰 그 턴 <b>회피 +1랭크</b></span></div>',
+      on: () => resolve({ kind: 'observe' }) } : null,
     { label: '돌아간다', cls: 'ghost', pin: true, on: combatTurn },
   ], { paged: false });
 }
