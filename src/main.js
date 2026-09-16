@@ -3755,6 +3755,15 @@ async function resolve(action) {
   S.run.golemHp = cb.golem.hp;
   S.golem.coreHp = cb.golem.hp;      // 핵 체력은 런을 넘어 남는다
   cb.commitShields();                 // 방어도도 파츠에 새겨진다
+  /* 끝난 판의 **마지막 숫자를 보여 준다.** 전에는 전투가 끝나면 패널을 다시 그리지 않아
+     「쓰러진다」는 로그 옆에 적의 체력이 41/170으로 남아 있었다 —
+     마지막 한 대가 화면에 반영되지 않은 것이다. 이긴 쪽도 진 쪽도 0을 보고 끝나야 한다. */
+  if (cb.over) {
+    UI.combatPanel(cb, S);
+    // 동작을 줄이는 설정에서는 기다리지 않는다 — 연출은 기다림이 되어선 안 된다 (§5.8)
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (!still) await new Promise((r) => setTimeout(r, 420));
+  }
   if (!cb.over) { combatTurn(); return; }
   if (cb.result === 'win') winBattle();
   else loseRun();
