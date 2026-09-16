@@ -48,6 +48,31 @@ function shake(kind) {
   setTimeout(() => app.classList.remove(cls), 360);
 }
 
+/**
+ * 화면을 검게 덮었다가 다시 연다 (§5.10).
+ * 기절처럼 **시간이 끊기는 장면**에 쓴다 — 로그를 한 줄 더 쓰는 것으로는
+ * "정신을 잃었다"가 전달되지 않는다. 눈앞이 실제로 꺼져야 한다.
+ * 동작을 줄이는 설정에서는 시간만 짧게 흐르고 깜빡임은 생략한다.
+ */
+export function blackout(text, hold = 1500) {
+  const el = $('blackout');
+  if (!el) return Promise.resolve();
+  const quick = reducedMotion();
+  el.querySelector('.bo').textContent = text ?? '';
+  el.classList.add('on');
+  return new Promise((done) => {
+    setTimeout(() => done(), quick ? 350 : hold);
+  });
+}
+
+/** 검은 화면을 걷는다. 다음 화면을 먼저 그려 두고 불러야 매끄럽다 */
+export function lighten() {
+  const el = $('blackout');
+  if (!el) return Promise.resolve();
+  el.classList.remove('on');
+  return new Promise((done) => setTimeout(done, reducedMotion() ? 0 : 900));
+}
+
 export function logPlay(lines) {
   return new Promise((done) => {
     const list = lines.slice();
@@ -818,13 +843,9 @@ export function townPanel(save, status, go = {}) {
     <div class="town">
       ${t('scavenger', 1, '🦴', '바르그', status.scavenger ?? '길잡이', save.golem.core ? '' : 'urge')}
       ${t('ossuary', 2, '⚱', '납골당', status.ossuary ?? '')}
-      ${t('quest', 3, '📜', '의뢰소', `${q}/3${status.questReady ? ' 수령' : ''}`)}
-      ${t('daily', 4, '☀', '오늘의 일', `${d.filter((x) => x.done).length}/${d.length}`)}
-      ${t('shop', 5, '🛒', '손수레', status.shop)}
-      ${t('forge', 6, '🔨', '뼈 모루', status.forge)}
-      ${t('conclave', 7, '🕯', '조합', status.conclave)}
-      ${t('golem', 8, '⚙', '골렘 정비', status.golem ?? '')}
-      ${t('inventory', 9, '🎒', '소지품', status.inventory ?? '')}
+      ${t('quest', 3, '📜', '의뢰소', status.quest ?? `${q}/3`)}
+      ${t('market', 4, '🏪', '저잣거리', status.market ?? '')}
+      ${t('inventory', 5, '🎒', '소지품', status.inventory ?? '')}
     </div>
     ${sec('necro', '네크로맨서 술법', sp.length ? `${sp.length}개` : '없음',
       sp.length
@@ -899,18 +920,25 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
       <span class="bk">${tiles.length + 1}</span><span class="bi">${icon}</span>
       <span class="bn">${esc(name)}</span><span class="bs">${esc(sub)}</span></button>`);
 
+  // 대분류 셋 — 재료를 얻는 곳 · 골렘을 세우고 고치는 곳 · 영구히 사는 곳 (§12.8)
   const vatFull = o.rotVat.stored >= O.vatCap(o);
-  t('vat', '🫗', '부패조', `${o.rotVat.stored}/${O.vatCap(o)}${vatFull ? ' 가득' : ''}`, vatFull);
-  t('dissect', '🔪', '해체대', jobs(o.dissection.slots) ?? `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`);
-  if (o.built.forge) t('forge', '🕯', '접합로', jobs(o.forge.slots) ?? `${o.forge.slots.length}/${O.forgeSlots(o)}칸`);
-  if (o.built.vault) t('vault', '🏺', '표본실', `${o.vault.parts.length}/${o.vault.capacity}`);
-  if (o.built.laborBay) t('labor', '⛓', '파견', o.laborBay.dispatch.length
-    ? `${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸 나감` : `${O.laborSlots(o)}칸 비었다`);
+  const mat = [
+    `부패조 ${o.rotVat.stored}/${O.vatCap(o)}`,
+    o.dissection.slots.length ? `해체 ${o.dissection.slots.length}` : null,
+    o.built.laborBay && o.laborBay.dispatch.length ? `탐험 ${o.laborBay.dispatch.length}` : null,
+  ].filter(Boolean).join(' · ');
+  t('materials', '🫗', '재료', vatFull ? `${mat} 가득` : mat, vatFull);
+
   const oh = o.overhaul ?? [];
-  t('overhaul', '🔧', '정비대', jobs(oh) ?? '방어도 · 핵');
-  t('workshop', '⚙', '조립대', `골렘 ${O.workshopGolems(save).length}기`);
   const cs = O.crewSpeed(save);
-  t('crew', '🛠', '작업반', cs.cut ? `${Math.round(cs.cut * 100)}% 단축` : '배치 없음');
+  const work = [
+    `골렘 ${O.workshopGolems(save).length + 1}기`,
+    oh.length ? `정비 ${jobs(oh)}` : null,
+    o.built.forge && o.forge.slots.length ? `접합 ${o.forge.slots.length}` : null,
+    cs.cut ? `${Math.round(cs.cut * 100)}% 단축` : null,
+  ].filter(Boolean).join(' · ');
+  t('workshop', '⚙', '공방', work, oh.length > 0);
+
   t('altar', '🕯', '제단', `영혼재 ${save.soulAsh}`);
 
   /* 날것은 **장착 중인 것과 소지품에 있는 것을 갈라 세어야 한다.**

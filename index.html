@@ -316,6 +316,22 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 }
 @keyframes flash{to{opacity:0}}
 
+/* 기절 — 화면이 검게 덮이고, 한가운데 한 줄만 남는다 (§5.10) */
+#blackout{
+  position:fixed;inset:0;z-index:60;background:#000;opacity:0;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:none;transition:opacity .9s ease;
+}
+#blackout.on{opacity:1;pointer-events:auto}
+#blackout .bo{
+  font-family:var(--display,serif);font-size:1.5rem;letter-spacing:.3em;
+  color:#c9c3b4;opacity:0;transition:opacity .7s ease .5s;text-align:center;
+}
+#blackout.on .bo{opacity:.85}
+@media (prefers-reduced-motion:reduce){
+  #blackout,#blackout .bo{transition:none}
+}
+
 /* 연출이 도는 동안 선택지 자리를 지키는 표시 — 버튼이 사라졌다 나타나며 화면이 튀지 않게 한다 */
 .waiting{
   font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;color:var(--muted);
@@ -675,6 +691,7 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
 </head>
 <body>
 <div id="tip" hidden></div>
+<div id="blackout" aria-hidden="true"><div class="bo"></div></div>
 <div id="app">
   <div id="topbar"></div>
   <div id="dpad" hidden aria-label="이동">
