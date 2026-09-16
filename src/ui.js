@@ -280,7 +280,8 @@ function dockCapacity() {
   const gapY = parseFloat(cs.rowGap) || 0;
   const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const h = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-  const minCol = 9.5 * rem;
+  // 전투에서는 칸을 좁힌다 — CSS와 같은 값을 써야 칸 수가 맞는다
+  const minCol = (document.getElementById('app')?.classList.contains('combat') ? 8 : 9.5) * rem;
   // gridAutoRows는 fillDock이 늘려 놓은 값이라 여기서 읽으면 스스로를 먹는다.
   // 기준 높이는 언제나 --btn-h다.
   const btnH = (parseFloat(cs.getPropertyValue('--btn-h')) || 2.85) * rem;
@@ -388,7 +389,9 @@ function fillDock(box) {
   const inner = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   const base = parseFloat(cs.gridAutoRows) || btns[0].getBoundingClientRect().height;
   const fit = (inner - (rows - 1) * gap) / rows;
-  const rowH = fit > base ? Math.floor(Math.min(fit, base * 2)) : base;
+  // 남는 높이를 나눠 주되 **두 줄이 들어갈 만큼까지만**이다.
+  // 두 배까지 늘리면 버튼 넷짜리 화면에서 칸이 우스꽝스럽게 커진다.
+  const rowH = fit > base ? Math.floor(Math.min(fit, base * 1.35)) : base;
   if (rowH !== base) box.style.gridAutoRows = `${rowH}px`;
 
   /* 이름을 몇 줄까지 풀지는 **칸의 높이가 정한다.**
@@ -641,6 +644,9 @@ function bindBodyCells(cb) {
   });
 }
 
+/** 전투 중에는 커맨드가 많아진다 — 독의 칸을 좁혀 한 화면에 담는다 */
+export const setCombatMode = (on) => $('app')?.classList.toggle('combat', Boolean(on));
+
 export function combatPanel(cb, save) {
   const mon = cb.mon, g = cb.golem;
   const seen = save.seen?.[mon.defId];
@@ -886,10 +892,18 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
   t('crew', '🛠', '작업반', cs.cut ? `${Math.round(cs.cut * 100)}% 단축` : '배치 없음');
   t('altar', '🕯', '제단', `영혼재 ${save.soulAsh}`);
 
-  const rawN = save.inventory.filter((p) => p.raw).length;
+  /* 날것은 **장착 중인 것과 소지품에 있는 것을 갈라 세어야 한다.**
+     접합로의 정착은 소지품에 있는 것만 받는데, 배지가 둘을 합쳐 세는 바람에
+     "정착 대기 1개"라고 알리면서 정작 정착 버튼은 "정착할 날것이 없다"가 됐다. */
+  const wornUid = new Set(SLOTS.map((sl) => save.golem[sl]).filter(Boolean));
+  const rawN = save.inventory.filter((p) => p.raw && !wornUid.has(p.uid)).length;
+  const rawWorn = save.inventory.filter((p) => p.raw && wornUid.has(p.uid)).length;
   panel(`<p class="pt">납골당</p>
     <div class="town">${tiles.join('')}</div>
-    ${rawN ? `<div class="chips"><span class="chip warn">정착 대기 ${rawN}개</span></div>` : ''}
+    ${rawN || rawWorn ? `<div class="chips">
+      ${rawN ? `<span class="chip warn">정착 대기 ${rawN}개</span>` : ''}
+      ${rawWorn ? `<span class="chip warn">장착 중 날것 ${rawWorn}개</span>` : ''}
+    </div>` : ''}
     ${sec('idle', '오프라인 정산', `상한 ${Math.round(o.offlineCapMs / 3600000)}시간`,
       `<div class="chips">
         <span class="chip">상한 ${Math.round(o.offlineCapMs / 3600000)}시간</span>

@@ -18,6 +18,7 @@ import {
 } from './town.js';
 import * as O from './ossuary.js';
 import * as UI from './ui.js';
+import * as PWA from './pwa.js';
 
 const SAVE_KEY = 'patchwork.save.v1';
 let S = null;          // 세이브 상태
@@ -375,6 +376,7 @@ function settleAndReport(next) {
 
 function town(intro = true) {
   cb = null;
+  UI.setCombatMode(false);
   // 자정을 넘겼으면 오늘의 일을 새로 건다 (§10.2-A)
   if (refreshDaily(S, rng)) {
     UI.logLine('☀ 게시판의 종이가 새것으로 바뀌었다. 오늘의 일이 걸렸다.', 'necro');
@@ -412,6 +414,9 @@ function town(intro = true) {
     { label: '상성표', cls: 'ghost', meta: '속성 일곱', on: () => affinityScreen(() => town(false)) },
     { label: '저장', cls: 'ghost', on: () => { save(); UI.logLine('기록을 남겼다.', 'dim'); } },
     { label: '기록 보관', cls: 'ghost', meta: '내보내기 · 가져오기', on: backupScreen },
+    // 설치할 수 있을 때만 뜬다. 이미 앱으로 열었으면 나오지 않는다 (§12.7)
+    PWA.canInstall() ? { label: '📲 앱으로 설치', cls: 'primary',
+      meta: '홈 화면에 둔다', on: installApp } : null,
   ]);
   save();
 }
@@ -678,8 +683,22 @@ function backupScreen() {
     { label: '내보내기', cls: 'primary', meta: '글상자에 띄운다', on: exportSave },
     { label: '가져오기', meta: '붙여넣은 것으로 덮어쓴다', on: importSave },
     { label: '처음부터 다시', cls: 'danger', meta: '기록을 지운다', on: resetScreen },
+    PWA.isInstalled()
+      ? { label: '앱으로 실행 중', meta: '홈 화면에서 열었다', disabled: true, nokey: true }
+      : { label: '📲 앱으로 설치', cls: PWA.canInstall() ? 'primary' : '',
+          meta: PWA.canInstall() ? '홈 화면에 둔다' : '브라우저 메뉴 → 홈 화면에 추가',
+          disabled: !PWA.canInstall(), on: installApp },
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) },
   ]);
+}
+
+/** 홈 화면에 설치한다 (§12.7) */
+async function installApp() {
+  const ok = await PWA.install();
+  UI.logLine(ok
+    ? '시체골이 홈 화면에 자리를 잡았다. 이제 브라우저 없이 바로 열 수 있다.'
+    : '설치를 미뤘다. 필요하면 기록 보관에서 다시 부를 수 있다.', ok ? 'good' : 'dim');
+  town(false);
 }
 
 /**
@@ -1441,14 +1460,19 @@ function forgeJobScreen() {
   const equippedF = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
   const spareCount = S.inventory.filter((p) => !equippedF.has(p.uid)).length;
   UI.logLine('버린 파츠에 두 번째 생명을 준다.', 'narrate');
-  const rawAll = S.inventory.filter((p) => p.raw).length;
-  if (rawAll) UI.logLine(`정착하지 않은 날것 부속이 ${rawAll}개 있다.`, 'bad');
+  // 장착 중인 날것은 여기서 정착시킬 수 없다 — 세는 것도 따로 센다
+  const rawSpare = S.inventory.filter((p) => p.raw && !equippedF.has(p.uid)).length;
+  const rawWorn = S.inventory.filter((p) => p.raw && equippedF.has(p.uid)).length;
+  if (rawSpare) UI.logLine(`정착하지 않은 날것 부속이 ${rawSpare}개 있다.`, 'bad');
+  if (rawWorn) {
+    UI.logLine(`골렘에 붙인 날것이 ${rawWorn}개 있다. 떼어내야 정착시킬 수 있다.`, 'bad');
+  }
   if (free <= 0) {
     UI.logLine(`접합로가 꽉 찼다 (${o.forge.slots.length}/${O.forgeSlots(o)}칸). 지금 걸린 작업이 끝나야 다음을 건다.`, 'bad');
     UI.logLine('제단에서 접합로를 증설하면 동시에 여러 개를 걸 수 있다.', 'dim');
   } else if (!spareCount) UI.logLine('재료로 쓸 여분 파츠가 없다.', 'dim');
 
-  const rawCount = S.inventory.filter((p) => p.raw && !equippedF.has(p.uid)).length;
+  const rawCount = rawSpare;
   const damagedCount = S.inventory.filter((p) => p.integrity < p.maxIntegrity && !equippedF.has(p.uid)).length;
   const costText = (r) => Object.entries(r.cost)
     .map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
@@ -1462,7 +1486,7 @@ function forgeJobScreen() {
         : spareCount < (key === 'fuse' ? 2 : 1);
       const why = free <= 0 ? `접합로가 꽉 참 (${o.forge.slots.length}/${O.forgeSlots(o)}칸)`
         : noStock ? (key === 'revive' ? '잃어버린 기록이 없다'
-          : key === 'attune' ? '정착할 날것이 없다'
+          : key === 'attune' ? (rawWorn ? '골렘에 붙인 날것뿐 — 먼저 떼어내라' : '정착할 날것이 없다')
           : key === 'mend' ? '상한 부속이 없다'
           : key === 'fuse' ? '여분이 둘 이상 필요하다' : '여분 부속이 없다')
         : shortText(r.cost);
@@ -2678,6 +2702,7 @@ function repairScreen() {
 }
 
 const backToRoom = () => {
+  UI.setCombatMode(false);
   benchRoom = null;                      // 쓰지 않고 나왔으면 사용권은 방에 남는다
   const fd = S.run.floorData;
   UI.topbar(S, `무덤 ${fd.floor}층`);
@@ -2924,6 +2949,7 @@ function startBattle(room, elite, isBoss = false) {
 }
 
 function combatTurn() {
+  UI.setCombatMode(true);
   UI.topbar(S, `전투 · ${cb.mon.name}`);
   UI.combatPanel(cb, S);
 
@@ -2967,13 +2993,36 @@ function combatTurn() {
       on: () => resolve({ kind: 'skill', id: s.id, necro: cb.prep }),
     });
   }
-  for (const it of cb.combatItems()) {
-    list.push({ label: `${it.name}`, meta: `${it.count}개`, on: () => resolve({ kind: 'item', id: it.id }) });
+  /* 물약과 관찰은 **한 칸 뒤로 물린다.**
+     기술과 나란히 늘어놓으면 커맨드가 열 몇 개가 되어 쪽이 나뉘고,
+     전투 중에 쪽을 넘겨 가며 기술을 찾게 된다. 매 턴 고르는 것은 기술이다. */
+  const items = cb.combatItems();
+  const canObserve = !S.seen?.[cb.mon.defId];
+  if (items.length || canObserve) {
+    list.push({
+      label: '🎒 지닌 것', cls: 'ghost',
+      meta: items.length ? `${items.reduce((n, i) => n + i.count, 0)}개${canObserve ? ' · 관찰' : ''}` : '관찰',
+      on: () => itemTurnScreen(items, canObserve),
+    });
   }
-  if (!S.seen?.[cb.mon.defId]) {
-    list.push({ label: '관찰', cls: 'ghost', meta: '턴 소모', on: () => resolve({ kind: 'observe' }) });
-  }
-  UI.choices(list);
+  // 전투에서는 쪽을 나누지 않는다 — 쓸 수 있는 기술이 한눈에 다 보여야 한다
+  UI.choices(list, { paged: false });
+}
+
+/** 전투 중 물약·관찰 — 고르면 그 턴을 쓴다 */
+function itemTurnScreen(items, canObserve) {
+  UI.topbar(S, `전투 · ${cb.mon.name}`);
+  UI.combatPanel(cb, S);
+  UI.logLine('무엇을 쓸까. 쓰면 골렘은 이번 턴에 때리지 못한다.', 'dim');
+  UI.choices([
+    ...items.map((it) => ({
+      label: it.name, meta: `${it.count}개 · 턴 소모`, info: `<span class="tt">${UI.esc(it.name)}</span>`
+        + `<span class="tm">${UI.esc(it.desc ?? '')}</span>`,
+      on: () => resolve({ kind: 'item', id: it.id }),
+    })),
+    canObserve ? { label: '관찰', meta: '약점을 본다 · 턴 소모', on: () => resolve({ kind: 'observe' }) } : null,
+    { label: '돌아간다', cls: 'ghost', pin: true, on: combatTurn },
+  ], { paged: false });
 }
 
 async function resolve(action) {
@@ -3238,6 +3287,10 @@ function notifyQuests(ev) {
 
 /* ── 부팅 ───────────────────────────────── */
 async function boot() {
+  // 설치형 앱 준비 — 데이터를 읽기 전에 붙여야 beforeinstallprompt를 놓치지 않는다
+  PWA.boot();
+  // 설치 가능해지면 마을 화면에 버튼이 생겨야 하므로 다시 그린다
+  PWA.onChange.push(() => { if (S && !S.run && !cb) town(false); });
   try {
     await loadData();
     // 작업반 능률 계산에 파츠 스탯과 핵 체력을 넘긴다

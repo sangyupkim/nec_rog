@@ -10,6 +10,7 @@ const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml', '.png': 'image/png',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
 createServer(async (req, res) => {
@@ -18,7 +19,10 @@ createServer(async (req, res) => {
   const path = join(ROOT, rel === '/' ? 'index.html' : rel);
   try {
     const body = await readFile(path);
-    res.writeHead(200, { 'content-type': TYPES[extname(path)] ?? 'application/octet-stream' });
+    const head = { 'content-type': TYPES[extname(path)] ?? 'application/octet-stream' };
+    // 서비스 워커가 캐시되면 고쳐도 반영되지 않는다. 개발 중에는 늘 새로 받게 한다
+    if (rel.endsWith('sw.js')) head['cache-control'] = 'no-cache';
+    res.writeHead(200, head);
     res.end(body);
   } catch {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });

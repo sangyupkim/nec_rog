@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Project Patchwork</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%92%80%3C/text%3E%3C/svg%3E">
+<!-- 설치형 앱 (§12.7) — 크롬에서 '홈 화면에 추가'가 뜨게 하는 최소 구성 -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F1009">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Patchwork">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -220,6 +228,15 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 
 /* 격자를 가로지르는 것들 — 연출 대기 표시와 글상자, 쪽 넘김 띠 */
 #choices .waiting,#choices .textbox,#choices .pager{grid-column:1/-1}
+
+/*
+ * 전투 커맨드는 **한 화면에 다 보여야 한다.**
+ * 쪽을 넘겨 가며 기술을 찾는 전투는 복잡한 게 아니라 불편한 것이다.
+ * 기술 이름은 짧으므로 칸을 좁히고 낮춰 같은 독에 더 담는다.
+ */
+#app.combat #choices{grid-template-columns:repeat(auto-fit,minmax(8rem,1fr))}
+#app.combat{--btn-h:2.35rem}
+#app.combat .btn .nm{font-size:.86rem}
 /* 쪽 넘김은 버튼 셋이 아니라 한 줄짜리 띠다 — 셋이면 칸을 셋 먹는다 */
 #choices .pager{
   display:flex;align-items:center;justify-content:center;gap:.8rem;
