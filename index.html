@@ -161,6 +161,28 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
     -webkit-tap-highlight-color:transparent;touch-action:manipulation;
   }
   #panetoggle:hover{color:var(--ink)}
+
+  /*
+   * 패널이 **누를 수 있는 것**일 때는 순서를 뒤집는다 (§12.2-A).
+   * 마을·납골당의 패널은 읽는 것이 아니라 들어가는 문(타일)이다.
+   * 그걸 맨 위에 두면 누를 것이 화면의 맨 위와 맨 아래로 갈려 엄지가 두 번 움직인다.
+   * 로그를 위로 올리고 타일을 가운데로 내려 **누를 것을 아래쪽에 모은다.**
+   */
+  #app.tiles #panes{grid-template-rows:minmax(22dvh,1fr) auto minmax(0,auto)}
+  #app.tiles #right{order:1}
+  #app.tiles #panetoggle{order:2}
+  #app.tiles #left{order:3;border-bottom:0;border-top:1px solid var(--line)}
+  /*
+   * 타일 모드에서는 접기를 아예 없앤다.
+   * 접기는 패널이 **읽는 것**일 때 로그에 자리를 내주는 장치인데,
+   * 타일은 읽는 것이 아니라 **들어가는 문**이다. 접으면 마을에서 갈 곳이 사라진다.
+   * 다른 화면에서 접어 둔 상태로 들어와도 여기서는 펴 둔다.
+   */
+  #app.tiles #panetoggle{display:none}
+  #app.tiles.panes-collapsed #left{
+    max-height:46dvh !important;padding-block:clamp(10px,2vw,18px);overflow-y:auto;
+    border-top:1px solid var(--line);
+  }
   /* 접으면 로그가 그만큼 넓어진다 */
   #app.panes-collapsed #left{
     max-height:0 !important;padding-block:0;border-bottom:0;overflow:hidden;

@@ -504,6 +504,8 @@ let panelKeys = [];
 
 export const panel = (html) => {
   const el = $('left');
+  // 타일 모드는 bindTiles가 다시 켠다 — 화면이 바뀌면 일단 끈다
+  $('app')?.classList.remove('tiles');
   el.innerHTML = josa(html);
   // 세로모드에서 패널은 높이가 묶여 있다. 넘친 부분이 있다는 것을 알려야
   // 아래에 뭔가 더 있다는 걸 알고 스크롤한다 (실측: 던전에서 몸 도식이 12px 잘렸다)
@@ -518,6 +520,8 @@ export const panel = (html) => {
 
 /** 패널 타일에 클릭과 숫자 키를 걸어 준다. go = { 이름: 함수 } */
 export function bindTiles(go = {}) {
+  // 패널이 '누를 수 있는 것'이 됐다 — 세로모드에서는 로그 아래로 내려간다 (§12.2-A)
+  $('app')?.classList.add('tiles');
   for (const b of $('left').querySelectorAll('[data-go]')) {
     const fn = go[b.dataset.go];
     if (!fn) { b.setAttribute('disabled', ''); continue; }
