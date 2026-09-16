@@ -162,6 +162,16 @@ function migrate(s) {
   }
   // 정비 작업은 이제 골렘 한 기에 묶인다 (§9.8). 옛 기록은 지금 몸에 붙인 것으로 본다
   for (const j of s.ossuary?.overhaul ?? []) j.golemId ??= s.golem.id;
+  /* 핵만 있는 몸에는 일을 못 시킨다 (§9.6-A). 옛 세이브에는 그렇게 붙여 둔 것이 있으므로
+     작업반에서 떼어내고, 자율 탐험에 나가 있으면 불러들인다. */
+  for (const g of s.ossuary?.workshop?.golems ?? []) {
+    if ((g.parts?.length ?? 0) >= 1) continue;
+    if (g.assigned === 'labor') {
+      s.ossuary.laborBay.dispatch = (s.ossuary.laborBay?.dispatch ?? [])
+        .filter((d) => d.golemId !== g.id);
+    }
+    g.assigned = null;
+  }
   s.consumables ??= {};
   s.owned ??= { attachments: [] };
   s.owned.attachments ??= [];
@@ -1367,6 +1377,14 @@ function overhaulScreen() {
    `S.golem`은 「지금 탐험 자리에 선 골렘」이고, 조립대의 골렘과 **자리를 맞바꾼다.**
    이렇게 하면 골렘을 참조하는 수백 군데를 건드리지 않고도 여러 기를 굴릴 수 있다. */
 
+/**
+ * 일을 맡길 수 있는 골렘인가.
+ * **핵만 있는 몸은 서 있을 뿐이다** — 팔이 없으면 캐지도, 나르지도 못한다.
+ * 작업반의 능률도 부속 스탯에서 나오므로, 빈 골렘을 붙이면 0을 더하고 자리만 먹는다.
+ */
+const WORK_MIN_PARTS = 1;
+const canWork = (g) => (g?.parts?.length ?? 0) >= WORK_MIN_PARTS;
+
 const WHERE = {
   active: { label: '탐험', cls: 'good' },
   repair: { label: '정비대', cls: 'warn' },
@@ -1535,10 +1553,13 @@ function golemCardScreen(id, back = workshopHubScreen) {
     g.active ? { label: '부속 손보기', on: () => golemScreen(() => golemCardScreen(id, back)) } : null,
     !g.active && here !== 'repair' && here !== 'labor' ? {
       label: here === 'crew' ? '작업반에서 물린다' : '작업반에 붙인다',
-      meta: here === 'crew' ? '' : (O.workshopGolems(S).filter((x) => x.assigned === 'crew').length
-        >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${g.power}`),
+      meta: here === 'crew' ? ''
+        : !canWork(g.ref) ? '부속이 없다 — 핵만으로는 일을 못 한다'
+        : (O.workshopGolems(S).filter((x) => x.assigned === 'crew').length
+          >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${g.power}`),
       disabled: here !== 'crew'
-        && O.workshopGolems(S).filter((x) => x.assigned === 'crew').length >= O.crewCap(o),
+        && (!canWork(g.ref)
+          || O.workshopGolems(S).filter((x) => x.assigned === 'crew').length >= O.crewCap(o)),
       on: () => {
         g.ref.assigned = here === 'crew' ? null : 'crew';
         UI.logLine(here === 'crew' ? `${g.name}을(를) 물렸다.` : `${g.name}이(가) 일을 시작했다.`, 'good');
@@ -1546,7 +1567,12 @@ function golemCardScreen(id, back = workshopHubScreen) {
         golemCardScreen(id, back);
       },
     } : null,
-    !g.active && here === 'idle' ? { label: '자율 탐험 보내기', on: () => tripPickStage(id) } : null,
+    // 내보내는 일은 납골당 「재료」에 모았다 (§9.10-A). 여기서는 길만 알려 준다
+    !g.active && here === 'idle' ? { label: '자율 탐험 보내기', cls: 'ghost',
+      meta: canWork(g.ref) ? '납골당 · 재료' : '부속이 없다',
+      disabled: !canWork(g.ref),
+      info: '자율 탐험은 재료를 캐는 일이라 납골당 「재료」에 모여 있다.',
+      on: laborScreen } : null,
     !g.active && here === 'idle' ? {
       label: '해체한다', cls: 'danger', meta: '핵과 부속을 되찾는다',
       on: () => { disassembleWorkGolem(id); rosterScreen(back); },
@@ -1786,8 +1812,10 @@ function crewScreen() {
     })),
     ...golems.filter((g) => !g.assigned && whereOf({ id: g.id }) !== 'repair').map((g) => ({
       label: `${g.name} 붙인다`,
-      meta: onDuty.length >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${O.golemPower(g)}`,
-      disabled: onDuty.length >= O.crewCap(o),
+      meta: !canWork(g) ? '부속이 없다 — 핵만으로는 일을 못 한다'
+        : onDuty.length >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${O.golemPower(g)}`,
+      disabled: !canWork(g) || onDuty.length >= O.crewCap(o),
+      info: !canWork(g) ? '조립대에서 부속을 하나라도 끼워야 일을 맡길 수 있다.' : undefined,
       on: () => {
         g.assigned = 'crew';
         UI.logLine(`${g.name}이(가) 일을 시작했다.`, 'good');
@@ -1977,14 +2005,36 @@ function laborScreen() {
     UI.logLine(`${d.stageName} — ${byId(d.golemId)?.name ?? '?'} · ${O.remainText(d.startedAt, d.durationMs)}`, 'dim');
   }
   const free = O.laborSlots(o) - o.laborBay.dispatch.length;
-  const idle = golems.filter((g) => !g.assigned && g.parts.length);
+  const idle = golems.filter((g) => !g.assigned && canWork(g));
   if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 여분 핵으로 한 기를 세워야 보낸다.', 'dim');
-  else if (!idle.length) UI.logLine('놀고 있는 골렘이 없다. 작업반에 붙였거나 이미 나가 있다.', 'dim');
+  else if (!idle.length) {
+    const empty = golems.filter((g) => !g.assigned && !canWork(g)).length;
+    UI.logLine(empty
+      ? `보낼 골렘이 없다. 핵만 있는 몸이 ${empty}기 — 조립대에서 부속을 끼워야 일을 맡길 수 있다.`
+      : '놀고 있는 골렘이 없다. 작업반에 붙였거나 이미 나가 있다.', 'dim');
+  }
 
   UI.choices([
+    /* 보낼 골렘을 **여기서 바로 고른다.** 고르는 화면을 하나 더 두면
+       재료를 캐러 들른 사람이 화면 넷을 지나야 골렘 하나를 내보낸다 (§9.10-A). */
+    ...idle.map((g) => {
+      const st = O.golemStats(g);
+      const bonus = Math.round(Math.min(0.8, (st.atk + st.def + st.spd + st.focus) / 120) * 100);
+      return {
+        label: `${g.name} 보낸다`, cls: 'primary',
+        meta: free <= 0 ? `안치소가 꽉 찼다 (${O.laborSlots(o)}칸)`
+          : `수확 +${bonus}% · 부속 ${g.parts.length}개`,
+        disabled: free <= 0,
+        info: `<span class="tt">${UI.esc(g.name)}</span>`
+          + `<span class="tm">공${st.atk} 방${st.def} 속${st.spd} 집${st.focus} · 수확 +${bonus}%</span>`
+          + `<div class="trow">${g.parts.map((x) => `<span>${UI.esc(partName(x))} ${x.integrity}/${x.maxIntegrity}</span>`).join('')}</div>`,
+        on: () => tripPickStage(g.id),
+      };
+    }),
     ...o.laborBay.dispatch.map((d) => ({
       label: `${byId(d.golemId)?.name ?? '골렘'} 불러들인다`, cls: 'ghost',
       meta: `${O.remainText(d.startedAt, d.durationMs)} · 수확 없음`,
+      info: '지금 불러들이면 빈손으로 돌아온다. 끝까지 두어야 수확이 있다.',
       on: () => {
         const g = byId(d.golemId);
         if (g) g.assigned = null;
@@ -1994,38 +2044,13 @@ function laborScreen() {
         laborScreen();
       },
     })),
-    { label: '보낸다', cls: 'primary',
-      meta: free <= 0 ? `안치소가 꽉 참 (${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸)`
-        : !idle.length ? '보낼 골렘이 없다' : `${idle.length}기 대기 중`,
-      disabled: free <= 0 || !idle.length, on: () => tripPickGolem() },
-    { label: '조립대로', on: workshopScreen },
+    !golems.length ? { label: '조립대에서 골렘을 세운다', cls: 'ghost',
+      meta: `여분 핵 ${S.cores.length}개`, on: workshopScreen } : null,
     { label: '돌아간다', cls: 'ghost', pin: true, on: materialsScreen },
   ]);
   save();
 }
 
-/** ① 어느 골렘을 보낼까 */
-function tripPickGolem() {
-  UI.topbar(S, '자율 탐험 · 골렘');
-  const idle = O.workshopGolems(S).filter((g) => !g.assigned && g.parts.length);
-  UI.logHead('누구를 보낼까');
-  UI.logLine('능력치가 높을수록 더 많이 주워 온다. 상한은 +80%다.', 'dim');
-  UI.choices([
-    ...idle.map((g) => {
-      const st = O.golemStats(g);
-      const bonus = Math.round(Math.min(0.8, (st.atk + st.def + st.spd + st.focus) / 120) * 100);
-      return {
-        label: g.name,
-        meta: `공${st.atk} 방${st.def} 속${st.spd} 집${st.focus} · 수확 +${bonus}%`,
-        info: `<span class="tt">${UI.esc(g.name)}</span>`
-          + `<span class="tm">부속 ${g.parts.length}개 · 수확 +${bonus}%</span>`
-          + `<div class="trow">${g.parts.map((p) => `<span>${UI.esc(partName(p))} ${p.integrity}/${p.maxIntegrity}</span>`).join('')}</div>`,
-        on: () => tripPickStage(g.id),
-      };
-    }),
-    { label: '돌아간다', cls: 'ghost', pin: true, on: laborScreen },
-  ]);
-}
 
 /** ② 어디로, 얼마나 */
 function tripPickStage(golemId) {
@@ -2069,7 +2094,7 @@ function tripPickStage(golemId) {
       });
     }
   }
-  list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: tripPickGolem });
+  list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: laborScreen });
   UI.choices(list);
 }
 
