@@ -1,6 +1,8 @@
 /** 화면 그리기 헬퍼. 왼쪽=상태, 오른쪽=로그+선택지 (§12) */
 import { DB, SLOTS, SLOT_LABEL, partName, partSkills, partStats, partFlavor, assembleGolem, SKILL_CAP, josa,
-         shieldMax, shieldNow, partOf, wornLow } from './core.js';
+         shieldMax, shieldNow, partOf, wornLow,
+         partElement, stackStep, resoStep, STACK_POWER, STACK_ACC, RESO_POWER, RESO_GUARD,
+         SLOT_KIND } from './core.js';
 import { ROOM_ICON, ROOM_LABEL, minimapCells } from './dungeon.js';
 import * as CP from './campaign.js';
 import { SFX, unlock as soundUnlock, isOn as soundOn, toggle as soundToggle } from './sound.js';
@@ -878,7 +880,55 @@ export function townPanel(save, status, go = {}) {
 /* ── 골렘 정비 ───────────────────────────────
    장착 여섯 줄 + 능력치 일곱 + 스킬 열 줄이 한 화면에 전부 쏟아져 있었다.
    도식 하나와 경고만 남기고, 나머지는 제목만 두고 접는다. */
-export function golemPanel(save, onPick = null) {
+/**
+ * 고른 자리의 **그 부속 하나**를 읽는다 (§12.13).
+ * 전에는 왼쪽에 합계만 있어서, 무엇을 빼야 합계가 어떻게 되는지 알 수 없었다 —
+ * 「공격 24」를 보고도 그 24를 어느 팔이 냈는지 모르면 바꿀 것을 고를 수 없다.
+ */
+function focusHTML(save, g, slot) {
+  const w = g.worn.find((x) => x.slot === slot);
+  if (!w) return sec('focus', `${SLOT_LABEL[slot]}`, '비어 있다',
+    '<p class="empty">아무것도 붙어 있지 않다.</p>', true);
+  const p = w.part;
+  const st = partStats(p);
+  const el = partElement(p);
+  const sk = partSkills(p);
+  const rows = [];
+  const NAME = { hp: '체력', atk: '공격', def: '방어', eva: '회피', spd: '속도', focus: '집중' };
+  for (const [k, v] of Object.entries(st)) {
+    if (!v) continue;
+    rows.push(rowHTML(NAME[k] ?? k, `${v > 0 ? '+' : ''}${v}`,
+      k === 'hp' ? '방어도로 간다' : `골렘 합계 ${g.stats[k]}`));
+  }
+  if (!rows.length) rows.push('<p class="empty">능력치 보정이 없다.</p>');
+  const skRows = sk.map((sid) => {
+    const s2 = DB.skillsBy[sid];
+    const n = g.stacks?.[sid] ?? 1;
+    const step = stackStep(n);
+    return rowHTML(save.golem.retuned?.[sid] ?? s2.element, esc(s2.name),
+      step ? `${n}겹 · 위력 +${Math.round(STACK_POWER * step * 100)}% 명중 +${STACK_ACC * step}`
+        : `위력 ${s2.power || '—'}`);
+  });
+  const n = g.elements?.[el] ?? 1;
+  const rstep = resoStep(n);
+  return sec('focus', `${SLOT_LABEL[slot]} — ${esc(partName(p))}`,
+    `${el} · 내구 ${p.integrity}/${p.maxIntegrity}`,
+    `<div class="chips">
+       <span class="chip" style="color:var(--el-${el})">결 ${el}</span>
+       <span class="chip ${w.shield < w.shieldMax ? 'warn' : ''}">방어도 ${w.shield}/${w.shieldMax}</span>
+       ${p.raw ? '<span class="chip warn">날것</span>' : ''}
+     </div>
+     <div class="rows">${rows.join('')}</div>
+     ${skRows.length ? `<p class="pt" style="margin-top:.5rem">이 부속이 주는 기술</p>
+       <div class="rows">${skRows.join('')}</div>` : ''}
+     <p class="note">${rstep
+       ? `같은 결의 부속이 <b>${n}개</b> — ${el} 공격 +${Math.round(RESO_POWER * rstep * 100)}%,
+          ${el}로 맞을 때 -${Math.round(RESO_GUARD * rstep * 100)}%.
+          대신 ${el}을(를) 누르는 속성에는 그만큼 약하다.`
+       : `같은 결의 부속이 이것뿐이다. 하나 더 붙이면 ${el}이(가) 공명한다.`}</p>`, true);
+}
+
+export function golemPanel(save, onPick = null, focus = null) {
   const g = assembleGolem(save);
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
   const coreHp = save.golem.coreHp ?? g.stats.hp;
@@ -901,6 +951,7 @@ export function golemPanel(save, onPick = null) {
       ${risky.map(({ part }) => `<span class="chip warn">⚠ ${esc(partName(part))} ${part.integrity}</span>`).join('')}
     </div>` : ''}
     ${bm.html}
+    ${focus ? focusHTML(save, g, focus) : ''}
     ${sec('stat', '능력치', `공격 ${g.stats.atk} · 방어 ${g.stats.def} · 속도 ${g.stats.spd}`, statGridHTML(g))}
     ${sec('skills', '사용 가능한 스킬', `${g.active.length}개`,
       `<div class="rows">${g.active.map((sid) => {

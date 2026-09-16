@@ -2,7 +2,9 @@
 import {
   DB, damage, elemMul, rankMul, addStatus, hasStatus,
   assembleGolem, skillElement, partSkills, partName,
-  MON_FRAME_RATIO, AIM, RAW_FAIL_CHANCE, SLOT_LABEL,
+  MON_FRAME_RATIO, AIM, RAW_FAIL_CHANCE, SLOT_LABEL, SLOT_KIND,
+  partElement, stackStep, resoAttackMul, resoDefenseMul,
+  STACK_POWER, STACK_ACC,
 } from './core.js';
 
 const WILL_START = 3, WILL_MAX = 10, WILL_GAIN = 1;
@@ -16,6 +18,17 @@ const DOT_CAP = 0.35;
    "핵이 드러났다"가 느껴지지 않으므로, **들어온 피해의 일부가 방어도를 그냥 지나** 핵에 닿는다.
    핵은 그걸 체력으로 받아 낸다 — 즉시 지는 것이 아니라 **버티는 자원이 바뀌는** 것이다. */
 const CORE_EXPOSED = 0.35;
+
+/* ── 막을 곳을 고른다 (§5.14) ───────────────────────
+   조준이 「어디를 때릴까」라면, 막기는 「어디로 받을까」다. 고른 자리로 받아 내면 피해가
+   줄고, 그 자리의 결로 속성 상성을 따진다 — 냉기 팔로 화염을 받으면 더 아프다.
+   다만 **고른 대로 되지는 않는다.** 나보다 빠른 적은 내가 댄 자리를 피해 때린다. */
+export const GUARD_KINDS = ['head', 'body', 'arm', 'leg'];
+export const GUARD_LABEL = { head: '머리', body: '몸통', arm: '팔', leg: '다리' };
+const GUARD_CUT = 0.25;          // 댄 자리로 받아 내면 피해 -25%
+const GUARD_BASE = 50;           // 속도가 같을 때 대는 데 성공할 확률
+const GUARD_PER_SPD = 3;         // 속도 1 차이마다 ±3%p
+const GUARD_MIN = 25, GUARD_MAX = 90;
 /** 화상 한 틱 = 최대 체력의 몇 %인가 */
 const BURN_RATIO = 0.03;
 
@@ -74,6 +87,7 @@ export class Combat {
 
     // ── 파츠 방어도 (§5.7) — 전투가 끝나도 회복되지 않는다 ──
     this.aim = 'random';
+    this.guard = null;          // 이번 턴 막기로 댄 부위 (null = 맡긴다)
     this.frames = {};
     for (const { slot, part, shieldMax: max, shield } of g.worn) {
       this.frames[slot] = { slot, part, hp: shield, max, down: shield <= 0 };
@@ -109,6 +123,29 @@ export class Combat {
         mul: this.save.seen?.[this.mon.defId] ? elemMul(el, this.mon.defElement) : null,
       };
     });
+  }
+
+  /** 막을 부위 전환 — 조준과 같은 자리에서 같은 방식으로 돌린다 */
+  cycleGuard() {
+    const order = [null, ...GUARD_KINDS];
+    const i = order.indexOf(this.guard);
+    this.guard = order[(i + 1) % order.length];
+    return this.guard;
+  }
+
+  /** 댄 자리로 실제로 받아 낼 확률(%) — 빠를수록 잘 댄다 (§5.14) */
+  guardChance() {
+    const mine = (this.golem.stats.spd ?? 0) * rankMul(this.golem.ranks.spd);
+    const theirs = (this.mon.stats.spd ?? 0) * rankMul(this.mon.ranks.spd);
+    return Math.max(GUARD_MIN, Math.min(GUARD_MAX,
+      Math.round(GUARD_BASE + (mine - theirs) * GUARD_PER_SPD)));
+  }
+
+  /** 막기에 쓸 수 있는 부위 — 방어도가 남아 있는 자리만 댈 수 있다 */
+  guardable() {
+    const kinds = new Set();
+    for (const f of Object.values(this.frames)) if (!f.down) kinds.add(SLOT_KIND[f.slot]);
+    return GUARD_KINDS.filter((k) => kinds.has(k));
   }
 
   /** 조준 부위 전환 — 매 턴 클릭을 늘리지 않도록 토글로 둔다 */
@@ -244,14 +281,22 @@ export class Combat {
     }
 
     if (s.power > 0) {
+      /* 같은 기술을 여러 부속이 함께 내놓으면 그 기술이 날카로워진다 (§5.12).
+         결이 겹친 속성으로 때리면 공명한다 (§5.13). 둘 다 **조립에서 번 것**이다. */
+      const step = stackStep(this.g.stacks?.[sid] ?? 1);
+      const reso = resoAttackMul(this.g.elements ?? {}, el);
+      const power = Math.round(s.power * (1 + STACK_POWER * step) * reso);
+      const acc = s.accuracy + conf.acc + STACK_ACC * step;
+      if (step) this.say(`같은 결의 부속 ${(this.g.stacks[sid])}개가 함께 움직인다. (위력 +${Math.round(STACK_POWER * step * 100)}%)`, 'good');
+      else if (reso > 1) this.say(`${el}의 결이 공명한다. (위력 +${Math.round((reso - 1) * 100)}%)`, 'good');
       const hits = s.hits ?? 1;
       let total = 0;
       for (let i = 0; i < hits; i++) {
-        if (!this.rollHit(this.golem, this.mon, s.accuracy + conf.acc)) {
+        if (!this.rollHit(this.golem, this.mon, acc)) {
           this.say(`${this.mon.name}이(가) 몸을 비틀어 피했다.`, 'dim');
           continue;
         }
-        total += this.dealDamage(this.golem, this.mon, s.power, el);
+        total += this.dealDamage(this.golem, this.mon, power, el);
       }
       if (total > 0) {
         this.reportElement(el);
@@ -353,6 +398,15 @@ export class Combat {
     const m = elemMul(s.element, this.golem.defElement);
     if (s.power > 0) mul *= m >= 1.5 ? 1.5 : m <= 0.5 ? 0.5 : 1;
 
+    /* 한 결로 몰아 쌓았으면 적이 그 약점을 파고든다 (§5.13).
+       「반대 상성에 취약해진다」가 배율표 속에만 있으면 아무 일도 일어나지 않는다 —
+       적이 실제로 그 속성을 **더 자주 들어야** 몰아 쌓기가 도박이 된다. */
+    if (s.power > 0) {
+      const counts = this.g.elements ?? {};
+      const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      if (top && top[1] >= 2 && elemMul(s.element, top[0]) >= 1.5) mul *= 1 + 0.4 * (top[1] - 1);
+    }
+
     // 이미 걸린 상태이상을 또 거는 데 턴을 쓰지 않는다
     const adds = (s.effects ?? []).filter((e) => e.op === 'status').map((e) => e.id);
     if (adds.length && adds.every((id) => this.golem.statuses[id])) mul *= 0.35;
@@ -422,22 +476,60 @@ export class Combat {
     return this.rng.chance(chance);
   }
 
+  /**
+   * 이 한 대를 **어느 자리로 받는가**를 먼저 정한다 (§5.14).
+   * 댄 자리가 있으면 속도 싸움을 한 번 하고, 없거나 졌으면 아무 자리나 맞는다.
+   * 자리가 먼저 정해져야 그 자리의 결로 속성을 따질 수 있다 — 순서가 규칙이다.
+   */
+  resolveGuard() {
+    const alive = Object.values(this.frames).filter((f) => !f.down);
+    if (!alive.length) return { frame: null, blocked: false };
+    if (!this.guard) return { frame: this.rng.pick(alive), blocked: false };
+    const want = alive.filter((f) => SLOT_KIND[f.slot] === this.guard);
+    if (!want.length) return { frame: this.rng.pick(alive), blocked: false };
+    if (!this.rng.chance(this.guardChance())) {
+      const other = alive.filter((f) => !want.includes(f)); // 댄 자리를 피해 들어온다
+      this.say(`${GUARD_LABEL[this.guard]}을(를) 댔지만 늦었다.`, 'bad');
+      return { frame: this.rng.pick(other.length ? other : alive), blocked: false };
+    }
+    return { frame: this.rng.pick(want), blocked: true };
+  }
+
   dealDamage(from, to, power, element) {
+    /* 골렘이 맞는 경우에는 **맞는 자리를 먼저 정하고** 그 자리의 결로 상성을 본다.
+       전에는 몸통의 속성 하나가 골렘 전체의 방어 속성이었다 (§5.13). */
+    const g = to === this.golem ? this.resolveGuard() : null;
+    // 결이 없는 부속은 골렘의 몸통 속성으로 받는다 (§5.13)
+    const defEl = (g?.frame ? partElement(g.frame.part) : null) ?? to.defElement;
     let dmg = damage({
       power,
       atk: from.stats.atk,
       def: to.stats.def ?? 0,
       atkEl: element,
-      defEl: to.defElement,
+      defEl,
       atkRank: from.ranks.atk,
       defRank: to.ranks.def,
     });
+    if (to === this.golem) {
+      // 결이 여럿 겹친 자리는 같은 속성을 받아넘기고, 그 결을 누르는 속성에는 약하다
+      const reso = resoDefenseMul(this.g.elements ?? {}, element, defEl);
+      if (reso !== 1) {
+        dmg = Math.max(1, Math.round(dmg * reso));
+        this.say(reso < 1
+          ? `겹쳐 쌓은 ${defEl}의 결이 같은 기운을 흘려보낸다.`
+          : `${defEl}로 몰아 쌓은 탓에 ${element}이(가) 깊이 파고든다.`, reso < 1 ? 'good' : 'bad');
+      }
+      if (g?.blocked) {
+        dmg = Math.max(1, Math.round(dmg * (1 - GUARD_CUT)));
+        this.say(`${GUARD_LABEL[this.guard]}(으)로 받아 냈다. (${defEl} · 피해 -${Math.round(GUARD_CUT * 100)}%)`, 'good');
+      }
+    }
     if (hasStatus(from, '화상')) dmg = Math.floor(dmg * 0.75);
     if (hasStatus(to, '균열')) dmg = Math.floor(dmg * 1.5);
     if (this.rng.chance(5)) { dmg = Math.floor(dmg * 1.5); this.say('급소에 들어갔다!', 'good', { big: true }); }
 
     if (to === this.golem) {
-      const leak = this.absorb(dmg);
+      const leak = this.absorb(dmg, g?.frame ?? null);
       if (leak > 0) {
         to.hp -= leak;
         this.say(`핵이 ${leak}의 피해를 입는다.`, 'bad', { hit: 'golem', big: true });
@@ -463,7 +555,7 @@ export class Combat {
    * 골렘이 받은 피해를 방어도로 막는다. 막지 못한 만큼만 핵으로 넘어간다 (§5.7).
    * @returns 핵에 닿은 피해
    */
-  absorb(dmg) {
+  absorb(dmg, first0 = null) {
     let left = dmg;
     let bare = 0;
     // 흉곽이 없으면 일부는 방어도를 지나쳐 곧장 핵으로 간다
@@ -471,8 +563,8 @@ export class Combat {
       bare = Math.max(1, Math.round(dmg * CORE_EXPOSED));
       left -= bare;
     }
-    // 조준된 부위가 먼저 맞고, 모자라면 남은 부위가 이어 받는다
-    const first = this.pickFrame(this.frames, 'slots');
+    // 맞기로 정해진 부위가 먼저 받고, 모자라면 남은 부위가 이어 받는다
+    const first = first0 ?? this.pickFrame(this.frames, 'slots');
     const order = [first, ...Object.values(this.frames).filter((f) => f && f !== first && !f.down)]
       .filter(Boolean);
     for (const f of order) {

@@ -197,6 +197,28 @@ export function partStats(p) {
   return out;
 }
 
+/**
+ * 부속의 결 — 이 부속이 어떤 속성으로 서 있는가 (§3.9).
+ * 전에는 `def_element`가 적힌 스무 개 남짓만 속성을 가졌고, 그중에서도 **몸통 것 하나만**
+ * 골렘 전체의 방어 속성이 됐다. 나머지 부위는 무엇으로 만들었든 방어에 아무 영향이 없었다.
+ * 이제 모든 부속이 결을 갖는다 — 적힌 것이 있으면 그것을, 없으면 **그 부속이 내놓는
+ * 기술의 속성**을 따른다. 발톱이 달린 팔은 참격이고, 언 다리는 냉기다.
+ */
+export function partElement(p) {
+  const def = DB.partsBy[p.defId];
+  if (def?.def_element) return def.def_element;
+  const count = {};
+  for (const sid of partSkills(p)) {
+    const el = DB.skillsBy[sid]?.element;
+    if (el) count[el] = (count[el] ?? 0) + 1;
+  }
+  const top = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+  /* 결이 없을 수도 있다 — **없는 것이 정상이다.**
+     처음엔 모르면 '타격'으로 뒀는데, 그러자 기술 없는 부속이 죄다 타격이 되어
+     아무 골렘이나 공명해 버렸다(§5.13). 공명은 **골라서 모았을 때** 받는 값이다. */
+  return top ? top[0] : null;
+}
+
 export function partSkills(p) {
   const def = DB.partsBy[p.defId];
   const mod = p.mod ? DB.modifiersBy[p.mod] : null;
@@ -258,6 +280,52 @@ export function rollSpareLoss(spares, rate, rng) {
   return lost;
 }
 
+/* ── 겹침과 공명 (§5.12 · §5.13) ────────────────────
+   부속을 여섯 개 고르는 일이 「스탯 합계가 제일 큰 여섯 개」 고르기가 되면 안 된다.
+   같은 것을 겹쳐 쌓는 길과 골고루 펴는 길이 **서로 다른 골렘**이 되어야 한다. */
+
+/** 같은 기술을 몇 개의 부속이 함께 내놓는가 → 그 기술이 날카로워진다 (§5.12) */
+export const STACK_CAP = 3;              // 세 장을 넘겨 겹쳐도 더는 늘지 않는다
+export const STACK_POWER = 0.12;         // 한 장 겹칠 때마다 위력 +12%
+export const STACK_ACC = 4;              // 명중 +4
+
+export function skillStacks(worn) {
+  const n = {};
+  for (const w of worn) for (const sid of partSkills(w.part)) n[sid] = (n[sid] ?? 0) + 1;
+  return n;
+}
+export const stackStep = (count) => Math.max(0, Math.min(STACK_CAP, count ?? 1) - 1);
+
+/** 결이 같은 부속이 몇이나 붙었는가 → 그 속성으로 공명한다 (§5.13) */
+export const RESO_CAP = 4;
+export const RESO_POWER = 0.10;          // 공명하는 속성의 공격 위력 +10%/장
+export const RESO_GUARD = 0.08;          // 그 속성으로 맞을 때 피해 -8%/장
+export const RESO_FRAGILE = 0.10;        // 그 속성을 **찍어 누르는** 속성에는 +10%/장 더 아프다
+
+export function elementCounts(worn) {
+  const n = {};
+  for (const w of worn) { const e = partElement(w.part); if (e) n[e] = (n[e] ?? 0) + 1; }
+  return n;
+}
+export const resoStep = (count) => Math.max(0, Math.min(RESO_CAP, count ?? 0) - 1);
+
+/** 공명한 속성으로 때릴 때의 위력 배수 */
+export function resoAttackMul(counts, element) {
+  return 1 + RESO_POWER * resoStep(counts[element] ?? 0);
+}
+
+/**
+ * 공명한 결로 맞을 때의 피해 배수.
+ * 같은 속성이면 잘 받아넘기고(−), 그 결을 눌러 이기는 속성이면 더 아프다(+).
+ * 몰아 쌓은 골렘은 세지만 **카운터 하나에 무너진다** — 그것이 이 규칙이 사는 값이다.
+ */
+export function resoDefenseMul(counts, atkElement, partEl) {
+  const step = resoStep(counts[partEl] ?? 0);
+  if (!step) return 1;
+  if (atkElement === partEl) return 1 - RESO_GUARD * step;
+  return elemMul(atkElement, partEl) >= 1.5 ? 1 + RESO_FRAGILE * step : 1;
+}
+
 export function assembleGolem(save) {
   const stats = { hp: 0, atk: 0, def: 0, eva: 0, spd: 0, focus: 0 };
   let defElement = '타격';
@@ -307,7 +375,11 @@ export function assembleGolem(save) {
   const shieldTotal = worn.reduce((n, w) => n + w.shieldMax, 0);
   const shieldNowTotal = worn.reduce((n, w) => n + w.shield, 0);
 
+  const stacks = skillStacks(worn);
+  const elements = elementCounts(worn);
+
   return { stats, defElement, skills, active, worn, traits, core, shieldTotal, shieldNowTotal,
+           stacks, elements,
            manaMax, manaUsed, manaOver: manaUsed > manaMax,
            // 핵만 있으면 선다. 흉곽은 있으면 좋은 것이지 필수가 아니다 (§3.1)
            standing: Boolean(core),

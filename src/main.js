@@ -5,9 +5,9 @@ import {
   rollMonster, rollElite, rollBoss, rollLoot, syncUidSeq, skillElement, AIM, RAW_WEAR, wornLow,
   stageOf, partOf, shieldNow, shieldMax, partMana, coreMana, CORE_MANA_STEP, CORE_MANA_MAX_LV,
   partFlavor,
-  rollSpareLoss,
+  rollSpareLoss, partElement, elemMul,
 } from './core.js';
-import { Combat } from './combat.js';
+import { Combat, GUARD_LABEL } from './combat.js';
 import * as CP from './campaign.js';
 import { generateFloor, roomAt, exitsOf, ROOM_LABEL, ROOM_ICON, FLAVOR, DIR_KEY } from './dungeon.js';
 import {
@@ -2859,7 +2859,8 @@ function slotScreen(slot, back, canEdit = true) {
 
   UI.topbar(S, `골렘 · ${SLOT_LABEL[slot]}`);
   // 도식에서 다른 부위를 누르면 그 자리로 곧장 건너뛴다 (§12.9)
-  UI.golemPanel(S, (next) => slotScreen(next, back, canEdit));
+  // 고른 자리의 부속 하나를 왼쪽에서 펼쳐 준다 (§12.13) — 합계만 보고는 뭘 뺄지 못 고른다
+  UI.golemPanel(S, (next) => slotScreen(next, back, canEdit), slot);
   UI.logHead(`${SLOT_LABEL[slot]} 교체`);
   if (cur) {
     UI.logLine(`현재: ${partName(cur)} (내구도 ${cur.integrity}/${cur.maxIntegrity})`);
@@ -2887,7 +2888,7 @@ function slotScreen(slot, back, canEdit = true) {
           : `마력 ${partMana(p)} · ${p.raw ? '날것 · ' : ''}${diffText(slot, p)} · ${p.integrity}/${p.maxIntegrity}`,
         // 버튼에 얹기만 해도 전후 비교가 왼쪽에 뜬다 — 암산을 시키지 않는다
         hover: () => previewSwap(slot, p, before),
-        unhover: () => UI.golemPanel(S, (next) => slotScreen(next, back, canEdit)),
+        unhover: () => UI.golemPanel(S, (next) => slotScreen(next, back, canEdit), slot),
         on: () => {
           S.golem[slot] = p.uid;
           const after = assembleGolem(S);
@@ -2955,9 +2956,14 @@ function inventoryScreen(back = town) {
     .map(([id, n]) => UI.rowHTML(DB.itemsBy[id].kind, UI.esc(DB.itemsBy[id].name), `${n}개`));
   // 어느 자리에 끼워져 있는지까지 적는다. '장착'만으로는 어느 팔인지 알 수 없다
   const slotOf = new Map(SLOTS.filter((x) => S.golem[x]).map((x) => [S.golem[x], x]));
-  const parts = S.inventory.map((p) => UI.rowHTML(
-    slotOf.has(p.uid) ? SLOT_LABEL[slotOf.get(p.uid)] : KIND_LABEL[DB.partsBy[p.defId].slot],
-    `${slotOf.has(p.uid) ? '<span class="chip good">장착</span> ' : ''}${p.raw ? '<span class="chip warn">날것</span> ' : ''}${UI.partHTML(p)}`,
+  /* 「가진 것」은 **쓸 수 있는 것**의 목록이다 (§12.14).
+     골렘에 붙어 있는 여섯은 이미 자리를 잡았고, 여기서 할 수 있는 일이 없다.
+     그것들까지 섞어 두면 정작 남는 여분이 목록 아래로 밀려 안 보인다 —
+     붙은 것은 골렘 도식에서 보고, 여기서는 여분만 센다. */
+  const spare = S.inventory.filter((p) => !equipped.has(p.uid));
+  const parts = spare.map((p) => UI.rowHTML(
+    KIND_LABEL[DB.partsBy[p.defId].slot],
+    `${p.raw ? '<span class="chip warn">날것</span> ' : ''}${UI.partHTML(p)}`,
     `${p.integrity}/${p.maxIntegrity}`, wornLow(p)));
   const rows = [...mats, ...items, ...parts];
   const away = [
@@ -2971,32 +2977,30 @@ function inventoryScreen(back = town) {
     ['대장간', (S.town?.smithy ?? []).length],
     ['해체대', (S.ossuary?.dissection?.slots ?? []).length],
   ].filter(([, n]) => n > 0);
-  UI.listPanel(`가진 것 — 파츠 ${S.inventory.length}개`, rows,
+  UI.listPanel(`가진 것 — 여분 부속 ${spare.length}개`, rows,
     away.length
       ? `<p class="note">맡겨 둔 것: ${away.map(([k, n]) => `${k} ${n}`).join(' · ')}<br>
          여기 없는 부속은 사라진 게 아니라 그쪽에 가 있다.</p>`
       : '');
   UI.logLine(`재료: 조각 ${S.scrap} · 진액 ${S.ichor} · 골분 ${S.boneMeal} / 은화 ${S.silver} · 영혼재 ${S.soulAsh}`, 'dim');
-  UI.logLine(`장착 ${slotOf.size}개 · 여분 ${S.inventory.length - slotOf.size}개. 여분은 무덤에서 무너지면 일부를 흘린다.`, 'dim');
+  UI.logLine(`골렘에 붙은 ${slotOf.size}개는 여기 없다 — 골렘 정비에서 본다.`, 'dim');
+  UI.logLine(`여분 ${spare.length}개. 여분은 무덤에서 무너지면 일부를 흘린다.`, 'dim');
   UI.choices([
     { label: '재화가 뭔지 보기', cls: 'ghost', pin: true, on: () => resourceGuideScreen(() => inventoryScreen(back)) },
     // 부속을 눌러 무엇을 할 수 있는 물건인지 본다 — 이름만으로는 알 수가 없다
     // 장착 중인 것을 위로 모으고, 어느 자리인지를 이름 앞에 박아 둔다
-    ...[...S.inventory]
-      .sort((a, b) => Number(slotOf.has(b.uid)) - Number(slotOf.has(a.uid)))
-      .map((p) => {
-        const at = slotOf.get(p.uid);
-        return {
-          label: `${at ? `<span class="chip good">${SLOT_LABEL[at]}</span> ` : ''}${UI.partHTML(p)}`,
-          meta: `${at ? '장착 중' : '여분'} · ${UI.RARITY_LABEL[UI.rarityOf(p)]}`
-            + ` · 마력 ${partMana(p)}${p.raw ? ' · 날것' : ''} · ${p.integrity}/${p.maxIntegrity}`,
-          on: () => partDetailScreen(p, () => inventoryScreen(back)),
-        };
-      }),
+    ...spare.map((p) => ({
+      label: UI.partHTML(p),
+      meta: `${UI.RARITY_LABEL[UI.rarityOf(p)]}`
+        + ` · 마력 ${partMana(p)}${p.raw ? ' · 날것' : ''} · ${p.integrity}/${p.maxIntegrity}`,
+      on: () => partDetailScreen(p, () => inventoryScreen(back)),
+    })),
     // 회복량은 데이터가 정한다. 여기에 숫자를 박아 두면 items.json을 고쳐도 안 따라온다
+    /* 역청은 목록이 아니라 **할 일**이다 — 닳는 것은 대개 붙어 있는 부속이므로
+       여기서는 장착 중인 것도 함께 내민다 (숨기는 것은 읽는 목록뿐이다). */
     ...S.inventory.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
       .map((p) => ({
-        label: `${partName(p)}에 역청`,
+        label: `${partName(p)}에 역청${slotOf.has(p.uid) ? ` <span class="chip good">${SLOT_LABEL[slotOf.get(p.uid)]}</span>` : ''}`,
         meta: `+${BITUMEN()} (${S.consumables.it_bitumen}개 남음)`, on: () => {
           S.consumables.it_bitumen--;
           p.integrity = Math.min(p.maxIntegrity, p.integrity + BITUMEN());
@@ -3650,6 +3654,7 @@ function startBattle(room, elite, isBoss = false) {
     UI.logLine('— 처음이니 한 번만 짚는다 —', 'necro');
     UI.logLine('피해는 핵이 아니라 부속의 방어도부터 깎는다. 방어도가 다 닳아야 핵이 맞는다.', 'necro');
     UI.logLine('🎯 조준으로 적의 부위를 노릴 수 있다. 부수면 적이 약해지지만 그 부속은 못 얻는다.', 'necro');
+    UI.logLine('🛡 막기로 받을 자리를 댈 수 있다. 성공하면 피해가 줄고 그 자리의 결로 상성을 따진다 — 빠를수록 잘 댄다.', 'necro');
     UI.logLine('🕯 술법은 골렘의 턴을 빼앗지 않는다. 걸어 두면 골렘의 공격과 같은 턴에 함께 나간다.', 'necro');
     UI.logLine('자세한 건 마을의 뼈 수습꾼에게 물어보면 된다.', 'dim');
   }
@@ -3670,6 +3675,31 @@ function combatTurn() {
     nokey: true,
     on: () => { cb.cycleAim(); combatTurn(); },
   });
+
+  /* 막기 — 조준과 나란히 선다 (§5.14). 조준이 「어디를 때릴까」면 이쪽은 「어디로 받을까」다. */
+  const canGuard = cb.guardable();
+  if (canGuard.length) {
+    const gc = cb.guardChance();
+    const gname = cb.guard ? GUARD_LABEL[cb.guard] : '맡긴다';
+    const frame = cb.guard
+      ? Object.values(cb.frames).find((f) => !f.down && SLOT_KIND[f.slot] === cb.guard)
+      : null;
+    const gel = frame ? partElement(frame.part) : null;
+    list.push({
+      label: `🛡 막기 — <b>${gname}</b>`,
+      meta: cb.guard ? `성공 ${gc}%${gel ? ` · ${gel}` : ''}` : '어디로 맞을지 맡긴다',
+      cls: cb.guard ? 'primary' : 'ghost',
+      nokey: true,
+      info: `<span class="tt">막을 곳을 고른다</span>`
+        + `<span class="tm">고른 자리로 받아 내면 피해 -25%, 그 자리의 결로 상성을 따진다</span>`
+        + `<div class="trow"><span>성공 확률</span><b>${gc}%</b></div>`
+        + `<div class="trow"><span>내 속도 / 적 속도</span>`
+        + `<span>${Math.round(cb.golem.stats.spd)} / ${Math.round(cb.mon.stats.spd)}</span></div>`
+        + (gel ? `<div class="trow"><span>${GUARD_LABEL[cb.guard]}의 결</span><b>${gel}</b></div>` : '')
+        + `<div class="trow"><span>빠를수록 댄 자리로 잘 받는다. 느리면 피해 때린다.</span></div>`,
+      on: () => { cb.cycleGuard(); combatTurn(); },
+    });
+  }
 
   // 술법은 골렘의 공격에 얹어 나간다 (§9-A). 여기서 걸어 두고 기술을 고르면 함께 터진다
   const spells = cb.necroSkills();
