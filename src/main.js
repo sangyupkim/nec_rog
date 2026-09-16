@@ -1980,7 +1980,8 @@ function forgeJobScreen() {
   UI.choices([
     ...Object.entries(O.RECIPES).map(([key, r]) => {
       // 못 누르는 이유를 버튼에 적는다. 그냥 흐려지기만 하면 고장으로 읽힌다
-      const noStock = key === 'revive' ? !o.vault.lostRecords.length
+      const noStock = r.noInput ? false                 // 굳히기는 부속을 쓰지 않는다 (§10.6)
+        : key === 'revive' ? !o.vault.lostRecords.length
         : key === 'attune' ? rawCount < 1
         : key === 'mend' ? damagedCount < 1
         : spareCount < (key === 'fuse' ? 2 : 1);
@@ -2020,6 +2021,18 @@ function recipeScreen(key, first = null) {
       + (ms < r.ms ? ` (작업반이 ${Math.round((1 - ms / r.ms) * 100)}% 단축)` : ''), 'good');
     forgeJobScreen();
   };
+
+  // 부속을 쓰지 않는 조리법은 고를 것이 없다 — 바로 건다
+  if (r.noInput) {
+    UI.choices([
+      { label: `${r.name} 시작`, cls: 'primary',
+        meta: `${costText(r)} → ${Object.entries(r.gives ?? {}).map(([k, v]) => `${O.RES_LABEL[k]} +${v}`).join(' · ')}`,
+        disabled: !Object.entries(r.cost).every(([k, v]) => (S[k] ?? 0) >= v),
+        on: () => start([]) },
+      { label: '돌아간다', cls: 'ghost', pin: true, on: forgeJobScreen },
+    ]);
+    return;
+  }
 
   if (key === 'revive') {
     UI.choices([

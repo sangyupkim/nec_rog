@@ -46,7 +46,8 @@ export function tripRate(stageIndex) {
   return {
     silver: 8 + t * 4,
     scrap: 3 + t * 2,
-    boneMeal: t >= 3 ? 1 + Math.floor(t / 3) : 0,
+    // 골분은 처음부터 나온다 — 정비의 발목을 잡는 것이 늘 골분이었다 (§10.6)
+    boneMeal: 1 + Math.floor(t / 3),
     ichor: t >= 5 ? 1 + Math.floor(t / 5) : 0,
   };
 }
@@ -68,6 +69,11 @@ export const RECIPES = {
              cost: { boneMeal: 5 } },
   revive:  { name: '소생', ms: 240 * 60_000, desc: '런에서 잃은 파츠를 복원한다.',
              cost: { ichor: 10, boneMeal: 8 } },
+  /* 남는 것을 모자란 것으로 바꾸는 길 (§10.6).
+     부패조는 진액을 끝없이 만들지만 쓰는 곳이 적어 상한에 눌러앉는다.
+     굳히기는 그 진액을 골분으로 바꾼다 — 재료를 넣지 않고 부속도 쓰지 않는 유일한 조리법이다. */
+  congeal: { name: '굳히기', ms: 25 * 60_000, desc: '넘치는 진액을 졸여 골분으로 굳힌다. 진액 8 → 골분 3.',
+             cost: { ichor: 8 }, noInput: true, gives: { boneMeal: 3 } },
 };
 
 /* ── 초기 상태 ──────────────────────────────────── */
@@ -162,8 +168,8 @@ export const forgeSlots = (o) => o.forge.level;
 export const laborSlots = (o) => o.laborBay.level;
 
 export const DISSECT = {
-  common: { ms: 10 * 60_000, scrap: [3, 5], ichor: 0, boneMeal: 0 },
-  rare:   { ms: 30 * 60_000, scrap: [8, 12], ichor: 1, boneMeal: 0 },
+  common: { ms: 10 * 60_000, scrap: [4, 7], ichor: 0, boneMeal: 0 },
+  rare:   { ms: 30 * 60_000, scrap: [8, 12], ichor: 1, boneMeal: 1 },
   unique: { ms: 120 * 60_000, scrap: [20, 20], ichor: 3, boneMeal: 2 },
 };
 
@@ -176,19 +182,22 @@ export const DISSECT = {
 export const OVERHAUL = {
   shield: {
     name: '방어도 재건', desc: '모든 부위의 방어도를 상한까지 되돌린다.',
-    cost: { scrap: 40, boneMeal: 4 },
+    cost: { scrap: 40, boneMeal: 2 },
     base: 4 * 60_000, per: 200, step: 60_000, cap: 25 * 60_000,
   },
   core: {
+    /* 핵은 **진액으로 채운다.** 전에는 진액 5 + 골분 4였는데,
+       골분이 한 단계에 2.8밖에 안 들어오는 판에 정비 셋이 11을 먹었다 (§10.6).
+       진액은 부패조가 끝없이 만들어 남아돌았다 — 쓰는 곳과 나는 곳을 맞바꾼다. */
     name: '핵 안정화', desc: '핵의 체력을 가득 채운다.',
-    cost: { ichor: 5, boneMeal: 4 },
+    cost: { ichor: 12 },
     base: 3 * 60_000, per: 30, step: 60_000, cap: 20 * 60_000,
   },
   // 내구도도 고칠 수 있어야 좋은 부속을 계속 데려간다 (§3.3-B).
   // 접합로의 '수복'은 한 부속씩 30분이라 상비 정비로는 무겁다 — 여기서는 골렘 통째로 한 번에.
   wear: {
     name: '부속 수복', desc: '장착한 모든 부속의 내구도를 상한까지 되돌린다.',
-    cost: { scrap: 25, boneMeal: 3 },
+    cost: { scrap: 25, boneMeal: 2 },
     base: 3 * 60_000, per: 8, step: 60_000, cap: 20 * 60_000,
   },
 };
@@ -337,6 +346,14 @@ function settleForge(save, o, now, rng, lines) {
     return false;
   });
   for (const s of done) {
+    // 재화만 돌려주는 조리법(굳히기)은 부속을 만들지 않는다 (§10.6)
+    const gives = RECIPES[s.recipe]?.gives;
+    if (gives) {
+      for (const [k, v] of Object.entries(gives)) save[k] = (save[k] ?? 0) + v;
+      lines.push({ facility: '접합로',
+        text: `${RECIPES[s.recipe].name} 완료 — ${Object.entries(gives).map(([k, v]) => `${RES_LABEL[k]} +${v}`).join(', ')}` });
+      continue;
+    }
     const part = finishRecipe(save, s, rng);
     if (!part) { lines.push({ facility: '접합로', text: `${RECIPES[s.recipe].name} 실패 — 재료를 돌려받았다` }); continue; }
     pushToVault(save, o, part, lines);

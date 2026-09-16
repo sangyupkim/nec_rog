@@ -11,6 +11,7 @@
     "check": "npm run validate && npm run balance && npm run taunt && npm run simulate",
     "rebalance": "node tools/rebalance.mjs",
     "simulate": "node tools/simulate.mjs",
-    "taunt": "node tools/taunt.mjs"
+    "taunt": "node tools/taunt.mjs",
+    "economy": "node tools/economy.mjs"
   }
 }
