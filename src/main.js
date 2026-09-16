@@ -3650,7 +3650,8 @@ function combatTurn() {
             + `<span>${n.usable ? `영력 ${n.will}` : n.cd > 0 ? `${n.cd}턴 대기` : '영력 부족'}</span></div>`).join(''),
       disabled: !ready,
       nokey: true,
-      on: () => { cb.cyclePrep(); combatTurn(); },
+      // 돌려 가며 고르는 것이 아니라 **골라 놓은 것을 보고 고른다** — 「가방」과 같은 방식 (§5.11)
+      on: () => spellPickScreen(),
     });
   }
   for (const s of cb.golemSkills()) {
@@ -3676,13 +3677,48 @@ function combatTurn() {
   const canObserve = !cb.watched;
   if (items.length || canObserve) {
     list.push({
-      label: '🎒 지닌 것', cls: 'ghost',
+      label: '🎒 가방', cls: 'ghost',
       meta: items.length ? `${items.reduce((n, i) => n + i.count, 0)}개${canObserve ? ' · 관찰' : ''}` : '관찰',
       on: () => itemTurnScreen(items, canObserve),
     });
   }
   // 전투에서는 쪽을 나누지 않는다 — 쓸 수 있는 기술이 한눈에 다 보여야 한다
   UI.choices(list, { paged: false });
+}
+
+/**
+ * 전투 중 술법 고르기 (§5.11).
+ * 전에는 버튼 하나를 눌러 **돌려 가며** 골랐다 — 무엇이 있는지 보려면 끝까지 눌러 봐야 했고,
+ * 지나치면 한 바퀴 더 돌아야 했다. 「가방」처럼 **늘어놓고 고른다.**
+ * 여기서 고르는 것은 *걸어 두는 일*이라 턴을 쓰지 않는다 — 기술을 골라야 함께 나간다.
+ */
+function spellPickScreen() {
+  const spells = cb.necroSkills();
+  const prep = cb.prepValid();
+  UI.topbar(S, `전투 · ${cb.mon.name}`);
+  UI.combatPanel(cb, S);
+  UI.logLine(`영력 ${cb.will}/10 — 술법은 골렘의 공격과 함께 나간다. 여기서는 턴을 쓰지 않는다.`, 'dim');
+  UI.choices([
+    ...spells.map((n) => {
+      const def = DB.necro_skillsBy[n.id];
+      const on = prep?.id === n.id;
+      return {
+        label: `${on ? '▶ ' : ''}${UI.esc(n.name)}`,
+        cls: on ? 'primary' : '',
+        meta: on ? '걸어 뒀다 — 다시 누르면 푼다'
+          : n.usable ? `영력 ${n.will}${def?.cooldown ? ` · 재사용 ${def.cooldown}턴` : ''}`
+          : n.cd > 0 ? `${n.cd}턴 대기` : `영력 ${n.will} — 모자라다`,
+        disabled: !n.usable && !on,
+        info: `<span class="tt">${UI.esc(n.name)}</span>`
+          + `<span class="tm">${UI.esc(def?.school ?? '')} · 영력 ${n.will}</span>`
+          + `<div class="trow"><span>${UI.esc(def?.desc ?? '')}</span></div>`,
+        on: () => { cb.prep = on ? null : n.id; combatTurn(); },
+      };
+    }),
+    prep ? { label: '걸어 둔 것을 푼다', cls: 'ghost',
+      on: () => { cb.prep = null; combatTurn(); } } : null,
+    { label: '돌아간다', cls: 'ghost', pin: true, on: combatTurn },
+  ], { paged: false });
 }
 
 /** 전투 중 물약·관찰 — 고르면 그 턴을 쓴다 */
