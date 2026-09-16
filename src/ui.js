@@ -926,7 +926,7 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
   const mat = [
     `부패조 ${o.rotVat.stored}/${O.vatCap(o)}`,
     o.dissection.slots.length ? `해체 ${o.dissection.slots.length}` : null,
-    o.built.laborBay && o.laborBay.dispatch.length ? `탐험 ${o.laborBay.dispatch.length}` : null,
+    o.built.laborBay ? `탐험 ${o.laborBay.dispatch.length}/${O.laborSlots(o)}` : null,
   ].filter(Boolean).join(' · ');
   t('materials', '🫗', '재료', vatFull ? `${mat} 가득` : mat, vatFull);
 

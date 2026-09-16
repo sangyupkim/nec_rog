@@ -162,15 +162,14 @@ function migrate(s) {
   }
   // 정비 작업은 이제 골렘 한 기에 묶인다 (§9.8). 옛 기록은 지금 몸에 붙인 것으로 본다
   for (const j of s.ossuary?.overhaul ?? []) j.golemId ??= s.golem.id;
-  /* 핵만 있는 몸에는 일을 못 시킨다 (§9.6-A). 옛 세이브에는 그렇게 붙여 둔 것이 있으므로
-     작업반에서 떼어내고, 자율 탐험에 나가 있으면 불러들인다. */
+  /* 핵만 있는 몸에는 일을 못 시킨다 (§9.6-A). 옛 세이브에는 그렇게 붙여 둔 것이 있다.
+     **작업반에서만 떼어낸다.** 작업반은 계속 이득을 주는 자리라 물려야 하지만,
+     이미 나가 있는 자율 탐험은 *걸어 둔 일*이다 — 규칙이 바뀌었다고 말없이 없애면
+     플레이어는 보낸 골렘이 사라졌다고 본다. 나간 것은 끝까지 다녀오게 두고,
+     새로 보내는 것만 막는다. */
   for (const g of s.ossuary?.workshop?.golems ?? []) {
     if ((g.parts?.length ?? 0) >= 1) continue;
-    if (g.assigned === 'labor') {
-      s.ossuary.laborBay.dispatch = (s.ossuary.laborBay?.dispatch ?? [])
-        .filter((d) => d.golemId !== g.id);
-    }
-    g.assigned = null;
+    if (g.assigned === 'crew') g.assigned = null;
   }
   s.consumables ??= {};
   s.owned ??= { attachments: [] };
@@ -2005,7 +2004,9 @@ function laborScreen() {
       return UI.rowHTML(O.remainText(d.startedAt, d.durationMs), UI.esc(g?.name ?? '?'),
         d.stageName ?? '', !g);
     }),
-    `<p class="note">깬 단계로 돌려보내 조각·골분·진액·은화를 주워 오게 한다. 운이 좋으면 부속도.<br>
+    `<p class="note">한 번에 <b>${O.laborSlots(o)}기</b>까지 내보낼 수 있다
+      (지금 ${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸). 제단의 <b>안치소 증설</b>로 늘린다.<br>
+      깬 단계로 돌려보내 조각·골분·진액·은화를 주워 오게 한다. 운이 좋으면 부속도.<br>
       주워 온 부속은 <b>표본실</b>로 들어가고, 날것이라 정착을 거쳐야 한다.<br>
       나가 있는 동안 그 골렘은 쓸 수 없다. 돌아올 때 부속 하나가 닳을 수 있다.</p>`);
 
@@ -2016,6 +2017,9 @@ function laborScreen() {
   }
   const free = O.laborSlots(o) - o.laborBay.dispatch.length;
   const idle = golems.filter((g) => !g.assigned && canWork(g));
+  if (free <= 0) {
+    UI.logLine(`안치소가 ${O.laborSlots(o)}칸뿐이다. 제단에서 안치소를 넓히면 더 보낼 수 있다.`, 'dim');
+  }
   if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 여분 핵으로 한 기를 세워야 보낸다.', 'dim');
   else if (!idle.length) {
     const empty = golems.filter((g) => !g.assigned && !canWork(g)).length;
