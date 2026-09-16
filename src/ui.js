@@ -248,11 +248,20 @@ function showTip(html, anchor) {
   t.style.top = `${Math.round(top)}px`;
 }
 
-/** 이 버튼이 더 보여 줄 것이 있는가 — 글자가 잘렸거나 info가 붙어 있거나 */
+/**
+ * 이 버튼이 더 보여 줄 것이 있는가 — 붙여 둔 상세가 있거나, **눈에 띄게** 잘렸거나.
+ *
+ * 여유(tolerance)를 넉넉히 두는 이유: 기기마다 글꼴과 화면 배율이 달라
+ * 잘리지 않은 한 줄도 `scrollHeight`가 1~3px 더 나오는 일이 흔하다.
+ * 그걸 잘린 것으로 치면 「돌아간다」까지 두 번 눌러야 하는 물건이 된다.
+ * 진짜 잘림은 말줄임표 하나만 해도 한 글자 폭이므로, 반 글자보다 크게 넘칠 때만 본다.
+ */
 function hasMore(btn, c) {
   if (c.info) return true;
   for (const el of btn.querySelectorAll('.nm, .meta')) {
-    if (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1) return true;
+    const em = parseFloat(getComputedStyle(el).fontSize) || 14;
+    const tol = Math.max(5, em * 0.5);
+    if (el.scrollWidth - el.clientWidth > tol || el.scrollHeight - el.clientHeight > tol) return true;
   }
   return false;
 }
