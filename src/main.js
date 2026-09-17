@@ -646,7 +646,8 @@ function partDetailScreen(part, back, action = null) {
 
   UI.topbar(S, action?.title ?? '소지품 · 부속');
   const rows = [
-    UI.rowHTML('자리', KIND_LABEL[def.slot],
+    /* 등급은 색이 붙은 조각이라 곁말 자리에 그냥 넣으면 태그가 글자로 나온다 (§12.18-B) */
+    UI.rowHTML('자리', KIND_LABEL[def.slot], UI.RARITY_LABEL[def.rarity], false, null,
       `<span class="rar ${def.rarity}">${UI.RARITY_LABEL[def.rarity]}</span>`),
     UI.rowHTML('요구 마력', String(partMana(part)), '핵이 감당해야 한다'),
     // 둘은 서로 다른 축이다 — 내구도는 '쓰면 닳고', 방어도는 '맞으면 깎인다' (§3.3-A)

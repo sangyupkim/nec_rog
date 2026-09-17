@@ -137,7 +137,22 @@ export function logPlay(lines) {
       for (; i < list.length; i++) emit(list[i], true);
       finish();
     };
-    const onSkip = () => dump();
+    /* 건너뛰기는 **그 누름 하나로 끝나야 한다** (§5.8-B).
+       전에는 `pointerdown`으로 줄을 쏟고, 같은 누름이 낳은 `click`이
+       **방금 그려진 카드**에 그대로 떨어졌다 — 건너뛰기를 눌렀을 뿐인데
+       뒤에 있던 기술이 저절로 쓰였다. 누름의 나머지 절반(click·pointerup)과
+       같은 키의 keyup을 한 번 삼켜, 다음 고르기는 **사람이 다시 누르게** 한다. */
+    const eat = (type) => {
+      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      window.addEventListener(type, swallow, { capture: true, once: true });
+      // 끝내 그 짝이 오지 않는 경우도 있다(취소된 누름) — 잠시 뒤 스스로 걷는다
+      setTimeout(() => window.removeEventListener(type, swallow, true), 700);
+    };
+    const onSkip = (e) => {
+      if (e?.type === 'pointerdown') { eat('pointerup'); eat('click'); }
+      if (e?.type === 'keydown') { e.stopPropagation(); e.preventDefault(); eat('keyup'); }
+      dump();
+    };
 
     function emit(l, quiet) {
       logLine(l.text, `${l.cls ?? ''}${l.big ? ' big' : ''}`);
@@ -1304,8 +1319,8 @@ export function golemPanel(save, onPick = null, focus = null) {
  * 목록과 버튼을 두 벌로 늘어놓는 대신, 읽는 목록을 그대로 고르는 목록으로 쓴다.
  * 고른 줄은 `picked`로 표시하고, 하단은 그 줄에 할 수 있는 것만 남긴다.
  */
-export function listPanel(title, rows, extra = '', onPick = null, picked = null) {
-  panel(`<p class="pt">${esc(title)}</p>
+export function listPanel(title, rows, extra = '', onPick = null, picked = null, titleHTML = null) {
+  panel(`<p class="pt">${titleHTML ?? esc(title)}</p>
     <div class="rows${onPick ? ' pickable' : ''}">${rows.length ? rows.join('') : '<p class="empty">비어 있다.</p>'}</div>${extra}`);
   if (!onPick) return;
   for (const el of document.querySelectorAll('.rows.pickable .row[data-pick]')) {
@@ -1314,12 +1329,14 @@ export function listPanel(title, rows, extra = '', onPick = null, picked = null)
   }
 }
 
-/** pick을 주면 누를 수 있는 줄이 된다 (listPanel의 onPick과 짝이다) */
-export const rowHTML = (lb, vl, rt = '', warn = false, pick = null) => {
+/** pick을 주면 누를 수 있는 줄이 된다 (listPanel의 onPick과 짝이다).
+    곁말(rt)은 **글자로 취급해 escape한다** — 색을 입힌 조각을 넣으려면 `rtHTML`을 쓴다.
+    둘을 한 자리에서 받으면 언젠가 태그가 글자로 새어 나온다 (§12.18-B). */
+export const rowHTML = (lb, vl, rt = '', warn = false, pick = null, rtHTML = null) => {
   /* 곁말이 길면 한 줄 아래로 내린다 — 같은 줄에서 다투면 이름 칸이 세로로 선다 (§12.11) */
-  const stack = String(rt).length > 14;
+  const stack = String(rtHTML ? String(rtHTML).replace(/<[^>]*>/g, '') : rt).length > 14;
   return `<${pick ? 'button type="button"' : 'div'} class="row${stack ? ' stack' : ''}" ${pick ? `data-pick="${esc(pick)}"` : ''}><span class="lb">${esc(lb)}</span><span class="vl">${vl}</span>
-   <span class="rt ${warn ? 'warn' : ''}">${esc(rt)}</span></${pick ? 'button' : 'div'}>`;
+   <span class="rt ${warn ? 'warn' : ''}">${rtHTML ?? esc(rt)}</span></${pick ? 'button' : 'div'}>`;
 };
 
 /* ── 납골당 ─────────────────────────────────
