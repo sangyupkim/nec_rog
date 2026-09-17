@@ -967,16 +967,45 @@ function giveTutorialArm(settled = false) {
 
 const tutorialArm = () => S.inventory.find((p) => p.defId === TUT.GIFT_ARM);
 
+/** 대본이 진짜 화면 위에서 도는 걸음이면, 그 화면을 그대로 연다 (§7-B.2) */
+function tutorialRealScreen(name) {
+  switch (name) {
+    case 'town': town(false); return true;
+    case 'ossuary': ossuaryScreen(); return true;
+    case 'workshopHub': workshopHubScreen(); return true;
+    case 'forge': forgeJobScreen(); return true;
+    case 'materials': materialsScreen(); return true;
+    case 'altar': altarScreen(); return true;
+    case 'golem': golemScreen(() => tutorialScreen()); return true;
+    case 'armR': slotScreen('armR', () => tutorialScreen()); return true;
+    default: return false;
+  }
+}
+
 function tutorialScreen() {
   const step = TUT.STEPS[S.tutorial.step];
   if (!step) { finishTutorial(); return; }
   UI.setCombatMode(false);
-  UI.topbar(S, step.where);
-  tutorialPanel(step.panel);
+  UI.clearSpotlight();
+
+  const go = (lines = null) => {
+    S.tutorial.step++;
+    S.tutorial.echo = lines;
+    save();
+    tutorialScreen();
+  };
+
+  /* 진짜 화면 위의 걸음 — 화면을 먼저 열고, 그 위에 대본을 얹는다.
+     설명만 읽고 하단의 「다음」을 누르는 것과, **납골당 타일을 직접 누르는 것**은 다른 일이다. */
+  /* 로그는 **걸음마다 비운다.** 진짜 화면은 자기 줄을 로그에 쓰므로, 비우지 않으면
+     화면을 옮길 때마다 지난 걸음의 대본이 그대로 쌓여 같은 말이 두 번 세 번 읽힌다. */
   UI.clearLog();
-  /* 방금 벌어진 일을 **다음 화면 맨 위에** 되읽어 준다.
-     한 걸음이 한 화면이라 화면을 넘길 때 로그가 지워진다 —
-     그대로 두면 「정착됐다」「새 기술」 같은 결과를 아무도 못 본다. */
+  const onReal = step.screen ? tutorialRealScreen(step.screen) : false;
+  if (!onReal) {
+    UI.topbar(S, step.where);
+    tutorialPanel(step.panel);
+  }
+
   const echo = S.tutorial.echo ?? [];
   if (echo.length) {
     UI.logHead('방금');
@@ -986,28 +1015,58 @@ function tutorialScreen() {
   UI.logHead(step.head);
   for (const [t, c] of step.lines) UI.logLine(t, c ?? '');
 
-  const go = (lines = null) => {
-    S.tutorial.step++;
-    S.tutorial.echo = lines;
-    save();
-    tutorialScreen();
-  };
-  // 갈 길이 먼저다 — 건너뛰기를 앞에 두면 대본이 아니라 그쪽이 기본값처럼 읽힌다
-  const list = [{
-    label: step.btn, cls: 'primary', meta: step.sub,
-    on: () => tutorialAct(step, go),
-  }];
-  /* 건너뛰기는 **첫 걸음에만** 둔다. 매 화면에 두면 대본이 아니라 방해물이 된다.
-     건너뛴 사람도 팔은 받는다 — 튜토리얼을 본 사람과 같은 자리에서 시작해야 한다. */
-  if (S.tutorial.step === 0) {
-    list.push({
+  if (onReal && step.spot) {
+    const target = UI.spotlight(step.spot);
+    if (target) {
+      UI.logLine('— 밝게 표시된 자리를 누른다 —', 'necro');
+      /* 진짜 단추의 진짜 동작이 먼저 돌고, 그 다음 걸음이 이어진다.
+         (캡처해서 가로채면 「눌렀다」는 감각만 남고 아무 일도 안 일어난다.) */
+      target.addEventListener('click', () => {
+        const lines = step.act ? tutorialSideEffect(step) : null;
+        setTimeout(() => go(lines), 0);
+      }, { once: true });
+      save();
+      return;
+    }
+    /* 밝힐 자리를 못 찾았다 — 화면이 바뀌었는데 대본이 안 따라온 것이다.
+       길을 잃히느니 단추 하나로 넘긴다. */
+    UI.logLine('(가리킬 자리를 찾지 못했다 — 아래 단추로 넘어간다)', 'dim');
+  }
+
+  UI.choices([
+    {
+      label: step.btn ?? '다음', cls: 'primary', meta: step.sub,
+      on: () => tutorialAct(step, go),
+    },
+    ...(S.tutorial.step === 0 ? [{
       label: '건너뛴다', cls: 'ghost', meta: '팔은 받고 시작한다',
       info: '설명을 넘기고 바로 마을로 간다. 바르그가 주기로 한 팔은 정착까지 끝난 채로 받는다.',
       on: skipTutorial,
-    });
-  }
-  UI.choices(list);
+    }] : []),
+  ]);
   save();
+}
+
+/** 진짜 단추를 눌렀을 때 대본이 곁들이는 일 (정착을 즉시 끝내는 것 같은) */
+function tutorialSideEffect(step) {
+  if (step.act === 'equipped') {
+    /* 붙이는 것은 **진짜 화면이** 했다. 대본은 그 결과를 다음 화면에 되읽어 줄 뿐이다 —
+       화면이 넘어가며 로그가 지워지므로, 여기서 챙기지 않으면 아무도 못 본다. */
+    const arm = tutorialArm();
+    if (!arm) return null;
+    const gained = partSkills(arm).map((sid) => DB.skillsBy[sid].name).join(', ');
+    return [[`${partName(arm)}을(를) 우완에 붙였다.`, 'good'],
+            ...(gained ? [[`새 기술: ${gained}`, 'good']] : [])];
+  }
+  if (step.act === 'settle') {
+    const arm = tutorialArm();
+    if (arm) arm.raw = false;
+    // 화덕에 올라간 일감은 도로 내린다 — 바르그가 그 자리에서 끝냈다
+    S.ossuary.forge.slots = [];
+    return [[`${arm ? partName(arm) : '팔'}이(가) 정착됐다. 이제 온전히 쓸 수 있다.`, 'good'],
+            ['보통은 조각 8 · 진액 1에 20분이 든다. 이번만 바르그가 대신 해 주었다.', 'dim']];
+  }
+  return null;
 }
 
 function tutorialAct(step, go) {

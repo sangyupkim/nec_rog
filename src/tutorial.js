@@ -15,9 +15,16 @@
 export const GIFT_ARM = 'part_arm_bone_spike';
 
 /**
- * `panel`  왼쪽에 무엇을 그릴까 ('none' | 'cart' | 'golem' | 'town' | 'ossuary' | 'materials' | 'workshop')
- * `act`    단추를 눌렀을 때 실제로 벌어지는 일 (main.js가 해석한다)
- * `btn`    단추 글자 · `sub` 곁말
+ * 한 걸음의 생김새
+ *
+ * `panel`  말만 하는 걸음에서 왼쪽에 무엇을 그릴까
+ *          ('none' | 'cart' | 'golem' | 'town' | 'ossuary' | 'materials' | 'workshop')
+ * `screen` **진짜 화면** 위에서 진행하는 걸음이면 그 화면 이름
+ *          ('town' | 'ossuary' | 'workshopHub' | 'forge' | 'golem' | 'armR' | 'materials' | 'altar')
+ * `spot`   그 화면에서 **직접 눌러야 하는 자리** — 밝히고, 나머지는 눌리지 않게 한다 (§7-B.2)
+ *          { area: 'left' | 'choices', match: /…/ } 또는 { slot: 'armR' }
+ * `act`    눌렀을 때 대본이 대신 처리하는 일 (전투·정착 같은 것)
+ * `btn`    누를 자리가 없는 걸음의 단추 글자 · `sub` 곁말
  */
 export const STEPS = [
   {
@@ -52,7 +59,7 @@ export const STEPS = [
       ['가운데(여기)는 「벌어진 일」이다. 위에서 아래로 읽으면 순서대로 읽힌다.', ''],
       ['아래는 「할 수 있는 것」이다. 번호를 누르거나 눌러서 고른다.', ''],
       ['오른쪽 위 📜는 「의뢰 서랍」이다. 지금 뭘 하러 가는 중인지 늘 거기 접혀 있다.', 'good'],
-      ['왼쪽 골렘 그림에서 부위를 누르면 그 자리의 부속 하나만 펼쳐 볼 수 있다.', 'dim'],
+      ['이제부터는 대본이 가리키는 자리를 **직접** 눌러야 넘어간다. 밝은 테두리를 따라가게.', 'necro'],
     ],
     btn: '알겠다', sub: '왼쪽 · 가운데 · 아래',
   },
@@ -80,45 +87,84 @@ export const STEPS = [
     ],
     btn: '팔을 받는다', sub: '뼈사냥개의 뼈창팔 · 날것', act: 'give',
   },
+
+  /* ── 여기서부터는 진짜 화면 위다. 밝힌 자리를 직접 누른다 (§7-B.2) ── */
   {
-    id: 'ossuary', where: '납골당', panel: 'ossuary',
-    head: '납골당',
+    id: 'gotoOssuary', where: '시체골 · 마을', screen: 'town',
+    spot: { area: 'left', match: /납골당/ },
+    head: '납골당으로',
     lines: [
-      ['마을 끝, 지붕이 낮은 집이다. 당신이 쓰는 곳이다.', 'narrate'],
-      ['"여기 문이 셋이네. 외울 건 없어. 쓰다 보면 손이 알아."', ''],
+      ['"마을 끝에 지붕 낮은 집이 있네. 거기가 자네가 쓸 곳이야."', ''],
+      ['왼쪽 그림에서 「납골당」을 누른다. 마을 건물은 전부 저 그림에서 들어간다.', 'necro'],
+    ],
+  },
+  {
+    id: 'ossuary', where: '납골당', screen: 'ossuary',
+    // 납골당의 문 셋은 왼쪽 타일이다 (§12.4) — 하단 선택지가 아니다
+    spot: { area: 'left', match: /공방/ },
+    head: '납골당 — 문이 셋',
+    lines: [
+      ['"외울 건 없어. 쓰다 보면 손이 알아."', ''],
       ['🫗 「재료」 — 시간이 재료를 만드는 곳. 걸어 두고 나가면 알아서 돈다.', ''],
       ['🔩 「공방」 — 부속을 붙이고 떼는 곳. 골렘을 세우는 곳도 여기다.', ''],
       ['🕯 「제단」 — 영혼재를 태워 「영영 돌아오지 않는」 확장을 사는 곳.', ''],
-      ['"오늘은 공방부터야. 접합로에 그 팔을 올리세."', 'necro'],
+      ['"오늘은 공방부터야. 「공방」을 누르게."', 'necro'],
     ],
-    btn: '공방으로', sub: '문 셋 중 하나',
   },
   {
-    id: 'forge', where: '납골당 · 접합로', panel: 'workshop',
+    id: 'gotoForge', where: '납골당 · 공방', screen: 'workshopHub',
+    spot: { area: 'choices', match: /접합로/ },
+    head: '공방',
+    lines: [
+      ['"부속을 손보는 일은 전부 이 안에 있네."', ''],
+      ['"날것을 사람 것으로 만드는 건 「접합로」야. 거길 누르게."', 'necro'],
+    ],
+  },
+  {
+    id: 'forge', where: '납골당 · 접합로', screen: 'forge',
+    spot: { area: 'choices', match: /정착/ },
     head: '접합로 — 정착',
     lines: [
       ['불이 낮게 깔린 화덕이다. 부속을 올리면 시간이 지나 골렘의 것이 된다.', 'narrate'],
       ['"보통은 「조각 8과 진액 하나」, 그리고 20분을 기다려야 하네."', ''],
       ['"걸어 놓고 나가서 딴 일을 하면 돼. 시간은 꺼 놔도 흐르니까."', 'dim'],
       ['바르그가 소매를 걷고 직접 화덕 앞에 선다.', 'narrate'],
-      ['"오늘은 내가 해 주지. 처음 한 번은 그래도 되네."', 'necro'],
+      ['"오늘은 내가 해 주지. 처음 한 번은 그래도 되네 — 「정착」을 누르게."', 'necro'],
     ],
-    btn: '바르그가 정착시킨다', sub: '이번만 즉시 완료', act: 'settle',
+    act: 'settle',
   },
   {
-    id: 'equip', where: '납골당 · 공방', panel: 'golem',
-    head: '골렘 정비 — 붙인다',
+    id: 'gotoGolem', where: '납골당 · 공방', screen: 'workshopHub',
+    spot: { area: 'choices', match: /부속 손보기/ },
+    head: '이제 붙인다',
     lines: [
-      ['"이제 붙이게. 왼쪽 그림에서 「자리」를 누르면 거기 끼울 수 있는 것들이 아래에 뜨네."', ''],
+      ['"팔은 준비됐네. 붙이는 건 「부속 손보기」에서 하지."', ''],
+    ],
+  },
+  {
+    id: 'pickSlot', where: '골렘 정비', screen: 'golem',
+    spot: { slot: 'armR' },
+    head: '빈자리를 누른다',
+    lines: [
+      ['"왼쪽 그림이 자네 골렘일세. 「자리」를 누르면 거기 끼울 수 있는 것들이 아래에 뜨네."', ''],
+      ['"오른쪽 팔이 비어 있지. 거길 누르게."', 'necro'],
+    ],
+  },
+  {
+    id: 'equip', where: '골렘 · 우완', screen: 'armR',
+    spot: { area: 'choices', match: /뼈창팔/ },
+    head: '뼈창팔을 고른다',
+    lines: [
       ['"부속은 능력치만 들고 오는 게 아니야. 「기술」을 들고 오지."', 'necro'],
       ['"그래서 좋은 부속이 아니라 「지금 골렘에 맞는」 부속을 고르는 걸세."', 'good'],
       ['"같은 기술을 내는 팔을 두 짝 맞추면 그 기술이 날카로워지고,"', 'dim'],
       ['"같은 결의 부속을 모으면 그 속성으로 공명하네. 대신 반대 속성에 약해지고."', 'dim'],
+      ['아래에서 「뼈사냥개의 뼈창팔」을 누른다.', 'necro'],
     ],
-    btn: '오른팔에 붙인다', sub: '빈자리 · 우완', act: 'equip',
+    act: 'equipped',
   },
   {
-    id: 'whole', where: '납골당 · 공방', panel: 'golem',
+    id: 'whole', where: '골렘 정비', panel: 'golem',
     head: '온전해진 몸',
     lines: [
       ['골렘이 새 팔을 한 번 쥐었다 편다. 뼈가 맞물리는 소리가 난다.', 'narrate'],
@@ -127,13 +173,20 @@ export const STEPS = [
       ['"맞을 때 깎이는 건 「방어도」고, 그건 포션으로 안 돌아와. 수리해야 하지."', 'bad'],
       ['"둘 다 여기 공방에서 손보면 되네."', 'dim'],
     ],
-    btn: '재료를 보러 간다', sub: '다음 문',
+    btn: '납골당으로 나간다', sub: '문이 둘 남았다',
   },
   {
-    id: 'materials', where: '납골당 · 재료', panel: 'materials',
+    id: 'gotoMaterials', where: '납골당', screen: 'ossuary',
+    spot: { area: 'left', match: /재료/ },
+    head: '남은 문',
+    lines: [
+      ['"이제 「재료」를 보게. 자네가 없는 동안 도는 곳이야."', ''],
+    ],
+  },
+  {
+    id: 'materials', where: '납골당 · 재료', screen: 'materials',
     head: '재료 — 걸어 두고 나간다',
     lines: [
-      ['"여긴 자네가 없는 동안 도는 곳이네. 꺼 놔도 돌아."', ''],
       ['🫗 「부패조」 — 아무것도 안 넣어도 진액이 고인다. 가득 차면 멈추니 비우러 오게.', ''],
       ['🔪 「해체대」 — 못 쓸 부속을 갈라 조각·진액·골분으로 바꾼다. 희귀할수록 많이 나오지.', ''],
       ['⛓ 「자율 탐험」 — 남는 골렘을 「이미 깬 단계」로 돌려보내 주워 오게 한다.', ''],
@@ -142,7 +195,7 @@ export const STEPS = [
     btn: '제단을 보러 간다', sub: '마지막 문',
   },
   {
-    id: 'altar', where: '납골당 · 제단', panel: 'ossuary',
+    id: 'altar', where: '납골당 · 제단', screen: 'altar',
     head: '제단 — 영영 남는 것',
     lines: [
       ['초가 잔뜩 녹아붙은 돌판이다.', 'narrate'],
@@ -154,7 +207,7 @@ export const STEPS = [
     btn: '마을로 올라간다', sub: '납골당은 여기까지',
   },
   {
-    id: 'town', where: '시체골 · 마을', panel: 'town',
+    id: 'town', where: '시체골 · 마을', screen: 'town',
     head: '마을',
     lines: [
       ['"마을은 간단하네."', ''],

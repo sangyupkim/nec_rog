@@ -163,6 +163,50 @@ export function topbar(save, where) {
   drawQuests(save);       // 의뢰 서랍은 어느 화면에서나 같은 자리에 있다 (§12.15)
 }
 
+/* ── 튜토리얼 손가락 (§7-B.2) ────────────────────────
+   대본이 가리키는 **진짜 단추**를 밝히고, 나머지는 눌리지 않게 한다.
+   설명만 읽고 하단의 「다음」을 누르는 것과, 납골당 타일을 직접 누르는 것은 다른 일이다. */
+
+/** 밝힐 자리를 찾는다 — 왼쪽 타일 / 하단 선택지 / 몸 도식의 칸 */
+export function findSpot(spot) {
+  if (!spot) return null;
+  if (spot.slot) return $('left')?.querySelector(`.bodymap .bcell[data-slot="${spot.slot}"]`) ?? null;
+  const pool = spot.area === 'left'
+    ? $('left')?.querySelectorAll('.bldg') ?? []
+    : $('choices')?.querySelectorAll('.btn') ?? [];
+  for (const el of pool) {
+    if (spot.match.test(el.textContent.replace(/\s+/g, ' '))) return el;
+  }
+  return null;
+}
+
+/**
+ * 한 자리만 살려 둔다. 나머지 단추는 흐려지고 눌리지 않는다.
+ * @returns 밝힌 element (없으면 null)
+ */
+export function spotlight(spot) {
+  const target = findSpot(spot);
+  const all = [
+    ...($('choices')?.querySelectorAll('.btn') ?? []),
+    ...($('left')?.querySelectorAll('.bldg, .bodymap .bcell') ?? []),
+    ...(document.querySelectorAll('#dpad .dp') ?? []),
+  ];
+  for (const el of all) {
+    el.classList.remove('spot', 'tut-dim');
+    if (!target) continue;
+    if (el === target) el.classList.add('spot');
+    else el.classList.add('tut-dim');
+  }
+  if (target) target.scrollIntoView?.({ block: 'nearest' });
+  return target;
+}
+
+export function clearSpotlight() {
+  for (const el of document.querySelectorAll('.spot, .tut-dim')) {
+    el.classList.remove('spot', 'tut-dim');
+  }
+}
+
 /* ── 의뢰 서랍 (§12.15) ─────────────────────────────
    「지금 뭐 하러 가는 중이었지」를 알려면 마을로 올라가 바르그를 눌러야 했다.
    던전 한복판에서는 확인할 길이 아예 없었다. 의뢰는 **늘 손 닿는 곳에** 접혀 있어야 한다.
