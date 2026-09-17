@@ -3913,7 +3913,8 @@ function combatTurn() {
         + `<span>${Math.round(cb.golem.stats.spd)} / ${Math.round(cb.mon.stats.spd)}</span></div>`
         + (gel ? `<div class="trow"><span>${GUARD_LABEL[cb.guard]}의 결</span><b>${gel}</b></div>` : '')
         + `<div class="trow"><span>빠를수록 댄 자리로 잘 받는다. 느리면 피해 때린다.</span></div>`,
-      on: () => { cb.cycleGuard(); combatTurn(); },
+      // 돌려 가며 고르는 것이 아니라 **골라 놓은 것을 보고 고른다** — 술법과 같은 방식 (§5.11)
+      on: () => guardPickScreen(),
     });
   }
 
@@ -4006,6 +4007,56 @@ function spellPickScreen() {
     }),
     prep ? { label: '걸어 둔 것을 푼다', cls: 'ghost',
       on: () => { cb.prep = null; combatTurn(); } } : null,
+    { label: '돌아간다', cls: 'ghost', pin: true, on: combatTurn },
+  ], { paged: false });
+}
+
+/**
+ * 막을 곳 고르기 (§5.14 · §5.11).
+ * 전에는 단추를 눌러 머리→몸통→팔→다리→맡긴다를 **돌려 가며** 골랐다.
+ * 네 자리 중 하나를 고르려고 최대 네 번을 눌러야 했고, 각 자리가 무슨 결인지는
+ * 돌려 보기 전에는 알 수 없었다. 이제 한 화면에 늘어놓고 **보고 고른다.**
+ */
+function guardPickScreen() {
+  const kinds = cb.guardable();
+  const chance = cb.guardChance();
+  UI.topbar(S, `전투 · ${cb.mon.name}`);
+  UI.combatPanel(cb, S);
+  UI.logLine(`어디로 받을까. 성공하면 피해 -25%, 그 자리의 결로 상성을 따진다.`, 'dim');
+  UI.logLine(`지금 대는 데 성공할 확률은 ${chance}% — 내 속도 ${Math.round(cb.golem.stats.spd)} vs 적 속도 ${Math.round(cb.mon.stats.spd)}.`,
+    chance >= 60 ? 'good' : chance <= 35 ? 'bad' : '');
+
+  /** 그 자리에 선 부속들 — 결과 남은 방어도를 함께 보여 준다 */
+  const framesOf = (k) => Object.values(cb.frames).filter((f) => !f.down && SLOT_KIND[f.slot] === k);
+  UI.choices([
+    ...kinds.map((k) => {
+      const fs = framesOf(k);
+      const els = [...new Set(fs.map((f) => partElement(f.part)).filter(Boolean))];
+      const on = cb.guard === k;
+      const shield = fs.reduce((n, f) => n + f.hp, 0);
+      const shieldMaxAll = fs.reduce((n, f) => n + f.max, 0);
+      /* 적이 다음에 무엇을 들지 보고 있다면(관찰), 그 속성으로 이 자리가 유리한지까지 말해 준다 */
+      const nextEl = cb.watched && cb.monNext ? DB.skillsBy[cb.monNext]?.element : null;
+      const mul = nextEl && els.length ? Math.min(...els.map((e) => elemMul(nextEl, e))) : null;
+      return {
+        label: `${on ? '▶ ' : ''}${GUARD_LABEL[k]}${els.length ? ` <span style="color:var(--el-${els[0]})">${els.join('·')}</span>` : ''}`
+          + (mul != null ? (mul <= 0.5 ? ' <span class="eff-up">▲</span>' : mul >= 1.5 ? ' <span class="eff-down">▼</span>' : '') : ''),
+        cls: on ? 'primary' : '',
+        meta: on ? '대고 있다 — 다시 누르면 푼다'
+          : `방어도 ${shield}/${shieldMaxAll} · 성공 ${chance}%`,
+        info: `<span class="tt">${GUARD_LABEL[k]}(으)로 받는다</span>`
+          + `<span class="tm">${fs.map((f) => UI.esc(partName(f.part))).join(' · ')}</span>`
+          + `<div class="trow"><span>결</span><b>${els.join(' · ') || '없음'}</b></div>`
+          + `<div class="trow"><span>남은 방어도</span><b>${shield}/${shieldMaxAll}</b></div>`
+          + `<div class="trow"><span>대는 데 성공</span><b>${chance}%</b></div>`
+          + (nextEl ? `<div class="trow"><span>적의 다음 수 ${nextEl}</span><b>${mul <= 0.5 ? '잘 받는다' : mul >= 1.5 ? '아프다' : '보통'}</b></div>` : ''),
+        on: () => { cb.guard = on ? null : k; combatTurn(); },
+      };
+    }),
+    { label: `${cb.guard ? '' : '▶ '}맡긴다`, cls: cb.guard ? 'ghost' : 'primary',
+      meta: '어디로 맞을지 고르지 않는다 — 경감도 없다',
+      info: '대지 않으면 아무 자리나 맞는다. 대신 속도 싸움도 하지 않는다.',
+      on: () => { cb.guard = null; combatTurn(); } },
     { label: '돌아간다', cls: 'ghost', pin: true, on: combatTurn },
   ], { paged: false });
 }

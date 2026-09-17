@@ -125,13 +125,9 @@ export class Combat {
     });
   }
 
-  /** 막을 부위 전환 — 조준과 같은 자리에서 같은 방식으로 돌린다 */
-  cycleGuard() {
-    const order = [null, ...GUARD_KINDS];
-    const i = order.indexOf(this.guard);
-    this.guard = order[(i + 1) % order.length];
-    return this.guard;
-  }
+  /* (구) cycleGuard — 돌려 가며 고르던 방식은 걷어냈다.
+     네 자리 중 하나를 고르려고 최대 네 번을 눌러야 했고, 각 자리가 무슨 결인지는
+     돌려 보기 전에 알 수 없었다. 지금은 화면에 늘어놓고 고른다 (§5.14 · §5.11). */
 
   /** 댄 자리로 실제로 받아 낼 확률(%) — 빠를수록 잘 댄다 (§5.14) */
   guardChance() {
