@@ -171,8 +171,19 @@ export const nextResetCost = (save) =>
   RESET_COSTS[Math.min(save.quests.resets, RESET_COSTS.length - 1)];
 
 /* ── 상점 ─────────────────────────────────────────── */
+/**
+ * 손수레에 **늘 있는** 소모품 (§10.7).
+ * 전에는 다섯 중 넷을 무작위로 골랐다 — 다섯 중 하나는 늘 빠졌고, 하필 그게
+ * 「귀환의 문양」이면 그날은 던전에서 걸어 나올 방법이 없었다.
+ * 소모품은 **필요할 때 살 수 있어야** 값을 한다. 무작위로 빠지면 계획을 세울 수 없다.
+ * `staple: true`인 것은 매번 그대로 깔리고, 나머지만 돌아가며 채운다.
+ */
+export const STAPLE_ITEMS = () => DB.items.filter((i) => i.staple).map((i) => i.id);
+
 export function rollStock(rng, unlocks = {}) {
-  const items = rng.shuffle(DB.items).slice(0, 4).map((i) => i.id);
+  const staples = STAPLE_ITEMS();
+  const rotating = rng.shuffle(DB.items.filter((i) => !i.staple)).map((i) => i.id);
+  const items = [...staples, ...rotating.slice(0, Math.max(0, 4 - staples.length))];
   const parts = [];
   // 유니크는 상점에 깔리지 않는다 — 보스를 잡아야 나온다
   // '수소문' 해금 단계마다 희귀 이상이 깔릴 확률이 오른다 (§8)

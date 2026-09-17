@@ -14,7 +14,7 @@ import { generateFloor, roomAt, exitsOf, ROOM_LABEL, ROOM_ICON, FLAVOR, DIR_KEY 
 import {
   rollQuests, advanceQuests, questsAllDone, claimQuests, resetQuests,
   refreshDaily, advanceDaily, dailyAllDone, claimDaily,
-  nextResetCost, rollStock, partPrice, sellPrice, canCraft, craft,
+  nextResetCost, rollStock, STAPLE_ITEMS, partPrice, sellPrice, canCraft, craft,
   canLearn, learn, buildingStatus, ATTACH_SLOTS,
   SUPPLY, newSupply, tickSupply, supplyRemain,
 } from './town.js';
@@ -111,6 +111,14 @@ function resyncUids(s) {
 
 function migrate(s) {
   s.cores ??= [];
+  /* 상시 소모품(§10.7)을 이미 굴려 둔 손수레에도 채워 준다.
+     안 그러면 지금 판을 하고 있는 사람은 다음에 손수레가 새로 깔릴 때까지
+     귀환의 문양을 못 산다 — 없던 물건이 생기는 것이지 있던 것을 뺏는 게 아니다. */
+  if (s.town?.stock?.items) {
+    for (const id of STAPLE_ITEMS()) {
+      if (!s.town.stock.items.includes(id)) s.town.stock.items.push(id);
+    }
+  }
   /* 이미 마을에 있던 사람에게 튜토리얼을 다시 보여 주지 않는다 (§16.1-B).
      기록이 있다는 것 자체가 「이미 배웠다」는 뜻이다. */
   s.tutorial ??= { step: 0, done: true };
