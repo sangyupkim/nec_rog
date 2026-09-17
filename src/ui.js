@@ -22,13 +22,58 @@ export const rarityOf = (part) => DB.partsBy[part.defId]?.rarity ?? 'common';
 export const partHTML = (part) =>
   `<span class="rar ${rarityOf(part)}">${esc(partName(part))}</span>`;
 
-/* ── 로그 ───────────────────────────────── */
+/* ── 로그 ─────────────────────────────────
+   로그는 **새 줄이 생기면 스스로 맨 아래로 간다** (§12.19).
+   전에는 줄을 붙인 그 자리에서 한 번 `scrollTop`을 밀고 끝냈는데,
+   그 뒤에 높이가 또 바뀌는 일이 많아 새 줄이 접힌 채로 남았다 —
+   글자가 두 줄로 접히고, 글꼴이 늦게 와서 줄 높이가 달라지고,
+   패널이 다시 그려지며 로그 칸 자체가 줄어든다.
+   그래서 **한 번 미는 대신 붙잡고 있는다**: 내용이 늘거나 칸이 줄면 다시 내린다.
+   다만 사람이 **위로 올려 읽고 있으면 붙잡지 않는다** — 읽는 중에 끌려 내려가면
+   자동 스크롤이 도움이 아니라 방해가 된다. 끝에서 24px 안쪽이면 '따라간다'로 본다. */
+let logStick = true;
+const LOG_NEAR = 24;
+const logEnd = () => { const el = $('log'); if (el) el.scrollTop = el.scrollHeight; };
+
+/** 로그를 맨 아래로 내리고, 다시 따라가게 한다 */
+export function logToEnd() {
+  logStick = true;
+  logEnd();
+  requestAnimationFrame(logEnd);       // 접힘·글꼴로 높이가 한 번 더 바뀌는 경우
+}
+
+function watchLog() {
+  const el = $('log');
+  if (!el || el.dataset.stick) return;
+  el.dataset.stick = '1';
+  /* 스크롤이 **사람이 민 것인지** 가려야 한다. 창이 줄면 브라우저가 스스로
+     scrollTop을 손보며 scroll을 쏘는데, 그걸 '사람이 위로 올렸다'로 읽으면
+     정작 그때 따라 내려가야 할 로그가 멈춰 선다. 칸이나 내용의 크기가 달라진
+     스크롤은 배치가 낸 것이므로 판단에 쓰지 않는다. */
+  let lastC = el.clientHeight;
+  let lastS = el.scrollHeight;
+  el.addEventListener('scroll', () => {
+    const moved = el.clientHeight !== lastC || el.scrollHeight !== lastS;
+    lastC = el.clientHeight; lastS = el.scrollHeight;
+    if (moved) return;
+    logStick = el.scrollHeight - el.clientHeight - el.scrollTop <= LOG_NEAR;
+  }, { passive: true });
+  const follow = () => {
+    lastC = el.clientHeight; lastS = el.scrollHeight;
+    if (logStick) logEnd();
+  };
+  new MutationObserver(follow).observe(el, { childList: true, subtree: true, characterData: true });
+  new ResizeObserver(follow).observe(el);      // 칸이 줄어도 끝은 끝이다
+  document.fonts?.ready.then(follow);
+}
+
 export function logLine(text, cls = '') {
+  watchLog();
   const el = document.createElement('div');
   el.className = `line ${cls}`;
   el.textContent = josa(text);
   $('log').append(el);
-  $('log').scrollTop = $('log').scrollHeight;
+  logToEnd();
 }
 export function logAll(lines) { for (const l of lines) logLine(l.text, l.cls); }
 
@@ -138,7 +183,7 @@ export function logWaiting() {
   box.append(b);
 }
 export function logHead(text) { logLine(text, 'head'); }
-export function clearLog() { $('log').replaceChildren(); }
+export function clearLog() { $('log').replaceChildren(); logStick = true; }
 
 /* ── 상단바 ─────────────────────────────── */
 export function topbar(save, where) {
