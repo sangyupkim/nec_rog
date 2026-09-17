@@ -28,6 +28,33 @@ export function objective(save) {
   return `${pt.name} · ${st.name} (${id})`;
 }
 
+/**
+ * 지금 받아 든 의뢰문 (§7-A.6).
+ * 「어디로 가서 무엇을 잡고 무엇을 가져오라」 — 목표 한 줄이 지명뿐이면 목표가 아니다.
+ * 데이터(campaign.json의 stage.brief)가 말하고, 화면은 그대로 읽어 준다.
+ */
+export function brief(save, id = nextStage(save)) {
+  if (!id) return null;
+  const st = stageOf(id);
+  const pt = partOf(id);
+  if (!st?.brief) return null;
+  return {
+    id, stage: st, part: pt,
+    title: `${pt.name} · ${st.name}`,
+    floors: st.floors,
+    hazard: hazardOf(id),
+    ...st.brief,
+  };
+}
+
+/** 이야기를 어디까지 들었는가 — 의뢰문에 지난 줄거리를 한 줄 얹는다 */
+export function lastBeat(save) {
+  const order = DB.stageOrder ?? [];
+  const heard = order.filter((x) => save.campaign?.story?.[x] && DB.story?.beats?.[x]);
+  const id = heard[heard.length - 1];
+  return id ? { id, ...DB.story.beats[id] } : null;
+}
+
 /** 진행도 — 9단계 중 몇 개를 깼는가 */
 export function progress(save) {
   const order = DB.stageOrder ?? [];

@@ -185,6 +185,32 @@ const usedSkills = new Set([
 for (const s of skills)
   if (!usedSkills.has(s.id)) warn(`[skill ${s.id}] 어떤 파츠·몬스터·모디파이어도 사용하지 않습니다`);
 
+/* ---- 단계마다 의뢰문이 있는가 (§7-A.6) ----
+   「어디로 가서 무엇을 잡고 무엇을 가져오라」가 없는 단계는 목표가 아니라 지명일 뿐이다.
+   새 단계를 붙일 때 이야기를 빼먹지 않도록 그물을 친다. */
+{
+  const campaign = load('campaign');
+  const story = load('story');
+  const monNames = new Set(monsters.map((m) => m.name));
+  for (const part of campaign.parts) {
+    for (const st of part.stages) {
+      const b = st.brief;
+      if (!b) { err(`[stage ${st.id}] brief가 없습니다 — 어디서 무엇을 잡아 무엇을 가져오는지 적어야 합니다`); continue; }
+      for (const k of ['order', 'hunt', 'where', 'bring', 'why']) {
+        if (!b[k]) err(`[stage ${st.id}] brief.${k}가 비어 있습니다`);
+      }
+      const boss = monMap.get(st.boss);
+      if (boss && b.hunt && b.hunt !== boss.name) {
+        err(`[stage ${st.id}] brief.hunt 「${b.hunt}」가 실제 보스 「${boss.name}」와 다릅니다`);
+      }
+      if (b.hunt && !monNames.has(b.hunt) && !/미궁 그 자체/.test(b.hunt)) {
+        warn(`[stage ${st.id}] brief.hunt 「${b.hunt}」에 해당하는 몬스터가 없습니다`);
+      }
+      if (!story.beats?.[st.id]) warn(`[stage ${st.id}] 클리어 이야기(story.beats)가 없습니다`);
+    }
+  }
+}
+
 const droppedParts = new Set(monsters.flatMap((m) => m.drops ?? []));
 for (const p of parts)
   if (!droppedParts.has(p.id)) warn(`[part ${p.id}] 어떤 몬스터도 드랍하지 않습니다`);

@@ -215,7 +215,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 }
 .sidebyside > .map{margin:0;flex:0 0 auto}
 .sidebyside > .bodymap{margin:0;flex:1 1 11rem;max-width:14rem;min-width:9rem}
-#right{display:grid;min-height:0}
+#right{display:grid;min-height:0;position:relative}
 /* 오른쪽은 순수 텍스트 영역 — 로그만 있다 */
 #log{
   overflow-y:auto;padding:clamp(10px,2vw,18px);
@@ -609,6 +609,50 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .row.stack{grid-template-columns:2.7rem 1fr;row-gap:.15rem}
 .row.stack .rt{grid-column:2/-1;white-space:normal;overflow-wrap:anywhere}
 
+/* ── 의뢰 서랍 (§12.15) ─────────────────────────────
+   오른쪽 위에 접어 둔다. 접혀 있을 때는 제목 한 줄, 펼치면 목록,
+   목록의 제목을 누르면 그 의뢰만 펼쳐진다. 로그를 밀어내지 않도록 덮어 둔다. */
+#quests{
+  /* 오른쪽 칸 안에 **가둔다** — 아래를 bottom으로 묶어 두지 않으면 좁은 화면에서
+     서랍이 선택지 위로 흘러넘친다. 빈자리는 클릭을 먹지 않게 비워 둔다. */
+  position:absolute;top:.35rem;right:.5rem;bottom:.35rem;z-index:6;
+  display:flex;flex-direction:column;align-items:flex-end;
+  max-width:min(22rem,72%);font-size:.82rem;pointer-events:none;
+}
+#quests .qhead,#quests .qbody{pointer-events:auto}
+#quests .qhead{
+  display:block;margin-left:auto;padding:.22rem .5rem;
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  color:var(--ink-soft);font:inherit;font-family:var(--mono);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#quests .qhead:hover{border-color:var(--accent-dim);color:var(--ink)}
+#quests .qhead.urge{color:var(--accent);border-color:var(--accent-dim)}
+#quests .qbody{
+  margin-top:.3rem;padding:.4rem;min-height:0;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:3px;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+#quests .qgrp{font-family:var(--mono);font-size:.7rem;color:var(--muted);margin:.35rem 0 .15rem}
+#quests .qgrp:first-child{margin-top:0}
+#quests .qt{
+  display:block;width:100%;text-align:left;padding:.25rem .3rem;
+  background:none;border:none;border-bottom:1px solid var(--line-soft);
+  color:var(--ink-soft);font:inherit;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#quests .qt:hover{color:var(--ink);background:var(--accent-bg)}
+#quests .qt.on{color:var(--accent)}
+#quests .qt .qm{float:right;font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+#quests .qd{padding:.3rem .3rem .5rem;color:var(--ink-soft);line-height:1.5}
+#quests .qd .qr{display:flex;gap:.4rem;padding:.1rem 0}
+#quests .qd .qr b{color:var(--ink);font-weight:600}
+#quests .qd .qk{font-family:var(--mono);font-size:.7rem;color:var(--muted);min-width:4.2rem}
+#quests .qd .qq{color:var(--muted);font-style:italic}
+@media (max-width:760px){
+  #quests{max-width:min(20rem,86%);font-size:.8rem}
+}
+
 /* 누를 수 있는 줄 — 목록을 그대로 고르는 목록으로 쓴다 (§12.10) */
 .rows.pickable .row{
   width:100%;text-align:left;background:none;border:1px solid transparent;
@@ -727,6 +771,7 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
     <aside id="left"></aside>
     <button id="panetoggle" type="button" aria-expanded="true">상태 접기 ▲</button>
     <main id="right">
+      <div id="quests" hidden></div>
       <div id="log"></div>
     </main>
   </div>

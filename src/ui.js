@@ -160,6 +160,91 @@ export function topbar(save, where) {
   });
   snd.classList.toggle('off', !soundOn());
   window.applyUiScale?.();
+  drawQuests(save);       // 의뢰 서랍은 어느 화면에서나 같은 자리에 있다 (§12.15)
+}
+
+/* ── 의뢰 서랍 (§12.15) ─────────────────────────────
+   「지금 뭐 하러 가는 중이었지」를 알려면 마을로 올라가 바르그를 눌러야 했다.
+   던전 한복판에서는 확인할 길이 아예 없었다. 의뢰는 **늘 손 닿는 곳에** 접혀 있어야 한다.
+
+   접혀 있을 때는 제목 한 줄, 펼치면 목록, 목록의 제목을 누르면 그 의뢰만 펼쳐진다.
+   메인(바르그)과 의뢰소·오늘의 일을 한 서랍에 모은다 — 「의뢰」는 플레이어에게 하나다. */
+let questOpen = false;
+let questPick = null;
+try { questOpen = localStorage.getItem('patchwork.quests.open') === '1'; } catch { /* 사생활 창 */ }
+
+const remember = () => {
+  try { localStorage.setItem('patchwork.quests.open', questOpen ? '1' : '0'); } catch { /* 무시 */ }
+};
+
+/** 서랍에 들어갈 의뢰 전부 — 메인 하나와 의뢰소·오늘의 일 */
+function questItems(save) {
+  const out = [];
+  const bf = CP.brief(save);
+  if (bf) {
+    out.push({
+      key: `main:${bf.id}`, group: '바르그의 부탁', title: bf.title, mark: bf.id, main: true,
+      rows: [
+        ['주문', `"${bf.order}"`], ['어디로', `${bf.where} (${bf.floors}층)`],
+        ['잡을 것', bf.hunt], ['가져올 것', bf.bring],
+        ...(bf.hazard ? [['조심', `【${bf.hazard.name}】 ${bf.hazard.text}`]] : []),
+      ],
+      quote: bf.why,
+    });
+  }
+  for (const q of save.quests?.active ?? []) {
+    out.push({
+      key: `board:${q.uid}`, group: '의뢰소', title: q.title,
+      mark: q.done ? '완료' : `${Math.min(q.progress, q.goal)}/${q.goal}`, done: q.done,
+      rows: [['내용', q.desc], ['보상', `은화 ${q.reward.silver} · 영혼재 ${q.reward.soulAsh}`]],
+    });
+  }
+  for (const q of save.daily?.list ?? []) {
+    out.push({
+      key: `daily:${q.id}`, group: '오늘의 일', title: q.title,
+      mark: q.done ? '완료' : `${Math.min(q.progress, q.goal)}/${q.goal}`, done: q.done,
+      rows: [['내용', q.desc]],
+    });
+  }
+  return out;
+}
+
+export function drawQuests(save) {
+  const box = $('quests');
+  if (!box) return;
+  const items = questItems(save);
+  if (!items.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  const undone = items.filter((q) => !q.done).length;
+  const head = `<button type="button" class="qhead ${undone ? 'urge' : ''}">📜 의뢰 ${undone}${undone < items.length ? `/${items.length}` : ''} ${questOpen ? '▴' : '▾'}</button>`;
+  let body = '';
+  if (questOpen) {
+    let group = null;
+    const parts = [];
+    for (const q of items) {
+      if (q.group !== group) { group = q.group; parts.push(`<p class="qgrp">${esc(group)}</p>`); }
+      const on = questPick === q.key;
+      parts.push(`<button type="button" class="qt ${on ? 'on' : ''}" data-q="${esc(q.key)}">`
+        + `<span class="qm">${esc(q.mark ?? '')}</span>${on ? '▾ ' : '▸ '}${esc(q.title)}</button>`);
+      if (on) {
+        parts.push(`<div class="qd">`
+          + q.rows.map(([k, v]) => `<div class="qr"><span class="qk">${esc(k)}</span><b>${esc(v)}</b></div>`).join('')
+          + (q.quote ? `<div class="qq">"${esc(q.quote)}"</div>` : '')
+          + `</div>`);
+      }
+    }
+    body = `<div class="qbody">${parts.join('')}</div>`;
+  }
+  box.innerHTML = head + body;
+  box.querySelector('.qhead').addEventListener('click', () => {
+    questOpen = !questOpen; remember(); drawQuests(save);
+  });
+  for (const el of box.querySelectorAll('.qt')) {
+    el.addEventListener('click', () => {
+      questPick = questPick === el.dataset.q ? null : el.dataset.q;   // 다시 누르면 접힌다
+      drawQuests(save);
+    });
+  }
 }
 
 /* ── 선택지 ─────────────────────────────── */

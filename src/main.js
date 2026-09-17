@@ -454,7 +454,9 @@ function town(intro = true) {
     if (questsAllDone(S)) UI.logLine('의뢰소 게시판이 비었다. 보상을 받을 때가 됐다.', 'good');
   }
   // 목표 한 줄 — 이것이 늘 보이는 것이 캠페인의 8할이다 (§7-A.5)
+  const bf0 = CP.brief(S);
   UI.logLine(`▸ 지금 할 일 — ${CP.objective(S)}`, 'necro');
+  if (bf0) UI.logLine(`   "${bf0.order}" — ${bf0.hunt}을(를) 눕히고 ${bf0.bring}을(를) 가져온다.`, 'dim');
   UI.choices([
     // 가장 자주 누르는 버튼은 **절대 잘리지 않아야 한다** — 잘리면 손가락으로 두 번 눌러야 한다 (§12.6).
     // 어디로 가는지는 곁말이 말한다
@@ -933,24 +935,49 @@ function mainQuestScreen() {
         done ? '완료' : open ? (st.id === next ? '◀ 지금' : '열림') : '', !open);
     })), `<p class="note">${pr.done}/${pr.total} 단계.</p>`);
 
-  UI.logHead('지금 할 일');
+  /* 의뢰문 (§7-A.6).
+     전에는 「시궁 아래. 젖은 입구.」 한 줄과 분위기 설명뿐이라, 읽고 나도 **무엇을 하러
+     가는지**가 남지 않았다. 목표는 지명이 아니라 **주문**이어야 한다 —
+     어디로 가서, 무엇을 잡고, 무엇을 가져오고, 왜. */
+  const bf = CP.brief(S);
   if (!next) {
+    UI.logHead('남은 일');
     UI.logLine(S.campaign.ending
       ? '"자네가 무얼 골랐는지는 묻지 않겠네."'
       : '"미궁 끝까지 갔다면서. 남은 건 자네가 정할 일이야."', 'narrate');
-  } else {
-    const st = stageOf(next);
-    const pt = partOf(next);
-    UI.logLine(`"${pt.name}. ${st.name}."`, 'necro');
-    UI.logLine(st.desc, 'narrate');
-    const hz = CP.hazardOf(next);
-    if (hz) UI.logLine(`【${hz.name}】 ${hz.text}`, 'bad');
-    UI.logLine(`${st.floors}층 끝에 ${DB.monstersBy[st.boss]?.name ?? '무언가'}이(가) 있다.`, '');
+  } else if (bf) {
+    // 지난 줄거리 한 줄 — 여기까지 어떻게 왔는지를 잊은 채로 다음 의뢰를 받지 않게 한다
+    const prev = CP.lastBeat(S);
+    // 첫 의뢰에는 지난 이야기가 없다 — 없는 것을 억지로 채우면 바로 위 대사와 겹쳐 읽힌다
+    if (prev) {
+      UI.logHead('지난 이야기');
+      UI.logLine(`${prev.title} — ${prev.lines[0].t}`, 'dim');
+    }
+
+    UI.logHead(`의뢰 — ${bf.title}`);
+    UI.logLine(`"${bf.order}"`, 'necro');
+    UI.logLine(`"${bf.why}"`, '');
+    UI.logLine(`▸ 어디로  ${bf.where} (${bf.floors}층)`, 'good');
+    UI.logLine(`▸ 잡을 것  ${bf.hunt}`, 'good');
+    UI.logLine(`▸ 가져올 것  ${bf.bring}`, 'good');
+    if (bf.hazard) UI.logLine(`▸ 조심할 것  【${bf.hazard.name}】 ${bf.hazard.text}`, 'bad');
+    UI.logLine(bf.note, 'narrate');
+    const rw = bf.stage.reward ?? {};
+    UI.logLine(`값은 치르겠네 — 영혼재 ${rw.soulAsh ?? 0} · 은화 ${rw.silver ?? 0}${rw.core ? ' · 핵 하나' : ''}.`, 'dim');
+    UI.logLine('바닥까지 내려가 그놈을 눕혀야 끝난 것이다. 중간에 돌아오면 의뢰는 그대로 남는다.', 'dim');
   }
 
   // 들은 이야기는 언제든 다시 읽을 수 있다 — 한 번 흘려보내면 끝인 것이 가장 나쁘다
   const heard = Object.keys(S.campaign.story).filter((k) => k !== 'opening' && DB.story.beats[k]);
   UI.choices([
+    { label: '무덤으로', cls: 'primary', meta: next ? stageOf(next).name : '아홉 단계 완료',
+      disabled: !next, on: startRun },
+    S.campaign.story.opening ? { label: '처음 이야기를 다시 듣는다', cls: 'ghost', meta: '왜 내려가는가',
+      on: () => {
+        UI.logHead('처음');
+        for (const l of DB.story.opening.lines) UI.logLine(l.t, l.c ?? '');
+        mainQuestScreen();
+      } } : null,
     ...heard.map((id) => ({
       label: `다시 듣는다 — ${DB.story.beats[id].title}`, cls: 'ghost', meta: id,
       on: () => {
