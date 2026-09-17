@@ -133,7 +133,84 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #topbar .where{color:var(--accent);letter-spacing:.06em}
 #topbar b{color:var(--ink-soft);font-weight:500}
 
+/* ── 가로 레이아웃 (§12.17) ────────────────────────────
+   텍스트 기반에서 벗어난 만큼 로그가 화면의 절반을 가질 이유가 없어졌다.
+   네 칸으로 나눈다 — 퀵패널 · 상태 · 무대(고를 것) · 로그.
+   로그는 예전 폭의 1/3쯤으로 줄이고 글자도 한 단계 줄여 촘촘하게 둔다. */
 #panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}
+#app.wide #panes{
+  grid-template-columns:var(--quick-w,5.2rem) minmax(0,1fr) minmax(0,1.2fr) minmax(0,.52fr);
+}
+/* 무대가 없는 화면(전투 아님·목록 화면)에서는 상태와 로그가 그 자리를 나눠 갖는다 */
+#app.wide #panes:not(:has(#stage:not([hidden]))){
+  grid-template-columns:var(--quick-w,5.2rem) minmax(0,1fr) minmax(0,.28fr);
+}
+#app.wide #panes:not(:has(#quick:not([hidden]))){
+  grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,.52fr);
+}
+#app.wide #panes:not(:has(#quick:not([hidden]))):not(:has(#stage:not([hidden]))){
+  grid-template-columns:minmax(0,1fr) minmax(0,.28fr);
+}
+#app.wide #log{font-size:.78rem;line-height:1.5}
+#app.wide #log .line.head{font-size:.72rem}
+#app.wide #right{border-left:1px solid var(--line)}
+
+/* [hidden]은 display 선언에 진다 — 숨기려면 이쪽이 이겨야 한다 (실측: 무대가 안 숨어
+   로그 자리를 먹고 글자가 세로로 섰다) */
+#quick[hidden],#stage[hidden]{display:none !important}
+
+/* 퀵패널 — 왼쪽 세로 띠. 지금 있는 곳에 표가 붙는다 */
+#quick{
+  display:flex;flex-direction:column;gap:.25rem;
+  padding:.4rem .3rem;overflow-y:auto;min-height:0;
+  background:var(--panel);border-right:1px solid var(--line);
+}
+#quick .qb{
+  display:flex;flex-direction:column;align-items:center;gap:.1rem;
+  padding:.35rem .2rem;border:1px solid transparent;border-radius:3px;
+  background:none;color:var(--muted);font:inherit;font-size:.62rem;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  line-height:1.15;text-align:center;
+}
+#quick .qb .qi{font-size:1.1rem;line-height:1}
+#quick .qb:hover{color:var(--ink);border-color:var(--accent-dim);background:var(--accent-bg)}
+#quick .qb.here{color:var(--accent);border-color:var(--accent);background:var(--accent-bg)}
+#quick .qb.here .qi{filter:drop-shadow(0 0 .25rem var(--accent-dim))}
+#quick .qb[disabled]{opacity:.35;cursor:default}
+#quick .qsep{height:1px;background:var(--line-soft);margin:.25rem .1rem}
+
+/* 무대 — 고를 것을 카드로 늘어놓는다. 하단 독에는 「돌아간다」와 물건만 남는다 */
+#stage{
+  display:flex;flex-direction:column;min-height:0;overflow-y:auto;
+  padding:.5rem clamp(6px,1vw,12px);gap:.4rem;
+  border-left:1px solid var(--line);
+}
+#stage .sttl{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--muted)}
+#stage .cards{
+  display:grid;gap:.4rem;
+  grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));
+  align-content:start;
+}
+#stage .card{
+  display:flex;flex-direction:column;gap:.15rem;align-items:flex-start;
+  padding:.45rem .5rem;min-height:3.2rem;
+  background:var(--sunken);border:1px solid var(--line);border-radius:3px;
+  color:var(--ink-soft);font:inherit;text-align:left;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+#stage .card:hover{border-color:var(--accent-dim);background:var(--accent-bg);color:var(--ink)}
+#stage .card.primary{border-color:var(--accent-dim);color:var(--ink)}
+#stage .card.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+#stage .card[disabled]{opacity:.4;cursor:default}
+#stage .card .cl{font-size:.9rem;line-height:1.25}
+#stage .card .cm{font-family:var(--mono);font-size:.66rem;color:var(--muted)}
+#stage .card .ck{position:absolute}
+#stage .empty{color:var(--muted);font-style:italic;padding:.4rem}
+
+/* 좁은 화면에서는 예전처럼 위아래로 쌓는다 — 세로 레이아웃은 이번에 손대지 않는다 */
+@media not all and (min-width:900px){
+  #quick,#stage{display:none !important}
+}
 
 #panetoggle{display:none}
 
@@ -245,6 +322,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   grid-auto-rows:var(--btn-h);gap:var(--dock-gap);align-content:start;
   height:var(--dock-h);overflow-y:auto;overscroll-behavior:contain;
 }
+/* 무대로 다 올라가 하단이 비면 그 자리를 돌려준다 (§12.17).
+   빈 독이 고정 높이로 남아 있으면 화면 아래가 통째로 죽은 자리가 된다. */
+#choices:empty{display:none}
+/* 한두 개만 남았으면 굳이 네 줄짜리 독을 쓰지 않는다 */
+#app.wide #choices{height:auto;max-height:var(--dock-h);grid-auto-rows:minmax(var(--btn-h),auto)}
+
 /* 넘친 줄이 있다는 표시 — 독은 높이가 고정이라 그냥 두면 소리 없이 가려진다.
    글자를 가리지 않도록 그림자로만 알린다. */
 #choices.more{box-shadow:inset 0 -1.2rem 1rem -1rem var(--sunken)}
@@ -604,6 +687,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   padding:.3rem 0;border-bottom:1px solid var(--line-soft);
 }
 .row .lb{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+/* 가로 배치에서 왼쪽 칸이 좁아졌다 — 라벨 칸을 조금 넓혀 「탐험 골렘」이 접히지 않게 */
+#app.wide .row{grid-template-columns:3.8rem 1fr auto}
 .row .vl{min-width:0;overflow-wrap:anywhere}
 .row .rt{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
 .row .rt.warn{color:var(--danger)}
@@ -682,6 +767,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 }
 /* 몸 도식의 칸은 테두리 밖이 잘린다 — 쪽지를 칸 안쪽에 붙인다 */
 .bodymap .bcell.spot::after{top:.1rem;right:.1rem}
+/* 무대 카드와 퀵패널 칸도 밝힐 수 있어야 한다 (§12.17) */
+#stage .card.spot,#quick .qb.spot{z-index:4}
 
 /* 누를 수 있는 줄 — 목록을 그대로 고르는 목록으로 쓴다 (§12.10) */
 .rows.pickable .row{
@@ -798,8 +885,10 @@ hr.sep{border:0;border-top:1px solid var(--line-soft);margin:.9rem 0}
   <button class="dp down" type="button" data-dir="아래">↓</button>
 </div>
 <div id="panes">
+    <nav id="quick" hidden aria-label="빠른 이동"></nav>
     <aside id="left"></aside>
     <button id="panetoggle" type="button" aria-expanded="true">상태 접기 ▲</button>
+    <section id="stage" hidden aria-label="고를 것"></section>
     <main id="right">
       <div id="quests" hidden></div>
       <div id="log"></div>

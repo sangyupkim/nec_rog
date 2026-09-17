@@ -432,6 +432,38 @@ function settleAndReport(next) {
   UI.choices([{ label: '전부 수령', cls: 'primary', on: next }]);
 }
 
+/* ── 퀵패널 (§12.17) ────────────────────────────────
+   마을 어디에 있든 왼쪽 띠에 **갈 수 있는 곳**이 늘 서 있다.
+   지금 있는 곳에는 표가 붙는다 — 어디에 있는지 알아야 옮겨 다닐 수 있다.
+   전에는 「돌아간다」로 한 겹씩 거슬러 올라가야만 옆 건물로 갈 수 있었다. */
+const TOWN_QUICK = () => [
+  { key: 'town', icon: '🏚', label: '마을', on: () => town(false) },
+  { key: 'scavenger', icon: '🦴', label: '바르그', on: scavengerScreen },
+  { key: 'quest', icon: '📜', label: '의뢰소', on: boardScreen },
+  { key: 'market', icon: '🛒', label: '저잣거리', on: marketScreen },
+  { key: 'ossuary', icon: '⚱', label: '납골당', on: ossuaryScreen },
+  { key: 'inventory', icon: '🎒', label: '가방', on: () => inventoryScreen(town) },
+  { sep: true },
+  { key: 'dungeon', icon: '🕳', label: '무덤으로', on: startRun },
+];
+
+/** 납골당 안에서는 문 셋이 이어 붙는다 — 한 겹 올라갔다 내려오지 않게 */
+const OSS_QUICK = () => [
+  ...TOWN_QUICK(),
+  { sep: true },
+  { key: 'materials', icon: '🫗', label: '재료', on: materialsScreen },
+  { key: 'workshop', icon: '⚙', label: '공방', on: workshopHubScreen },
+  { key: 'altar', icon: '🕯', label: '제단', on: altarScreen },
+];
+
+/** 지금 있는 곳에 표를 붙여 퀵패널을 세운다 */
+function quickHere(key, items = null) {
+  // 납골당 안에 있으면 문 셋까지 함께 세운다 — 납골당 화면 자체도 그 안이다
+  const list = (items ?? (/^(ossuary|materials|workshop|altar)$/.test(key) ? OSS_QUICK() : TOWN_QUICK()))
+    .map((it) => (it.sep ? it : { ...it, here: it.key === key }));
+  UI.quickPanel(list);
+}
+
 function town(intro = true) {
   cb = null;
   resetShopPick();
@@ -443,6 +475,7 @@ function town(intro = true) {
     save();
   }
   UI.topbar(S, '시체골 · 마을');
+  quickHere('town');
   // 건물은 왼쪽 그림에서 눌러 들어간다. 하단에는 '지금 할 행동'만 남긴다 (§12.4)
   const bs = buildingStatus(S);
   const dl = S.daily?.list ?? [];
@@ -1389,6 +1422,7 @@ const ossPanel = () => UI.ossuaryPanel(S, O, Date.now(), OSS_GO());
 function materialsScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 재료');
+  quickHere('materials');
   const vatFull = o.rotVat.stored >= O.vatCap(o);
   /* 자율 탐험은 안치소를 세워야 열린다. 그전에는 **줄째로 없었다** —
      플레이어가 보기엔 기능이 사라진 것이지, 아직 못 여는 것이 아니다 (§16.5-C).
@@ -1426,7 +1460,7 @@ function materialsScreen() {
         : '사역 골렘 안치소를 세워야 열린다. 제단에서 영혼재로 짓는다.',
       on: laborScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ]);
+  ], { stage: true, stageTitle: '재료를 만드는 곳' });
   save();
 }
 
@@ -1434,6 +1468,7 @@ function materialsScreen() {
 function workshopHubScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 공방');
+  quickHere('workshop');
   const g = assembleGolem(S);
   const oh = o.overhaul ?? [];
   const cs = O.crewSpeed(S);
@@ -1473,7 +1508,7 @@ function workshopHubScreen() {
     { label: '🛠 작업반', meta: cs.cut ? `${Math.round(cs.cut * 100)}% 단축` : '배치 없음',
       info: '세워 둔 골렘에게 일을 맡긴다. 해체대·접합로·정비대 시간이 줄어든다.', on: crewScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
-  ]);
+  ], { stage: true, stageTitle: '공방' });
   save();
 }
 
@@ -1482,6 +1517,7 @@ function ossuaryScreen() {
   if (fresh.lines.length) notifyQuests({ kind: 'job', count: fresh.lines.length });
   for (const l of fresh.lines) UI.logLine(`${l.facility} — ${l.text}`, l.warn ? 'bad' : 'good');
   UI.topbar(S, '시체골 · 납골당');
+  quickHere('ossuary');
   ossPanel();
   const o = S.ossuary;
   UI.logHead('납골당');
@@ -1496,9 +1532,18 @@ function ossuaryScreen() {
     save();
   }
 
+  /* 문 셋은 왼쪽 그림의 타일이었다(§12.4). 가로 배치에서는 **가운데에도** 늘어놓는다 —
+     들어갈 곳은 눈이 가 있는 가운데에 있어야 한다 (§12.17). */
+  const bs = O.badges?.(S) ?? {};
   UI.choices([
-    { label: '돌아간다', cls: 'ghost', on: () => town(false) },
-  ]);
+    { label: '🫗 재료', meta: `부패조 ${o.rotVat.stored}/${O.vatCap(o)} · 해체대 ${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`,
+      info: '시간이 재료를 만드는 곳. 걸어 두고 나가면 알아서 돈다.', on: materialsScreen },
+    { label: '⚙ 공방', meta: `골렘 ${O.workshopGolems(S).length}/${O.golemCap(o)}기`,
+      info: '부속을 붙이고 떼고 고친다. 골렘을 세우는 곳도 여기다.', on: workshopHubScreen },
+    { label: '🕯 제단', meta: `영혼재 ${S.soulAsh}`,
+      info: '영혼재를 태워 영영 돌아오지 않는 확장을 산다.', on: altarScreen },
+    { label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) },
+  ], { stage: true, stageTitle: '납골당 — 문이 셋' });
   save();
 }
 
@@ -2543,6 +2588,7 @@ function tripPickStage(golemId) {
 function altarScreen() {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 제단');
+  quickHere('altar');
   ossPanel();
   UI.logHead('제단');
   UI.logLine('영혼재를 태우는 자리.', 'narrate');
@@ -2626,7 +2672,7 @@ function altarScreen() {
       () => { S.unlocks.necroSlots++; S.necro.equipped.push(null); }));
   }
   list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen });
-  UI.choices(list);
+  UI.choices(list, { stage: true, stageTitle: '제단 — 영혼재를 태운다' });
   save();
 }
 
@@ -2638,6 +2684,7 @@ function altarScreen() {
 /** 📜 의뢰소 — 세 건짜리 의뢰와 하루짜리 일을 한 게시판에 (§10.2) */
 function boardScreen() {
   UI.topbar(S, '시체골 · 의뢰소');
+  quickHere('quest');
   const q = S.quests.active;
   const d = S.daily?.list ?? [];
   UI.listPanel('게시판', [
@@ -2658,7 +2705,7 @@ function boardScreen() {
       info: '하루짜리 짧은 일. 자정을 넘기면 새것으로 바뀐다.',
       on: dailyScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) },
-  ]);
+  ], { stage: true, stageTitle: '의뢰소' });
   save();
 }
 
@@ -2666,6 +2713,7 @@ function boardScreen() {
 function marketScreen() {
   const bs = buildingStatus(S);
   UI.topbar(S, '시체골 · 저잣거리');
+  quickHere('market');
   UI.listPanel('골목의 셋', [
     UI.rowHTML('🛒 손수레', '사고판다', bs.shop),
     UI.rowHTML('🔨 뼈 모루', '부착물 제작 · 핵 강화', bs.forge),
@@ -2681,7 +2729,7 @@ function marketScreen() {
     { label: '🔨 뼈 모루', meta: bs.forge, info: '골렘에 다는 부착물을 만들고, 핵을 강화한다.', on: forgeScreen },
     { label: '🕯 조합', meta: bs.conclave, info: '네크로맨서 본인의 술법을 영혼재로 배운다.', on: conclaveScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: () => town(false) },
-  ]);
+  ], { stage: true, stageTitle: '저잣거리' });
   save();
 }
 
@@ -3946,10 +3994,156 @@ function startBattle(room, elite, isBoss = false) {
   combatTurn();
 }
 
+/* ── 전투 화면 (§12.17) ──────────────────────────────
+   전에는 기술·술법·가방·조준·막기가 **전부 하단 독**에 깔렸다. 열 몇 개가 한 줄에
+   늘어서면 매 턴 눈이 아래를 훑어야 하고, 쪽까지 나뉘면 기술을 찾다가 턴을 쓴다.
+
+   이제 왼쪽 퀵메뉴가 **무엇을 할지**(공격·술법·가방)를 고르고,
+   가운데 무대가 그 안의 **카드**를 펼친다. 하단에는 아무것도 남기지 않는다. */
+let combatTab = 'skill';        // 지금 펼쳐 둔 갈래
+
+function combatQuick() {
+  const items = cb.combatItems();
+  const canObserve = !cb.watched;
+  const spells = cb.necroSkills();
+  const ready = spells.filter((n) => n.usable).length;
+  const prep = cb.prepValid();
+  const aimConf = AIM[cb.aim];
+  const canGuard = cb.guardable();
+  const tab = (key, icon, label, sub, on) => ({
+    key, icon, label, sub, here: combatTab === key,
+    on: on ?? (() => { combatTab = key; combatTurn(); }),
+  });
+  UI.quickPanel([
+    tab('skill', '⚔', '공격', `${cb.golemSkills().filter((x) => x.usable).length}개`),
+    spells.length ? tab('spell', '🕯', '술법', prep ? '걸어 둠' : ready ? `${ready}개` : '대기') : null,
+    (items.length || canObserve) ? tab('bag', '🎒', '가방',
+      items.length ? `${items.reduce((n, i) => n + i.count, 0)}개` : '관찰') : null,
+    { sep: true },
+    tab('aim', '🎯', '조준', aimConf.name),
+    canGuard.length ? tab('guard', '🛡', '막기', cb.guard ? GUARD_LABEL[cb.guard] : '맡긴다') : null,
+  ]);
+}
+
+/** 지금 갈래의 카드들 */
+function combatCards() {
+  switch (combatTab) {
+    case 'spell': {
+      const prep = cb.prepValid();
+      return {
+        title: `술법 — 영력 ${cb.will}/10 · 공격과 함께 나간다`,
+        cards: cb.necroSkills().map((n) => {
+          const def = DB.necro_skillsBy[n.id];
+          const on = prep?.id === n.id;
+          return {
+            label: `${UI.esc(n.name)}`,
+            meta: on ? '걸어 뒀다 — 다시 누르면 푼다'
+              : n.usable ? `영력 ${n.will}${def?.cooldown ? ` · 재사용 ${def.cooldown}턴` : ''}`
+              : n.cd > 0 ? `${n.cd}턴 대기` : `영력 ${n.will} — 모자라다`,
+            picked: on, disabled: !n.usable && !on,
+            info: `<span class="tt">${UI.esc(n.name)}</span>`
+              + `<div class="trow"><span>${UI.esc(def?.desc ?? '')}</span></div>`,
+            on: () => { cb.prep = on ? null : n.id; combatTurn(); },
+          };
+        }),
+      };
+    }
+    case 'bag': {
+      const items = cb.combatItems();
+      return {
+        title: '가방 — 쓰면 그 턴 골렘은 때리지 못한다',
+        cards: [
+          ...items.map((it) => ({
+            label: UI.esc(it.name), meta: `${it.count}개 · 턴 소모`,
+            info: `<span class="tt">${UI.esc(it.name)}</span><span class="tm">${UI.esc(it.desc ?? '')}</span>`,
+            on: () => resolve({ kind: 'item', id: it.id }),
+          })),
+          !cb.watched ? { label: '관찰', meta: '다음 수를 읽는다 · 턴 소모',
+            info: '적의 방어 속성과 다음에 쓸 기술이 보인다.',
+            on: () => resolve({ kind: 'observe' }) } : null,
+        ],
+      };
+    }
+    case 'aim': {
+      return {
+        title: '조준 — 어디를 때릴까',
+        cards: ['random', 'upper', 'lower'].map((k) => ({
+          label: AIM[k].name,
+          meta: k === 'random' ? '부속 보존 · 부위 x1.0'
+            : `명중 ${AIM[k].acc} · 부위 x${AIM[k].mul}`,
+          picked: cb.aim === k,
+          info: k === 'random'
+            ? '아무 데나 때린다. 부위가 덜 부서지니 전리품이 온전하다.'
+            : `${AIM[k].name}을(를) 노린다. 부수면 적이 약해지지만 그 부속은 못 얻는다.`,
+          on: () => { cb.aim = k; combatTurn(); },
+        })),
+      };
+    }
+    case 'guard': {
+      const chance = cb.guardChance();
+      const framesOf = (k) => Object.values(cb.frames).filter((f) => !f.down && SLOT_KIND[f.slot] === k);
+      return {
+        title: `막기 — 어디로 받을까 · 성공 ${chance}%`,
+        cards: [
+          ...cb.guardable().map((k) => {
+            const fs = framesOf(k);
+            const els = [...new Set(fs.map((f) => partElement(f.part)).filter(Boolean))];
+            const on = cb.guard === k;
+            const sh = fs.reduce((n, f) => n + f.hp, 0);
+            const shMax = fs.reduce((n, f) => n + f.max, 0);
+            return {
+              label: `${GUARD_LABEL[k]}${els.length ? ` <span style="color:var(--el-${els[0]})">${els.join('·')}</span>` : ''}`,
+              meta: on ? '대고 있다 — 다시 누르면 푼다' : `방어도 ${sh}/${shMax}`,
+              picked: on,
+              info: `<span class="tt">${GUARD_LABEL[k]}(으)로 받는다</span>`
+                + `<span class="tm">${fs.map((f) => UI.esc(partName(f.part))).join(' · ')}</span>`
+                + `<div class="trow"><span>결</span><b>${els.join(' · ') || '없음'}</b></div>`
+                + `<div class="trow"><span>성공</span><b>${chance}%</b></div>`,
+              on: () => { cb.guard = on ? null : k; combatTurn(); },
+            };
+          }),
+          { label: '맡긴다', meta: '고르지 않는다 — 경감도 없다', picked: !cb.guard,
+            on: () => { cb.guard = null; combatTurn(); } },
+        ],
+      };
+    }
+    default: {
+      const prep = cb.prepValid();
+      return {
+        title: prep ? `공격 — 🕯 ${prep.name}이(가) 함께 나간다` : '공격 — 무엇으로 때릴까',
+        cards: cb.golemSkills().map((s) => {
+          let mark = '';
+          if (s.mul != null) {
+            if (s.mul > 1) mark = ' <span class="eff-up">▲</span>';
+            else if (s.mul < 1) mark = ` <span class="eff-down">${s.mul === 0 ? '✕' : '▼'}</span>`;
+          }
+          if (s.raw) mark += ' <span class="eff-down">날것</span>';
+          return {
+            label: `<span style="color:var(--el-${s.element})">${s.element}</span> ${UI.esc(s.name)}${mark}`,
+            meta: s.down ? '부위 정지' : `위력 ${s.power || '—'} · ${s.charges === null ? '∞' : `${s.left}/${s.charges}`}`,
+            cls: s.usable && s.power > 0 ? 'primary' : '',
+            disabled: !s.usable,
+            on: () => resolve({ kind: 'skill', id: s.id, necro: cb.prep }),
+          };
+        }),
+      };
+    }
+  }
+}
+
 function combatTurn() {
   UI.setCombatMode(true);
   UI.topbar(S, `전투 · ${cb.mon.name}`);
   UI.combatPanel(cb, S);
+
+  /* 넓은 화면에서는 퀵메뉴 + 무대로 나눈다. 좁으면 예전처럼 하단 독 하나에 다 담는다 —
+     세로 배치는 이번에 손대지 않기로 했다 (§12.17). */
+  if (UI.isWide()) {
+    combatQuick();
+    const { title, cards } = combatCards();
+    UI.choices([...cards.filter(Boolean)], { stage: true, stageTitle: title, paged: false });
+    return;
+  }
 
   const list = [];
   const aimConf = AIM[cb.aim];
@@ -3958,36 +4152,17 @@ function combatTurn() {
     meta: cb.aim === 'random' ? '부속 보존' : `명중 ${aimConf.acc} · 부위 x${aimConf.mul}`,
     cls: cb.aim === 'random' ? 'ghost' : 'primary',
     nokey: true,
-    on: () => { cb.cycleAim(); combatTurn(); },
+    on: () => { combatTab = 'aim'; aimPickScreen(); },
   });
-
-  /* 막기 — 조준과 나란히 선다 (§5.14). 조준이 「어디를 때릴까」면 이쪽은 「어디로 받을까」다. */
   const canGuard = cb.guardable();
   if (canGuard.length) {
-    const gc = cb.guardChance();
-    const gname = cb.guard ? GUARD_LABEL[cb.guard] : '맡긴다';
-    const frame = cb.guard
-      ? Object.values(cb.frames).find((f) => !f.down && SLOT_KIND[f.slot] === cb.guard)
-      : null;
-    const gel = frame ? partElement(frame.part) : null;
     list.push({
-      label: `🛡 막기 — <b>${gname}</b>`,
-      meta: cb.guard ? `성공 ${gc}%${gel ? ` · ${gel}` : ''}` : '어디로 맞을지 맡긴다',
-      cls: cb.guard ? 'primary' : 'ghost',
-      nokey: true,
-      info: `<span class="tt">막을 곳을 고른다</span>`
-        + `<span class="tm">고른 자리로 받아 내면 피해 -25%, 그 자리의 결로 상성을 따진다</span>`
-        + `<div class="trow"><span>성공 확률</span><b>${gc}%</b></div>`
-        + `<div class="trow"><span>내 속도 / 적 속도</span>`
-        + `<span>${Math.round(cb.golem.stats.spd)} / ${Math.round(cb.mon.stats.spd)}</span></div>`
-        + (gel ? `<div class="trow"><span>${GUARD_LABEL[cb.guard]}의 결</span><b>${gel}</b></div>` : '')
-        + `<div class="trow"><span>빠를수록 댄 자리로 잘 받는다. 느리면 피해 때린다.</span></div>`,
-      // 돌려 가며 고르는 것이 아니라 **골라 놓은 것을 보고 고른다** — 술법과 같은 방식 (§5.11)
+      label: `🛡 막기 — <b>${cb.guard ? GUARD_LABEL[cb.guard] : '맡긴다'}</b>`,
+      meta: cb.guard ? `성공 ${cb.guardChance()}%` : '어디로 맞을지 맡긴다',
+      cls: cb.guard ? 'primary' : 'ghost', nokey: true,
       on: () => guardPickScreen(),
     });
   }
-
-  // 술법은 골렘의 공격에 얹어 나간다 (§9-A). 여기서 걸어 두고 기술을 고르면 함께 터진다
   const spells = cb.necroSkills();
   if (spells.length) {
     const prep = cb.prepValid();
@@ -3995,21 +4170,8 @@ function combatTurn() {
     list.push({
       label: `🕯 술법 — <b>${prep ? UI.esc(prep.name) : '없음'}</b>`,
       meta: prep ? `영력 ${prep.will} · 공격과 함께`
-        : ready ? `${ready}개 준비됨 — 눌러 고른다`
-        : spells.every((n) => n.cd > 0) ? '재사용 대기 중' : '영력이 모자라다',
-      cls: prep ? 'primary' : 'ghost',
-      // 무엇이 걸렸는지 눌러 보지 않고도 알아야 한다 — 소환수는 얼마나 대신 맞는지까지
-      info: prep
-        ? `<span class="tt">${UI.esc(prep.name)}</span>`
-          + `<span class="tm">영력 ${prep.will}${prep.cooldown ? ` · 재사용 ${prep.cooldown}턴` : ''}</span>`
-          + `<div class="trow"><span>${UI.esc(DB.necro_skillsBy[prep.id]?.desc ?? '')}</span></div>`
-        : `<span class="tt">네크로맨서 술법</span>`
-          + `<span class="tm">골렘의 공격과 함께 나간다</span>`
-          + spells.map((n) => `<div class="trow"><span>${UI.esc(n.name)}</span>`
-            + `<span>${n.usable ? `영력 ${n.will}` : n.cd > 0 ? `${n.cd}턴 대기` : '영력 부족'}</span></div>`).join(''),
-      disabled: !ready,
-      nokey: true,
-      // 돌려 가며 고르는 것이 아니라 **골라 놓은 것을 보고 고른다** — 「가방」과 같은 방식 (§5.11)
+        : ready ? `${ready}개 준비됨 — 눌러 고른다` : '재사용 대기 중',
+      cls: prep ? 'primary' : 'ghost', disabled: !ready, nokey: true,
       on: () => spellPickScreen(),
     });
   }
@@ -4027,12 +4189,7 @@ function combatTurn() {
       on: () => resolve({ kind: 'skill', id: s.id, necro: cb.prep }),
     });
   }
-  /* 물약과 관찰은 **한 칸 뒤로 물린다.**
-     기술과 나란히 늘어놓으면 커맨드가 열 몇 개가 되어 쪽이 나뉘고,
-     전투 중에 쪽을 넘겨 가며 기술을 찾게 된다. 매 턴 고르는 것은 기술이다. */
   const items = cb.combatItems();
-  // 관찰은 '처음 보는 적'에만 쓰던 것이었으나, 이제 **다음 수를 읽는** 수단이라
-  // 아는 적에게도 쓸 이유가 있다. 이미 살핀 적에게만 가린다 (§5.9)
   const canObserve = !cb.watched;
   if (items.length || canObserve) {
     list.push({
@@ -4041,8 +4198,22 @@ function combatTurn() {
       on: () => itemTurnScreen(items, canObserve),
     });
   }
-  // 전투에서는 쪽을 나누지 않는다 — 쓸 수 있는 기술이 한눈에 다 보여야 한다
   UI.choices(list, { paged: false });
+}
+
+/** 좁은 화면에서 조준을 고른다 — 넓은 화면은 무대에서 바로 고른다 */
+function aimPickScreen() {
+  UI.topbar(S, `전투 · ${cb.mon.name}`);
+  UI.combatPanel(cb, S);
+  UI.choices([
+    ...['random', 'upper', 'lower'].map((k) => ({
+      label: `${cb.aim === k ? '▶ ' : ''}${AIM[k].name}`,
+      cls: cb.aim === k ? 'primary' : '',
+      meta: k === 'random' ? '부속 보존' : `명중 ${AIM[k].acc} · 부위 x${AIM[k].mul}`,
+      on: () => { cb.aim = k; combatTurn(); },
+    })),
+    { label: '돌아간다', cls: 'ghost', pin: true, on: combatTurn },
+  ], { paged: false });
 }
 
 /**
@@ -4152,11 +4323,21 @@ function itemTurnScreen(items, canObserve) {
 }
 
 async function resolve(action) {
-  const before = cb.summonCount;
-  cb.act(action);
+  /* 전투가 이미 끝났는데 카드가 한 번 더 눌릴 수 있다 (연출 대기 중의 두 번째 클릭,
+     또는 화면이 바뀌기 전에 남아 있던 카드). cb가 없으면 조용히 흘려보낸다. */
+  /* 이미 끝난 판의 카드가 한 번 더 눌릴 수 있다 — 무대는 다시 그려지기 전까지 남아 있다.
+     끝난 전투에 한 대를 더 넣으면 승리 처리가 두 번 돌아 S.run이 없는 채로 들어간다. */
+  if (!cb || cb.over || !S.run) return;
+  /* 연출을 기다리는 사이에 전투가 치워질 수 있다(튜토리얼 인계·패배 연출).
+     await 뒤에 `cb`를 다시 만지면 그때 null이다 — 이 판을 c로 붙들어 두고,
+     도중에 바뀌었으면 조용히 물러난다. */
+  const c = cb;
+  const before = c.summonCount;
+  c.act(action);
   // 로그를 한꺼번에 쏟지 않고 국면별로 끊어 보여준다 (§5.8)
   UI.logWaiting();
-  await UI.logPlay(cb.log);
+  await UI.logPlay(c.log);
+  if (cb !== c) return;
   if (cb.summonCount > before) {
     S.run.summons += cb.summonCount - before;
     notifyQuests({ kind: 'summon', count: cb.summonCount - before });
@@ -4173,6 +4354,7 @@ async function resolve(action) {
     const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
     if (!still) await new Promise((r) => setTimeout(r, 420));
   }
+  if (cb !== c) return;
   if (!cb.over) { combatTurn(); return; }
   if (cb.result === 'win') winBattle();
   else loseRun();

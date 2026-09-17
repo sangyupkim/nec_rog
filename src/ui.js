@@ -138,6 +138,7 @@ export function clearLog() { $('log').replaceChildren(); }
 
 /* ── 상단바 ─────────────────────────────── */
 export function topbar(save, where) {
+  resetShell();      // 지난 화면의 퀵패널·무대를 끌고 다니지 않는다 (§12.17)
   // 재화를 한 덩어리로 묶는다 — 좁은 화면에서 통째로 다음 줄로 넘어가야 잘리지 않는다
   $('topbar').innerHTML = `
     <span class="where">${esc(where)}</span>
@@ -171,9 +172,12 @@ export function topbar(save, where) {
 export function findSpot(spot) {
   if (!spot) return null;
   if (spot.slot) return $('left')?.querySelector(`.bodymap .bcell[data-slot="${spot.slot}"]`) ?? null;
+  /* 고를 것이 하단 독에서 **가운데 무대**로 옮겨 갔다 (§12.17).
+     대본이 「접합로를 누르게」라고 하면 그게 어느 자리에 그려졌든 찾아야 한다. */
   const pool = spot.area === 'left'
     ? $('left')?.querySelectorAll('.bldg') ?? []
-    : $('choices')?.querySelectorAll('.btn') ?? [];
+    : [...($('stage')?.querySelectorAll('.card') ?? []),
+       ...($('choices')?.querySelectorAll('.btn') ?? [])];
   for (const el of pool) {
     if (spot.match.test(el.textContent.replace(/\s+/g, ' '))) return el;
   }
@@ -188,6 +192,8 @@ export function spotlight(spot) {
   const target = findSpot(spot);
   const all = [
     ...($('choices')?.querySelectorAll('.btn') ?? []),
+    ...($('stage')?.querySelectorAll('.card') ?? []),
+    ...($('quick')?.querySelectorAll('.qb') ?? []),
     ...($('left')?.querySelectorAll('.bldg, .bodymap .bcell') ?? []),
     ...(document.querySelectorAll('#dpad .dp') ?? []),
   ];
@@ -304,6 +310,20 @@ let pageKey = '';      // 목록이 바뀌면 첫 쪽으로 되돌린다
 export function choices(list, opts = {}) {
   const box = $('choices');
   const all = list.filter(Boolean);
+
+  /* 무대로 올릴 것과 하단에 남길 것 (§12.17).
+     `stage: true`를 주면 **고르는 것은 가운데 카드로** 가고,
+     하단에는 「돌아간다」(pin)와 `dock: true`로 박아 둔 것만 남는다.
+     하단에 스무 개가 깔리던 것이 이 화면을 어지럽게 만들던 원인이다. */
+  if (opts.stage && isWide()) {
+    const cards = all.filter((c) => !c.pin && !c.dock);
+    const rest = all.filter((c) => c.pin || c.dock);
+    if (stagePanel(opts.stageTitle ?? '', cards, opts.stageNote ?? '')) {
+      render(box, rest);
+      return;
+    }
+  }
+
   const pinned = all.filter((c) => c.pin);
   const items = all.filter((c) => !c.pin);
 
@@ -680,6 +700,83 @@ export const panel = (html) => {
     d.addEventListener('toggle', () => secOpen.set(k, d.open));
   }
 };
+
+/* ── 퀵패널과 무대 (§12.17) ─────────────────────────
+   텍스트 기반에서 벗어난 만큼 「읽는 로그」가 화면의 절반을 가질 이유가 없어졌다.
+   가로 화면을 넷으로 나눈다 — **퀵패널**(늘 갈 수 있는 곳) · **상태** · **무대**(고를 것) · 로그.
+
+   퀵패널은 맥락에 따라 내용이 바뀐다. 마을에서는 건물, 전투에서는 공격·술법·가방.
+   무대는 그 맥락에서 **고를 것**을 카드로 늘어놓는다. 하단 독에는 「돌아간다」와
+   물건 고르기처럼 줄 단위로 읽어야 하는 것만 남는다 — 하단에 스무 개가 깔리던 것이
+   이 화면을 어지럽게 만들던 원인이다. */
+
+/** 가로 배치를 쓸 만큼 넓은가 — 좁으면 예전처럼 위아래로 쌓는다 */
+export const isWide = () => window.matchMedia?.('(min-width:900px)').matches ?? false;
+
+/** 화면이 바뀔 때마다 먼저 부른다 — 지난 화면의 퀵패널·무대를 끌고 다니지 않는다 */
+export function resetShell() {
+  const q = $('quick'), st = $('stage');
+  if (q) { q.innerHTML = ''; q.hidden = true; }
+  if (st) { st.innerHTML = ''; st.hidden = true; }
+  $('app')?.classList.toggle('wide', isWide());
+}
+
+/**
+ * 왼쪽 퀵패널.
+ * @param items [{ key, icon, label, sub, on, here, disabled }]
+ *   `here`가 true인 칸에 표가 붙는다 — **지금 어디에 있는지**가 보여야 옮겨 다닐 수 있다.
+ */
+export function quickPanel(items) {
+  const el = $('quick');
+  if (!el || !isWide()) return;
+  const list = items.filter(Boolean);
+  if (!list.length) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = list.map((it, i) => it.sep
+    ? '<div class="qsep"></div>'
+    : `<button type="button" class="qb ${it.here ? 'here' : ''}" data-i="${i}"
+         ${it.disabled ? 'disabled' : ''} title="${esc(it.label)}">
+         <span class="qi">${it.icon ?? '·'}</span>
+         <span class="qn">${esc(it.label)}</span>
+         ${it.sub ? `<span class="qs">${esc(it.sub)}</span>` : ''}
+       </button>`).join('');
+  for (const b of el.querySelectorAll('.qb:not([disabled])')) {
+    const it = list[Number(b.dataset.i)];
+    b.addEventListener('click', () => { soundUnlock(); SFX.tap(); it.on?.(); });
+  }
+  $('app')?.classList.add('wide');
+}
+
+/**
+ * 가운데 무대 — 고를 것을 카드로.
+ * @param title 머리말 · @param cards [{ label, meta, cls, on, disabled, info, on: fn, picked }]
+ */
+export function stagePanel(title, cards, note = '') {
+  const el = $('stage');
+  if (!el || !isWide()) return false;
+  const list = cards.filter(Boolean);
+  el.hidden = false;
+  el.innerHTML = `${title ? `<p class="sttl">${esc(title)}</p>` : ''}
+    ${list.length
+      ? `<div class="cards">${list.map((c, i) => `
+          <button type="button" class="card ${c.cls ?? ''} ${c.picked ? 'on' : ''}" data-i="${i}"
+            ${c.disabled ? 'disabled' : ''}>
+            <span class="cl">${c.label}</span>
+            ${c.meta ? `<span class="cm">${c.meta}</span>` : ''}
+          </button>`).join('')}</div>`
+      : '<p class="empty">고를 것이 없다.</p>'}
+    ${note}`;
+  for (const b of el.querySelectorAll('.card:not([disabled])')) {
+    const c = list[Number(b.dataset.i)];
+    b.addEventListener('click', () => { soundUnlock(); SFX.tap(); c.on?.(); });
+    if (c.info) {
+      b.addEventListener("mouseenter", () => showTip(c.info, b));
+      b.addEventListener("mouseleave", hideTip);
+    }
+  }
+  $('app')?.classList.add('wide');
+  return true;
+}
 
 /** 패널 타일에 클릭과 숫자 키를 걸어 준다. go = { 이름: 함수 } */
 export function bindTiles(go = {}) {
