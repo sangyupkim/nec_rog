@@ -1335,6 +1335,35 @@ export function listPanel(title, rows, extra = '', onPick = null, picked = null,
   }
 }
 
+/* ── 눈금자 (§9.16) ─────────────────────────────
+   「시간을 스크롤바로 조절할 수 있게」 — 고른 값에 따라 **숫자가 그 자리에서 바뀌어야**
+   쓸 만하다. 끌 때마다 화면을 다시 그리면 손가락이 눈금에서 떨어지므로,
+   눈금자는 그대로 두고 **정해진 자리의 글자만** 고쳐 쓴다. */
+export const rangeRow = (id, { min, max, value, step = 1, label, valueText }) =>
+  `<div class="row slider"><span class="lb">${esc(label)}</span>
+    <span class="vl"><b id="${id}-out">${valueText ?? value}</b></span>
+    <input class="rng" type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}">
+   </div>`;
+
+/** 눈금자가 움직일 때마다 부른다. 첫 그림도 한 번 그려 준다 */
+export function bindRange(id, onInput) {
+  const el = $(id);
+  if (!el) return;
+  const fire = () => onInput(Number(el.value));
+  el.addEventListener('input', fire);
+  fire();
+}
+
+/** 이미 그려 둔 자리의 글자만 바꾼다 — 다시 그리지 않는다 */
+export function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+export function setHTML(id, html) {
+  const el = $(id);
+  if (el) el.innerHTML = josa(html);
+}
+
 /** pick을 주면 누를 수 있는 줄이 된다 (listPanel의 onPick과 짝이다).
     곁말(rt)은 **글자로 취급해 escape한다** — 색을 입힌 조각을 넣으려면 `rtHTML`을 쓴다.
     둘을 한 자리에서 받으면 언젠가 태그가 글자로 새어 나온다 (§12.18-B). */

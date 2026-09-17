@@ -2974,49 +2974,102 @@ function laborScreen() {
 
 
 /** ② 어디로, 얼마나 */
+/* ── 자율 탐험 — 어디로, 얼마나 (§9.16) ─────────────
+   전에는 「짧게·보통·길게」 셋을 **던전마다** 늘어놓아, 단계가 여섯이면 단추가 열여덟이었다.
+   고르는 것이 아니라 훑는 일이 됐다. 이제 두 걸음이다 — 어디로 갈지 고르고,
+   그 다음에 **눈금자로 시간을 정한다**(1~10시간). */
 function tripPickStage(golemId) {
   const g = O.workshopGolems(S).find((x) => x.id === golemId);
   if (!g) { laborScreen(); return; }
   UI.topbar(S, `자율 탐험 · ${g.name}`);
   const stages = tripStages();
+  const st = O.golemStats(g);
+  const bonus = O.tripBonus(st);
+
   UI.listPanel('갈 수 있는 곳',
-    stages.map((st) => UI.rowHTML(`${st.idx + 1}단계`, UI.esc(st.name),
-      Object.entries(O.tripRate(st.idx)).filter(([, v]) => v)
-        .map(([k, v]) => `${O.RES_LABEL[k]} ${v}/시간`).join(' · '))),
-    '<p class="note">깊이 들어간 곳일수록 많이 주워 온다. 깬 단계만 보낼 수 있다.</p>');
-  UI.logHead('어디로, 얼마나');
+    stages.map((x) => UI.rowHTML(`${x.idx + 1}단계`, UI.esc(x.name),
+      Object.entries(O.tripRate(x.idx)).filter(([, v]) => v)
+        .map(([k, v]) => `${O.RES_LABEL[k]} ${Math.floor(v * bonus)}/시간`).join(' · '))),
+    `<p class="note">깊이 들어간 곳일수록 많이 주워 온다. 깬 단계만 보낼 수 있다.<br>
+      위 수치는 <b>${UI.esc(g.name)}</b>의 몫이 붙은 값이다 (능력치로 +${Math.round((bonus - 1) * 100)}%).<br>
+      곳을 고르면 <b>시간을 눈금자로 정한다</b>.</p>`);
+
+  UI.logHead('어디로');
+  UI.logLine('지나온 길 중 어디를 다시 훑게 할까.', 'narrate');
+
+  UI.choices([
+    ...stages.map((x) => ({
+      label: UI.esc(x.name),
+      meta: `${x.idx + 1}단계 · ` + Object.entries(O.tripRate(x.idx)).filter(([, v]) => v)
+        .map(([k, v]) => `${O.RES_LABEL[k]} ${Math.floor(v * bonus)}/시간`).join(' · '),
+      now: true,                       // 누르면 곧장 시간 고르기로 (§12.20-A)
+      on: () => tripTimeScreen(golemId, x.id),
+    })),
+    { label: '돌아간다', cls: 'ghost', pin: true, on: laborScreen },
+  ], { stage: true, stageTitle: '어디로 보내는가' });
+}
+
+/** 기본 시간 — 너무 짧지도 길지도 않은 자리에서 시작한다 */
+const TRIP_DEFAULT_H = 4;
+
+function tripTimeScreen(golemId, stageId, hours = TRIP_DEFAULT_H) {
+  const g = O.workshopGolems(S).find((x) => x.id === golemId);
+  const stage = tripStages().find((x) => x.id === stageId);
+  if (!g || !stage) { laborScreen(); return; }
+  UI.topbar(S, `자율 탐험 · ${stage.name}`);
+  const st = O.golemStats(g);
+  const bonus = O.tripBonus(st);
+  const rate = O.tripRate(stage.idx);
+  let h = hours;
+
+  const yieldText = (n) => Object.entries(rate).filter(([, v]) => v)
+    .map(([k, v]) => `${O.RES_LABEL[k]} ${Math.floor(v * bonus * n)}`).join(' · ');
+
+  UI.listPanel(stage.name, [
+    UI.rowHTML('보내는 골렘', UI.esc(g.name), `능률 ${O.golemPower(g)}`),
+    UI.rangeRow('triph', { min: O.TRIP_HOURS.min, max: O.TRIP_HOURS.max, value: h, label: '시간', valueText: `${h}시간` }),
+    UI.rowHTML('예상 수확', '<span id="trip-yield"></span>', ''),
+    UI.rowHTML('부속 주울 확률', '<b id="trip-luck"></b>', '집중이 높을수록 잘 줍는다'),
+    UI.rowHTML('내구도 닳을 확률', '<b id="trip-wear"></b>', '방어가 높을수록 덜 닳는다'),
+    UI.rowHTML('핵이 닳는 양', '<span id="trip-core"></span>', `핵 ${O.coreHpOf(g)}/${O.coreMaxOf(g)}`),
+  ], `<p class="note">눈금자를 끌어 <b>${O.TRIP_HOURS.min}시간부터 ${O.TRIP_HOURS.max}시간까지</b> 정한다.
+      오래 둘수록 많이 가져오지만 그만큼 몸이 닳는다.<br>
+      이 골렘의 몫: 수확 +${Math.round((bonus - 1) * 100)}% ·
+      집중 ${st.focus} · 방어 ${st.def} · 속도 ${st.spd}.</p>`);
+
+  /** 눈금자가 움직일 때마다 숫자만 고쳐 쓴다 — 화면을 다시 그리지 않는다 */
+  const paint = (n) => {
+    h = n;
+    UI.setText('triph-out', `${n}시간`);
+    UI.setText('trip-yield', yieldText(n));
+    UI.setText('trip-luck', `${O.tripPartLuck(stage.idx, n, st)}%`);
+    UI.setText('trip-wear', `${O.tripWearChance(n, st)}%`);
+    const core = Math.min(O.coreHpOf(g) - 1, Math.round(O.TRIP_HP_PER_HOUR * n));
+    UI.setText('trip-core', `-${Math.max(0, core)} (${Math.max(1, O.coreHpOf(g) - core)}/${O.coreMaxOf(g)} 남는다)`);
+    UI.setText('trip-send', `${n}시간 보낸다`);
+  };
+  UI.bindRange('triph', paint);
+
+  UI.logHead('얼마나');
   UI.logLine('오래 두면 많이 가져오지만 그만큼 몸이 닳는다.', 'dim');
 
-  const list = [];
-  for (const st of stages) {
-    for (const t of O.TRIPS) {
-      const rate = O.tripRate(st.idx);
-      const sg = O.golemStats(g);
-      const bonus = 1 + Math.min(0.8, (sg.atk + sg.def + sg.spd + sg.focus) / 120);
-      const yield_ = Object.entries(rate).filter(([, v]) => v)
-        .map(([k, v]) => `${O.RES_LABEL[k]} ${Math.floor(v * bonus * t.hours)}`).join(' · ');
-      list.push({
-        label: `${st.name} — ${t.name}`,
-        meta: `${t.label} · ${yield_}`,
-        info: `<span class="tt">${UI.esc(st.name)} · ${t.label}</span>`
-          + `<div class="trow"><span>예상 수확 ${yield_}</span></div>`
-          + `<div class="trow"><span>부속 주울 확률 <b>${O.tripPartLuck(st.idx, t.hours)}%</b></span></div>`
-          + `<div class="trow"><span>내구도 닳을 확률 <b>${t.wearChance}%</b> — 한 칸</span></div>`,
-        on: () => {
-          g.assigned = 'labor';
-          S.ossuary.laborBay.dispatch.push({
-            golemId: g.id, trip: t.id, stageId: st.id, stageIndex: st.idx, stageName: st.name,
-            startedAt: Date.now(), durationMs: t.hours * 3600_000,
-          });
-          UI.logLine(`${g.name}을(를) ${st.name}으로 보냈다. ${t.label} 뒤에 돌아온다.`, 'good');
-          save();
-          laborScreen();
-        },
-      });
-    }
-  }
-  list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: laborScreen });
-  UI.choices(list);
+  UI.choices([
+    { label: '<span id="trip-send">보낸다</span>', cls: 'primary',
+      meta: '눈금자로 고른 시간만큼 보낸다',
+      on: () => {
+        g.assigned = 'labor';
+        S.ossuary.laborBay.dispatch.push({
+          golemId: g.id, hours: h, stageId: stage.id, stageIndex: stage.idx, stageName: stage.name,
+          startedAt: Date.now(), durationMs: h * 3600_000,
+        });
+        UI.logLine(`${g.name}을(를) ${stage.name}으로 보냈다. ${h}시간 뒤에 돌아온다.`, 'good');
+        save();
+        laborScreen();
+      } },
+    { label: '다른 곳으로', cls: 'ghost', on: () => tripPickStage(golemId) },
+    { label: '돌아간다', cls: 'ghost', pin: true, on: laborScreen },
+  ], { stage: true, stageTitle: `${stage.name} — 얼마나 보낼까` });
+  paint(h);                 // 선택지를 그린 뒤 한 번 더 — 단추 글자도 채워야 한다
 }
 
 /* ── 제단 (영구 해금) ─────────────────────

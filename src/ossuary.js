@@ -34,11 +34,11 @@ export const FACILITIES = {
 
    보내는 시간은 내가 정한다 — **짧으면 조금, 길면 많이.**
    대신 시간이 길수록 부속이 닳을 확률이 오른다(운이 좋으면 한 번도 안 닳는다). */
-export const TRIPS = [
-  { id: 'short',  name: '짧게',  hours: 1,  label: '1시간',  wearChance: 20 },
-  { id: 'medium', name: '보통',  hours: 3,  label: '3시간',  wearChance: 45 },
-  { id: 'long',   name: '길게',  hours: 6,  label: '6시간',  wearChance: 70 },
-];
+export const TRIP_HOURS = { min: 1, max: 10 };
+
+/** 능력치 합이 수확에 붙는 배율 — 상한 +80% */
+export const tripBonus = (st) =>
+  1 + Math.min(0.8, ((st?.atk ?? 0) + (st?.def ?? 0) + (st?.spd ?? 0) + (st?.focus ?? 0)) / 120);
 
 /** 단계 하나가 한 시간에 내놓는 양. 뒤로 갈수록 많아진다 */
 export function tripRate(stageIndex) {
@@ -52,9 +52,26 @@ export function tripRate(stageIndex) {
   };
 }
 
-/** 부속을 주워 올 확률(%) — 깊이 갈수록, 오래 있을수록 잘 줍는다 */
-export const tripPartLuck = (stageIndex, hours) =>
-  Math.min(85, 15 + stageIndex * 5 + hours * 5);
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(n)));
+
+/**
+ * 부속을 주워 올 확률(%) — 깊이 갈수록, 오래 있을수록, **눈이 밝을수록** 잘 줍는다 (§9.16).
+ * 전에는 골렘이 아무리 좋아도 줍는 확률이 똑같았다. 수확만 늘고 확률은 고정이라,
+ * 「좋은 골렘을 보낸다」가 재료를 조금 더 받는 일 이상이 되지 못했다.
+ * 줍는 것은 **집중**이 하고, 속도가 거든다 — 많이 훑을수록 눈에 걸린다.
+ */
+export const PART_LUCK_CAP = 25;
+export const tripPartLuck = (stageIndex, hours, st = null) =>
+  clamp(10 + stageIndex * 4 + hours * 4
+    + Math.min(PART_LUCK_CAP, ((st?.focus ?? 0) * 2 + (st?.spd ?? 0)) / 2), 5, 90);
+
+/**
+ * 내구도가 닳을 확률(%) — 오래 있을수록 오르고, **단단할수록** 내려간다 (§9.16).
+ * 방어가 곧 그 골렘이 무덤을 견디는 힘이다.
+ */
+export const WEAR_CUT_CAP = 30;
+export const tripWearChance = (hours, st = null) =>
+  clamp(8 + hours * 7 - Math.min(WEAR_CUT_CAP, (st?.def ?? 0) * 1.2), 5, 85);
 
 /* ── 단련로의 조리법 (§9.15) ──────────────────────────────
    전에는 일곱이었다 — 정착·융합·이식·수복·정제·소생·굳히기.
@@ -443,7 +460,7 @@ function settleLabor(save, o, elapsed, rng, lines) {
     const st = golemStats(g);
     const hours = d.durationMs / HOUR;
     // 능력치가 높을수록 더 주워 온다. 상한 +80% — 골렘이 좋아도 시간이 일을 한다
-    const bonus = 1 + Math.min(0.8, (st.atk + st.def + st.spd + st.focus) / 120);
+    const bonus = tripBonus(st);
     const gained = [];
     for (const [res, rate] of Object.entries(tripRate(d.stageIndex ?? 0))) {
       const n = Math.floor(rate * bonus * hours);
@@ -451,7 +468,7 @@ function settleLabor(save, o, elapsed, rng, lines) {
     }
 
     // 부속 줍기 — 확실한 수입이 아니라 덤이다
-    if (rng.chance(tripPartLuck(d.stageIndex ?? 0, hours))) {
+    if (rng.chance(tripPartLuck(d.stageIndex ?? 0, hours, st))) {
       // 자율 탐험이 주워 오는 것에 보스 전용(유니크·전설)은 섞이지 않는다
       const pool = DB.parts.filter((p) => p.rarity !== 'unique' && p.rarity !== 'legendary');
       const part = makePart(rng.pick(pool).id, rng.chance(35)
@@ -478,8 +495,7 @@ function settleLabor(save, o, elapsed, rng, lines) {
        오래 보내면 골렘이 녹아 없어졌다. 이제 길게 보낼수록 확률이 오를 뿐,
        운이 좋으면 한 번도 안 닳는다 — 보내는 것이 도박이 아니라 선택이 된다. */
     let lost = null;
-    const trip = TRIPS.find((t) => t.id === d.trip) ?? TRIPS[0];
-    if (rng.chance(trip.wearChance)) {
+    if (rng.chance(tripWearChance(hours, st))) {
       const alive = (g.parts ?? []).filter((p) => p.integrity > 0);
       if (alive.length) {
         const target = rng.pick(alive);
@@ -491,7 +507,7 @@ function settleLabor(save, o, elapsed, rng, lines) {
 
     lines.push({
       facility: '자율 탐험',
-      text: `${d.stageName ?? '무덤'} · ${g.name} (${trip.label}) — ${gained.length ? gained.join(', ') : '수확 없음'}`,
+      text: `${d.stageName ?? '무덤'} · ${g.name} (${Math.round(hours)}시간) — ${gained.length ? gained.join(', ') : '수확 없음'}`,
       warn: lost ? `${lost}이(가) 삭아 사라졌다`
         : coreSpent(g) ? `${g.name}의 핵이 바닥났다 — 정비대에서 안정화해야 다시 보낸다`
         : lowIntegrityWarn(g),

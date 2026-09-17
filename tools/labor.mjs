@@ -96,6 +96,31 @@ g.assigned = 'crew';
 ok(!O.coreSpent(g), '핵 안정화 뒤에는 다시 쓸 수 있다');
 ok(O.crewSpeed(s).count === 1, '다시 능률을 낸다');
 
+console.log('\n■ 자율 탐험 — 시간과 골렘이 확률을 어떻게 움직이는가 (§9.16)');
+/* 수확만 골렘을 타고 확률은 고정이면, 「좋은 골렘을 보낸다」가 재료 몇 개 더 받는 일로 끝난다.
+   줍는 확률과 닳는 확률이 함께 움직여야 고르는 값이 생긴다. */
+const STATS = {
+  약한골렘: { atk: 4, def: 3, spd: 3, focus: 2 },
+  보통골렘: { atk: 10, def: 9, spd: 6, focus: 6 },
+  센골렘:   { atk: 20, def: 18, spd: 12, focus: 12 },
+};
+console.log('  골렘        1시간(줍기/닳기)  5시간         10시간        수확배율');
+for (const [name, sv] of Object.entries(STATS)) {
+  const cell = (h) => `${String(O.tripPartLuck(2, h, sv)).padStart(2)}%/${String(O.tripWearChance(h, sv)).padStart(2)}%`;
+  console.log(`  ${name.padEnd(10)}${cell(1).padStart(12)}${cell(5).padStart(14)}${cell(10).padStart(14)}`
+    + `${`×${O.tripBonus(sv).toFixed(2)}`.padStart(11)}`);
+}
+{
+  const w = STATS.약한골렘, st2 = STATS.센골렘;
+  ok(O.tripPartLuck(2, 5, st2) > O.tripPartLuck(2, 5, w), '센 골렘이 더 잘 줍는다');
+  ok(O.tripWearChance(5, st2) < O.tripWearChance(5, w), '센 골렘이 덜 닳는다');
+  ok(O.tripPartLuck(2, 10, w) > O.tripPartLuck(2, 1, w), '오래 두면 더 잘 줍는다');
+  ok(O.tripWearChance(10, w) > O.tripWearChance(1, w), '오래 두면 더 닳는다');
+  // 1시간짜리가 아무 위험 없는 공짜 수입이 되면 안 된다 — 열 번 보내면 한 번은 닳아야 한다
+  ok(O.tripWearChance(1, st2) >= 5, `가장 안전한 보내기도 위험이 남는다 (${O.tripWearChance(1, st2)}%)`);
+  ok(O.tripWearChance(10, w) <= 85, `가장 위험한 보내기도 확정은 아니다 (${O.tripWearChance(10, w)}%)`);
+}
+
 console.log('\n■ 되살리는 값이 버는 것을 넘지 않는가');
 /* 부패조가 시간당 만드는 진액 — 조각을 넣어 둔 1레벨 기준.
    한 번 멈출 때마다 진액 12가 드는데, 그 사이에 부패조가 그보다 많이 만들어야
