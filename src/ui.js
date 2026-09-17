@@ -624,7 +624,18 @@ document.addEventListener('keydown', (e) => {
    아티팩트 샌드박스에서는 파일 다운로드가 막힌다. 링크로 내려받게 하면
    조용히 아무 일도 일어나지 않으므로, 텍스트를 직접 보여 주고 받는다. */
 function textBox(title, value, readOnly, onOk, okLabel = '가져오기') {
-  const box = $('choices');
+  /* 넓은 화면에서는 하단 독이 그려지지 않는다 (§12.17-A) —
+     거기 글상자를 놓으면 세이브를 주고받을 자리가 통째로 안 보인다. */
+  const st = $('stage');
+  const wide = isWide();
+  let box;
+  if (wide && st) {
+    st.hidden = false;
+    st.innerHTML = '<div class="cards"></div>';
+    box = st.querySelector('.cards');
+  } else {
+    box = $('choices');
+  }
   box.replaceChildren();
   keyHandlers = [];
 
@@ -643,7 +654,8 @@ function textBox(title, value, readOnly, onOk, okLabel = '가져오기') {
 
   const mk = (text, cls, fn) => {
     const b = document.createElement('button');
-    b.className = `btn ${cls}`;
+    // 무대 위에서는 다른 단추들과 같은 이름을 단다 — 밖에서 가려낼 이름이 하나여야 한다
+    b.className = `btn ${wide ? 'card ' : ''}${cls}`;
     b.textContent = text;
     b.addEventListener('click', fn);
     return b;
