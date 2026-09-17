@@ -274,6 +274,7 @@ function migrate(s) {
   o.forge.slots ??= [];
   if (o.forge.level < 2) o.forge.level = 2;   // 한 칸이던 시절의 세이브를 올려 준다
   o.laborBay ??= { level: 1, dispatch: [] };
+  o.congeal ??= null;                    // 굳히기는 이제 통에 걸어 둔다 (§9.17)
   o.laborBay.dispatch ??= [];
   // 예전에는 부속 낱개를 파견 보냈다. 이제는 조립대 골렘만 나간다 —
   // 나가 있던 부속은 소지품으로 돌려주고 그 파견은 접는다
@@ -602,7 +603,7 @@ function ossuaryBadge() {
   const o = S.ossuary;
   const running = [
     ...o.dissection.slots, ...(o.forge?.slots ?? []), ...o.laborBay.dispatch,
-    ...(o.overhaul ?? []), ...(S.town?.smithy ?? []),
+    ...(o.overhaul ?? []), ...(o.congeal ? [o.congeal] : []),
   ];
   if (o.rotVat.stored >= O.vatCap(o)) return '통이 가득';
   if (!running.length) return '비어 있음';
@@ -1555,8 +1556,12 @@ function materialsScreen() {
   UI.listPanel('재료를 만드는 곳', [
     UI.rowHTML('🫗 부패조', '두면 진액이 고인다', `${o.rotVat.stored}/${O.vatCap(o)}`, vatFull),
     UI.rowHTML('🔪 해체대', '부속을 갈라 재료로', `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`),
-    UI.rowHTML('🥣 굳히기', '진액을 졸여 골분으로',
-      `진액 ${O.CONGEAL.ichor} → 골분 ${O.CONGEAL.boneMeal}`, S.ichor < O.CONGEAL.ichor),
+    UI.rowHTML('🥣 굳히기', o.congeal
+      ? `${O.CONGEAL.boneMeal * o.congeal.batches}만큼 졸이는 중`
+      : '진액을 졸여 골분으로',
+      o.congeal ? O.remainText(o.congeal.startedAt, o.congeal.durationMs)
+        : `한 몫 진액 ${O.CONGEAL.ichor} → 골분 ${O.CONGEAL.boneMeal}`,
+      !o.congeal && O.congealMax(S) < 1),
     UI.rowHTML('⛓ 자율 탐험', o.built.laborBay
       ? '뚫은 층으로 골렘을 보낸다'
       : '<span class="empty">제단에서 안치소를 세워야 열린다</span>',
@@ -1587,21 +1592,94 @@ function materialsScreen() {
         : '사역 골렘 안치소를 세워야 열린다. 제단에서 영혼재로 짓는다.',
       on: laborScreen },
     /* 굳히기는 단련로에 있었다. **재료를 만드는 일이므로 여기가 집이다** (§9.15-A).
-       시간을 걸 일도 아니다 — 남는 것을 모자란 것으로 바꾸는 한 번의 손짓이다. */
+       그리고 **시간이 든다** (§9.17) — 그러지 않으면 부패조가 쌓아 둔 진액을
+       그 자리에서 전부 골분으로 바꿀 수 있어, 걸어 두고 기다린다는 규칙이 무너진다. */
     { label: '🥣 굳히기 — 진액을 졸여 골분으로',
-      meta: S.ichor < O.CONGEAL.ichor
-        ? `진액 ${O.CONGEAL.ichor - S.ichor} 모자라다`
-        : `진액 ${O.CONGEAL.ichor} → 골분 ${O.CONGEAL.boneMeal}`,
-      disabled: S.ichor < O.CONGEAL.ichor,
+      cls: o.congeal ? 'ghost' : '',
+      meta: o.congeal ? `졸이는 중 · ${O.remainText(o.congeal.startedAt, o.congeal.durationMs)}`
+        : O.congealMax(S) < 1 ? `진액 ${O.CONGEAL.ichor - S.ichor} 모자라다`
+        : `얼마나 졸일지 고른다 (한 몫 진액 ${O.CONGEAL.ichor} → 골분 ${O.CONGEAL.boneMeal})`,
+      disabled: !o.congeal && O.congealMax(S) < 1,
+      now: true,
       info: '<span class="tt">굳히기</span><div class="trow"><span>부패조는 진액을 끝없이 만드는데 쓰는 곳이 적다. 남는 것을 모자란 것으로 바꾼다.</span></div>',
-      on: () => {
-        S.ichor -= O.CONGEAL.ichor;
-        S.boneMeal += O.CONGEAL.boneMeal;
-        UI.logLine(`진액을 졸였다. 골분 +${O.CONGEAL.boneMeal}. (진액 ${S.ichor} · 골분 ${S.boneMeal})`, 'good');
-        materialsScreen();
-      } },
+      on: congealScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ], { stage: true, stageTitle: '재료를 만드는 곳' });
+  save();
+}
+
+/* ── 굳히기 (§9.17) ───────────────────────────
+   얼마나 졸일지는 **눈금자로 정한다.** 한 몫은 진액 8 → 골분 3이고,
+   몫이 늘수록 시간이 는다. 통은 하나뿐이라 한 번에 한 솥만 올린다. */
+function congealScreen(batches = null) {
+  const o = S.ossuary;
+  UI.topbar(S, '납골당 · 굳히기');
+  quickHere('materials');
+  const cap = O.congealMax(S);
+  const job = o.congeal;
+  let n = Math.max(1, Math.min(cap, batches ?? Math.min(cap, 3)));
+
+  if (job) {
+    UI.listPanel('통에 올린 것', [
+      UI.rowHTML('졸이는 몫', `<b>${job.batches}몫</b>`, `진액 ${O.CONGEAL.ichor * job.batches}을(를) 넣었다`),
+      UI.rowHTML('나올 것', `<b>골분 ${O.CONGEAL.boneMeal * job.batches}</b>`, ''),
+      UI.rowHTML('남은 시간', O.remainText(job.startedAt, job.durationMs), '끝나면 정산에 함께 나온다'),
+    ], `<p class="note">통은 하나뿐이다 — 지금 올린 것이 끝나야 다음을 올린다.<br>
+        물리면 <b>넣은 진액은 돌려받는다</b>. 시간만 버린 셈이 된다.</p>`);
+  } else {
+    UI.listPanel('얼마나 졸일까', [
+      UI.rangeRow('congn', { min: 1, max: Math.max(1, cap), value: n, label: '몫', valueText: `${n}몫` }),
+      UI.rowHTML('넣는 진액', '<b id="cong-in"></b>', `가진 것 ${S.ichor}`),
+      UI.rowHTML('나오는 골분', '<b id="cong-out"></b>', `가진 것 ${S.boneMeal}`),
+      UI.rowHTML('걸리는 시간', '<span id="cong-ms"></span>', '작업반을 붙이면 줄어든다'),
+    ], `<p class="note">한 몫은 <b>진액 ${O.CONGEAL.ichor} → 골분 ${O.CONGEAL.boneMeal}</b>.
+        한 번에 ${O.CONGEAL.max}몫까지 올릴 수 있다 (지금 가진 진액으로는 ${cap}몫).<br>
+        몫이 늘수록 오래 걸리지만, <b>불을 올리는 시간은 한 번뿐</b>이라 몰아서 거는 편이 이득이다.</p>`);
+  }
+
+  UI.logHead('굳히기');
+  UI.logLine('통 아래 불을 키우면 진액이 걸쭉해진다.', 'narrate');
+  if (job) UI.logLine(`${job.batches}몫이 졸고 있다 — ${O.remainText(job.startedAt, job.durationMs)}.`, 'dim');
+  else if (cap < 1) UI.logLine(`진액이 ${O.CONGEAL.ichor} 있어야 한 몫을 건다.`, 'bad');
+
+  if (!job) {
+    const paint = (v) => {
+      n = v;
+      UI.setText('congn-out', `${v}몫`);
+      UI.setText('cong-in', `진액 ${O.CONGEAL.ichor * v}`);
+      UI.setText('cong-out', `골분 ${O.CONGEAL.boneMeal * v}`);
+      const ms = O.jobDuration(S, O.congealMs(v));
+      UI.setText('cong-ms', `${Math.round(ms / 60000)}분`);
+      UI.setText('cong-go', `${v}몫 올린다`);
+    };
+    UI.bindRange('congn', paint);
+    UI.choices([
+      { label: '<span id="cong-go">올린다</span>', cls: 'primary',
+        meta: cap < 1 ? '진액이 모자라다' : '눈금자로 고른 만큼 통에 올린다',
+        disabled: cap < 1,
+        on: () => {
+          S.ichor -= O.CONGEAL.ichor * n;
+          o.congeal = { batches: n, startedAt: Date.now(), durationMs: O.jobDuration(S, O.congealMs(n)) };
+          UI.logLine(`${n}몫을 통에 올렸다. ${Math.round(o.congeal.durationMs / 60000)}분 뒤에 골분 ${O.CONGEAL.boneMeal * n}이(가) 나온다.`, 'good');
+          save();
+          congealScreen();
+        } },
+      { label: '돌아간다', cls: 'ghost', pin: true, on: materialsScreen },
+    ], { stage: true, stageTitle: '얼마나 졸일까' });
+    paint(n);
+  } else {
+    UI.choices([
+      { label: '물린다', cls: 'danger', meta: `진액 ${O.CONGEAL.ichor * job.batches}을(를) 돌려받는다`,
+        on: () => {
+          S.ichor += O.CONGEAL.ichor * job.batches;
+          o.congeal = null;
+          UI.logLine('불을 껐다. 넣었던 진액을 도로 담았다.', 'dim');
+          save();
+          congealScreen();
+        } },
+      { label: '돌아간다', cls: 'ghost', pin: true, on: materialsScreen },
+    ], { stage: true, stageTitle: '졸이는 중' });
+  }
   save();
 }
 

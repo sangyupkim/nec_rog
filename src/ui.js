@@ -1410,7 +1410,7 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
   t('altar', '🕯', '제단', `영혼재 ${save.soulAsh}`);
 
   /* ── 돌아가는 일 (§9.5-A) ────────────────────────────
-     시간이 드는 것은 여섯 군데에 흩어져 있다 — 부패조·해체대·접합로·정비대·자율 탐험·대장간.
+     시간이 드는 것은 여러 군데에 흩어져 있다 — 부패조·해체대·단련로·굳히기·정비대·자율 탐험.
      각 화면에 들어가 봐야 알 수 있으면, 걸어 둔 것을 잊고 그냥 나간다.
      **여기 한 줄씩 모아 놓는다.** 끝나는 순서대로. */
   const jobs_ = [];
@@ -1431,8 +1431,10 @@ export function ossuaryPanel(save, O, now = Date.now(), go = {}) {
     push_('해체대', j.name ?? '부속 해체', j);
   }
   for (const j of o.forge?.slots ?? []) {
-    push_('접합로', O.RECIPES[j.recipe]?.name ?? '작업', j);
+    push_('단련로', O.RECIPES[j.recipe]?.name ?? '작업', j);
   }
+  // 굳히기도 시간이 드는 일이다 (§9.17) — 여기 없으면 걸어 둔 것을 잊는다
+  if (o.congeal) push_('굳히기', `${o.congeal.batches}몫 · 골분 ${O.CONGEAL.boneMeal * o.congeal.batches} 예정`, o.congeal);
   for (const j of o.overhaul ?? []) {
     push_('정비대', O.OVERHAUL[j.kind]?.name ?? '정비', j);
   }

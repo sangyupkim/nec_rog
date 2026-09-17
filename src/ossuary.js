@@ -86,8 +86,22 @@ export const RECIPES = {
             cost: { scrap: 8, ichor: 1 }, rawOnly: true },
 };
 
-/** 진액을 졸여 골분으로 (재료 화면에서 바로 한다 — 시간을 걸 일이 아니다) */
-export const CONGEAL = { ichor: 8, boneMeal: 3 };
+/* ── 굳히기 (§9.17) ───────────────────────────────
+   진액을 졸여 골분으로 바꾼다. 처음엔 **한 번의 손짓**으로 뒀는데, 그러자
+   부패조가 쌓아 둔 진액을 그 자리에서 골분으로 전부 바꿀 수 있었다 —
+   방치로 버는 것과 시간을 들여 버는 것의 구분이 사라진다.
+   이제 **통에 걸어 두고 기다린다.** 얼마나 졸일지는 내가 정한다. */
+export const CONGEAL = {
+  ichor: 8, boneMeal: 3,        // 한 몫에 드는 것과 나오는 것
+  max: 10,                      // 한 번에 걸 수 있는 몫
+  base: 15 * 60_000,            // 불을 올리는 데 드는 시간
+  per: 10 * 60_000,             // 한 몫마다 더 걸리는 시간
+};
+/** 몫 수에 따른 소요 시간 — 작업반 단축은 jobDuration이 따로 먹인다 */
+export const congealMs = (n) => CONGEAL.base + CONGEAL.per * Math.max(1, n);
+/** 지금 걸 수 있는 최대 몫 (가진 진액과 통 크기가 정한다) */
+export const congealMax = (save) =>
+  Math.max(0, Math.min(CONGEAL.max, Math.floor((save.ichor ?? 0) / CONGEAL.ichor)));
 
 /* ── 초기 상태 ──────────────────────────────────── */
 export function newOssuary() {
@@ -108,6 +122,7 @@ export function newOssuary() {
     workshop: { golems: [], seq: 0 },
     crew: { parts: [] },      // (구) 부속 직접 배치 — 마이그레이션에서 조립대로 흡수된다
     overhaul: [],             // 정비대 — 방어도·핵 회복 작업
+    congeal: null,            // 굳히기 — 통에 걸어 둔 몫 (§9.17)
     pending: null,       // 복귀 정산 화면에서 보여줄 내역
   };
 }
@@ -278,6 +293,7 @@ export function settle(save, now = Date.now()) {
   settleVat(save, o, elapsed, lines);
   settleDissection(save, o, now, lines);
   settleForge(save, o, now, rng, lines);
+  settleCongeal(save, o, now, lines);
   settleCrew(save, o, elapsed, lines);
   settleLabor(save, o, elapsed, rng, lines);
   settleSmithy(save, now, lines);
@@ -316,6 +332,16 @@ function settleOverhaul(save, now, lines) {
       lines.push({ facility: '정비대', text: `${name} — 핵 안정화 완료, 박동이 고르다` });
     }
   }
+}
+
+/** 통에 걸어 둔 굳히기가 끝났는지 본다 (§9.17) */
+function settleCongeal(save, o, now, lines) {
+  const j = o.congeal;
+  if (!j || now < j.startedAt + j.durationMs) return;
+  const got = CONGEAL.boneMeal * j.batches;
+  save.boneMeal = (save.boneMeal ?? 0) + got;
+  o.congeal = null;
+  lines.push({ facility: '굳히기', text: `진액 ${CONGEAL.ichor * j.batches}을(를) 졸였다 — 골분 +${got}` });
 }
 
 /** 대장간에 맡긴 강화가 끝났는지 본다 */
