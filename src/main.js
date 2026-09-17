@@ -672,7 +672,8 @@ function partDetailScreen(part, back, action = null) {
       ? `<p class="note"><b>날것이다.</b> 능력치는 위 숫자대로 60%만 나오고,
          기술은 넷 중 하나꼴로 불발되며 내구도가 두 배로 닳는다.<br>
          납골당 → 접합로 → <b>정착</b>을 거쳐야 온전해진다.</p>`
-      : '<p class="note">정착된 부속이다. 제 성능이 그대로 나온다.</p>');
+      : '<p class="note">정착된 부속이다. 제 성능이 그대로 나온다.</p>',
+    null, null, UI.partHTML(part));      // 제목도 제 등급 색으로 (§12.18-B)
 
   UI.logHead(partName(part));
   const from = (def.drop_from ?? []).map((id) => DB.monstersBy[id]?.name).filter(Boolean);
@@ -1862,7 +1863,14 @@ function overhaulScreen() {
  * 작업반의 능률도 부속 스탯에서 나오므로, 빈 골렘을 붙이면 0을 더하고 자리만 먹는다.
  */
 const WORK_MIN_PARTS = 1;
-const canWork = (g) => (g?.parts?.length ?? 0) >= WORK_MIN_PARTS;
+/* 일을 맡길 수 있는가 — 부속이 있어야 하고, **핵이 남아 있어야 한다** (§9.12) */
+const canWork = (g) => (g?.parts?.length ?? 0) >= WORK_MIN_PARTS && !O.coreSpent(g);
+/** 왜 못 맡기는지 한 줄로 */
+const workBlock = (g) => ((g?.parts?.length ?? 0) < WORK_MIN_PARTS
+  ? '부속이 없다 — 핵만으로는 일을 못 한다'
+  : O.coreSpent(g) ? '핵이 바닥났다 — 정비대에서 안정화해야 한다' : null);
+/** 핵 체력을 한 조각으로 */
+const coreChip = (g) => `핵 ${O.coreHpOf(g)}/${O.coreMaxOf(g)}`;
 
 const WHERE = {
   active: { label: '탐험', cls: 'good' },
@@ -2044,9 +2052,10 @@ function golemCardScreen(id, back = workshopHubScreen) {
     !g.active && here !== 'repair' && here !== 'labor' ? {
       label: here === 'crew' ? '작업반에서 물린다' : '작업반에 붙인다',
       meta: here === 'crew' ? ''
-        : !canWork(g.ref) ? '부속이 없다 — 핵만으로는 일을 못 한다'
-        : (O.workshopGolems(S).filter((x) => x.assigned === 'crew').length
-          >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${g.power}`),
+        : workBlock(g.ref) ??
+          (O.workshopGolems(S).filter((x) => x.assigned === 'crew').length
+            >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)`
+            : `능률 ${g.power} · ${coreChip(g.ref)}`),
       disabled: here !== 'crew'
         && (!canWork(g.ref)
           || O.workshopGolems(S).filter((x) => x.assigned === 'crew').length >= O.crewCap(o)),
@@ -2090,11 +2099,13 @@ function workshopScreen() {
   UI.listPanel('세워 둔 사역 골렘',
     golems.map((g) => UI.rowHTML(
       DB.coresBy[g.core]?.name ?? '?', UI.esc(g.name),
-      `능률 ${O.golemPower(g)}${g.assigned === 'crew' ? ' · 작업반' : ''}`)),
+      `능률 ${O.golemPower(g)} · ${coreChip(g)}${g.assigned === 'crew' ? ' · 작업반' : ''}`,
+      O.coreSpent(g))),
     `<p class="note"><b>받침대 ${golems.length}/${O.golemCap(S.ossuary)}기</b> · 여분 핵 ${S.cores.length}개 · 여분 부속 ${sparePool().length}개<br>
       핵 하나에 골렘 하나. 지금 골렘에 끼운 핵은 쓸 수 없다 — 여분이 있어야 세운다.<br>
       받침대가 꽉 차면 더 세울 수 없다. 제단에서 안치소를 넓히면 한 자리씩 늘어난다.<br>
-      세운 골렘은 작업반에 붙여 작업 시간을 줄인다. 배치한 부속은 탐험에 쓸 수 없다.</p>`);
+      세운 골렘은 작업반에 붙여 작업 시간을 줄인다. 배치한 부속은 탐험에 쓸 수 없다.<br>
+      일을 시키면 <b>핵이 닳는다</b>. 1에 닿으면 멈추고, 정비대의 핵 안정화로 되살린다.</p>`);
 
   UI.logHead('조립대');
   UI.logLine('핵을 놓고 부속을 맞춘다.', 'narrate');
@@ -2121,7 +2132,8 @@ function workshopScreen() {
     }),
     ...golems.map((g) => ({
       label: `${g.name}`,
-      meta: `능률 ${O.golemPower(g)} · 부속 ${g.parts.length}개${g.assigned === 'crew' ? ' · 작업반' : ''}`,
+      meta: `능률 ${O.golemPower(g)} · 부속 ${g.parts.length}개 · ${coreChip(g)}`
+        + `${g.assigned === 'crew' ? ' · 작업반' : ''}${O.coreSpent(g) ? ' · 멈춤' : ''}`,
       on: () => workGolemScreen(g.id),
     })),
     { label: '골렘 명부', cls: 'ghost', info: '내 골렘들이 어디에 있는지 보고, 데려갈 몸을 고른다.',
@@ -2292,10 +2304,13 @@ function crewScreen() {
   const onDuty = golems.filter((g) => g.assigned === 'crew');
 
   UI.listPanel('작업반에 붙인 골렘',
-    onDuty.map((g) => UI.rowHTML(DB.coresBy[g.core]?.name ?? '?', UI.esc(g.name), `능률 ${O.golemPower(g)}`)),
+    onDuty.map((g) => UI.rowHTML(DB.coresBy[g.core]?.name ?? '?', UI.esc(g.name),
+      `능률 ${O.golemPower(g)} · ${coreChip(g)}`, O.coreHpOf(g) <= O.coreMaxOf(g) * 0.25)),
     `<p class="note">합계 능률 ${cs.power} → 해체대·접합로·정비대 작업 시간 <b>${Math.round(cs.cut * 100)}% 단축</b> (상한 60%).<br>
       자리는 ${onDuty.length}/${O.crewCap(o)}기 — 안치소를 넓히면 더 붙일 수 있다.<br>
-      부속만으로는 일을 시킬 수 없다. <b>조립대</b>에서 핵을 넣어 세운 골렘만 붙일 수 있다.</p>`);
+      부속만으로는 일을 시킬 수 없다. <b>조립대</b>에서 핵을 넣어 세운 골렘만 붙일 수 있다.<br>
+      일은 <b>핵을 갉는다</b> — 시간마다 ${O.CREW_HP_PER_HOUR}씩. 1에 닿으면 스스로 멈추고,
+      <b>정비대의 핵 안정화</b>를 거쳐야 다시 일한다.</p>`);
 
   UI.logHead('작업반');
   UI.logLine('세워 둔 골렘에게 일을 맡긴다.', 'narrate');
@@ -2308,10 +2323,12 @@ function crewScreen() {
     })),
     ...golems.filter((g) => !g.assigned && whereOf({ id: g.id }) !== 'repair').map((g) => ({
       label: `${g.name} 붙인다`,
-      meta: !canWork(g) ? '부속이 없다 — 핵만으로는 일을 못 한다'
-        : onDuty.length >= O.crewCap(o) ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${O.golemPower(g)}`,
+      meta: workBlock(g) ?? (onDuty.length >= O.crewCap(o)
+        ? `자리가 없다 (${O.crewCap(o)}기까지)` : `능률 ${O.golemPower(g)} · ${coreChip(g)}`),
       disabled: !canWork(g) || onDuty.length >= O.crewCap(o),
-      info: !canWork(g) ? '조립대에서 부속을 하나라도 끼워야 일을 맡길 수 있다.' : undefined,
+      info: O.coreSpent(g) ? '정비대에서 <b>핵 안정화</b>를 마쳐야 다시 일할 수 있다.'
+        : (g?.parts?.length ?? 0) < WORK_MIN_PARTS
+          ? '조립대에서 부속을 하나라도 끼워야 일을 맡길 수 있다.' : undefined,
       on: () => {
         g.assigned = 'crew';
         UI.logLine(`${g.name}이(가) 일을 시작했다.`, 'good');
@@ -2508,7 +2525,9 @@ function laborScreen() {
       (지금 ${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸). 제단의 <b>안치소 증설</b>로 늘린다.<br>
       깬 단계로 돌려보내 조각·골분·진액·은화를 주워 오게 한다. 운이 좋으면 부속도.<br>
       주워 온 부속은 <b>표본실</b>로 들어가고, 날것이라 정착을 거쳐야 한다.<br>
-      나가 있는 동안 그 골렘은 쓸 수 없다. 돌아올 때 부속 하나가 닳을 수 있다.</p>`);
+      나가 있는 동안 그 골렘은 쓸 수 없다. 돌아올 때 부속 하나가 닳을 수 있다.<br>
+      무덤으로 내려가는 일이라 <b>핵도 닳는다</b> — 시간마다 ${O.TRIP_HP_PER_HOUR}씩.
+      바닥나면 정비대에서 안정화해야 다시 보낸다.</p>`);
 
   UI.logHead('자율 탐험');
   UI.logLine('지나온 길을 다시 훑게 한다.', 'narrate');
@@ -2522,10 +2541,13 @@ function laborScreen() {
   }
   if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 여분 핵으로 한 기를 세워야 보낸다.', 'dim');
   else if (!idle.length) {
-    const empty = golems.filter((g) => !g.assigned && !canWork(g)).length;
-    UI.logLine(empty
-      ? `보낼 골렘이 없다. 핵만 있는 몸이 ${empty}기 — 조립대에서 부속을 끼워야 일을 맡길 수 있다.`
-      : '놀고 있는 골렘이 없다. 작업반에 붙였거나 이미 나가 있다.', 'dim');
+    const spent = golems.filter((g) => !g.assigned && O.coreSpent(g)).length;
+    const empty = golems.filter((g) => !g.assigned && !canWork(g) && !O.coreSpent(g)).length;
+    UI.logLine(spent
+      ? `보낼 골렘이 없다. 핵이 바닥난 몸이 ${spent}기 — 정비대에서 안정화해야 다시 보낸다.`
+      : empty
+        ? `보낼 골렘이 없다. 핵만 있는 몸이 ${empty}기 — 조립대에서 부속을 끼워야 일을 맡길 수 있다.`
+        : '놀고 있는 골렘이 없다. 작업반에 붙였거나 이미 나가 있다.', 'dim');
   }
 
   UI.choices([
@@ -2537,7 +2559,7 @@ function laborScreen() {
       return {
         label: `${g.name} 보낸다`, cls: 'primary',
         meta: free <= 0 ? `안치소가 꽉 찼다 (${O.laborSlots(o)}칸)`
-          : `수확 +${bonus}% · 부속 ${g.parts.length}개`,
+          : `수확 +${bonus}% · 부속 ${g.parts.length}개 · ${coreChip(g)}`,
         disabled: free <= 0,
         info: `<span class="tt">${UI.esc(g.name)}</span>`
           + `<span class="tm">공${st.atk} 방${st.def} 속${st.spd} 집${st.focus} · 수확 +${bonus}%</span>`

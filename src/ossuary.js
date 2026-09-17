@@ -152,8 +152,32 @@ export const crewCap = (o) => 1 + (o?.laborBay?.level ?? 1);
  */
 export const golemCap = (o) => 2 + (o?.built?.laborBay ? (o.laborBay?.level ?? 1) : 0);
 
+/* ── 사역의 대가는 핵이다 (§9.12) ──────────────────────────────
+   작업반과 자율 탐험은 **공짜 수익**이었다. 골렘을 세워 붙여 두기만 하면
+   작업 시간이 줄고 재료가 들어왔고, 치르는 것은 자율 탐험의 내구도 한 칸뿐이었다.
+   그러니 「세울 수 있는 만큼 세운다」 말고는 결정이 없었다.
+
+   이제 **일은 핵을 갉는다.** 핵 체력은 1 아래로 내려가지 않는다 —
+   사역 골렘은 부서지는 게 아니라 **멈춘다**. 정비대의 핵 안정화로 다시 쓴다.
+   갉는 속도가 다른 이유가 있다: 작업반은 납골당 안에서 일하고,
+   자율 탐험은 **무덤으로 내려간다.** 그래서 저쪽은 핵과 함께 내구도도 건다. */
+export const CREW_HP_PER_HOUR = 5;     // 작업반 — 능률을 빌리는 값
+export const TRIP_HP_PER_HOUR = 9;     // 자율 탐험 — 무덤값이 붙는다
+
+export const coreMaxOf = (g) => Math.max(1, CORE_HP_OF(g?.core) ?? 1);
+export const coreHpOf = (g) => g?.coreHp ?? coreMaxOf(g);
+/** 핵이 바닥나 더는 일을 못 하는가 (§9.12) */
+export const coreSpent = (g) => coreHpOf(g) <= 1;
+/** 핵을 갉는다. 1에서 멈춘다 — 사역 골렘은 부서지지 않는다 */
+export function drainCore(g, n) {
+  const before = coreHpOf(g);
+  g.coreHp = Math.max(1, Math.round(before - n));
+  return before - g.coreHp;
+}
+
 export function crewSpeed(save) {
-  const crew = workshopGolems(save).filter((g) => g.assigned === 'crew');
+  // 멈춘 골렘은 자리를 차지할 뿐 능률을 내지 않는다
+  const crew = workshopGolems(save).filter((g) => g.assigned === 'crew' && !coreSpent(g));
   if (!crew.length) return { power: 0, cut: 0, count: 0 };
   const power = crew.reduce((n, g) => n + golemPower(g), 0);
   return { power, cut: Math.min(0.6, power / 200), count: crew.length };
@@ -248,6 +272,7 @@ export function settle(save, now = Date.now()) {
   settleVat(save, o, elapsed, lines);
   settleDissection(save, o, now, lines);
   settleForge(save, o, now, rng, lines);
+  settleCrew(save, o, elapsed, lines);
   settleLabor(save, o, elapsed, rng, lines);
   settleSmithy(save, now, lines);
   settleOverhaul(save, now, lines);
@@ -431,6 +456,28 @@ function mergeStats(a, b) {
 }
 
 /**
+ * 작업반 정산 — 붙여 둔 골렘의 **핵이 시간만큼 닳는다** (§9.12).
+ * 1에 닿으면 스스로 물러난다. 자리를 잡은 채 능률 0으로 서 있으면
+ * 「왜 빨라지지 않지」를 알 길이 없으니, **멈춘 것은 손에서 내려놓는다.**
+ */
+function settleCrew(save, o, elapsed, lines) {
+  const hours = elapsed / HOUR;
+  if (hours <= 0) return;
+  for (const g of o.workshop?.golems ?? []) {
+    if (g.assigned !== 'crew') continue;
+    const lost = drainCore(g, CREW_HP_PER_HOUR * hours);
+    if (!lost) continue;
+    const halted = coreSpent(g);
+    if (halted) g.assigned = null;
+    lines.push({
+      facility: '작업반',
+      text: `${g.name} — 핵 -${lost} (${coreHpOf(g)}/${coreMaxOf(g)})`,
+      warn: halted ? `${g.name}이(가) 멈췄다 — 정비대에서 핵을 안정화해야 다시 일한다` : null,
+    });
+  }
+}
+
+/**
  * 파견 정산 — 보낸 **사역 골렘**이 시간에 비례해 자원을 주워 온다 (§9.3-④).
  * 능력치가 좋을수록 많이 가져오고, 터에 따라 부속도 주워 온다.
  * 대신 부속 내구도가 닳는다 — 공짜 수익은 없다.
@@ -465,6 +512,11 @@ function settleLabor(save, o, elapsed, rng, lines) {
       gained.push(`${partName(part)} 주워 옴`);
     }
 
+    /* 무덤으로 내려갔으니 **핵도 닳는다** (§9.12). 작업반보다 빠르게 갉고,
+       내구도까지 확률로 건다 — 자율 탐험이 더 버는 대신 더 치르는 쪽이다. */
+    const coreLost = drainCore(g, TRIP_HP_PER_HOUR * hours);
+    if (coreLost) gained.push(`핵 -${coreLost} (${coreHpOf(g)}/${coreMaxOf(g)})`);
+
     /* 내구도는 **한 번 굴려 한 칸**이다. 전에는 시간에 비례해 계속 갉아
        오래 보내면 골렘이 녹아 없어졌다. 이제 길게 보낼수록 확률이 오를 뿐,
        운이 좋으면 한 번도 안 닳는다 — 보내는 것이 도박이 아니라 선택이 된다. */
@@ -483,7 +535,9 @@ function settleLabor(save, o, elapsed, rng, lines) {
     lines.push({
       facility: '자율 탐험',
       text: `${d.stageName ?? '무덤'} · ${g.name} (${trip.label}) — ${gained.length ? gained.join(', ') : '수확 없음'}`,
-      warn: lost ? `${lost}이(가) 삭아 사라졌다` : lowIntegrityWarn(g),
+      warn: lost ? `${lost}이(가) 삭아 사라졌다`
+        : coreSpent(g) ? `${g.name}의 핵이 바닥났다 — 정비대에서 안정화해야 다시 보낸다`
+        : lowIntegrityWarn(g),
     });
   }
   for (const d of o.laborBay.dispatch.filter((x) => x.done)) {
