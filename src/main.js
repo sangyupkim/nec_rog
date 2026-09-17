@@ -1679,7 +1679,7 @@ function vaultScreen() {
   const spare = S.inventory.filter((p) => !equipped.has(p.uid));
   UI.choices([
     ...o.vault.parts.map((p) => ({
-      label: `${partName(p)} 꺼내기`, meta: `${p.integrity}/${p.maxIntegrity}`, info: UI.partTip(p), on: () => {
+      label: `${UI.partHTML(p)} 꺼내기`, meta: `${p.integrity}/${p.maxIntegrity}`, info: UI.partTip(p), on: () => {
         o.vault.parts = o.vault.parts.filter((x) => x.uid !== p.uid);
         S.inventory.push(p);
         UI.logLine(`${partName(p)}을(를) 꺼냈다.`, 'good');
@@ -1687,7 +1687,7 @@ function vaultScreen() {
       },
     })),
     ...spare.map((p) => ({
-      label: `${partName(p)} 보관`, cls: 'ghost', info: UI.partTip(p),
+      label: `${UI.partHTML(p)} 보관`, cls: 'ghost', info: UI.partTip(p),
       disabled: o.vault.parts.length >= o.vault.capacity,
       on: () => {
         S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
@@ -2196,7 +2196,7 @@ function workGolemScreen(id, back = workshopScreen) {
     ...SLOTS.map((slot) => {
       const p = partAt(slot);
       return {
-        label: `${SLOT_LABEL[slot]} — ${p ? partName(p) : '비어 있음'}`,
+        label: `${SLOT_LABEL[slot]} — ${p ? UI.partHTML(p) : '비어 있음'}`,
         meta: p ? '바꾸거나 뗀다' : '붙인다',
         on: () => workSlotScreen(g.id, slot, back),
       };
@@ -2540,7 +2540,7 @@ function laborScreen() {
         disabled: free <= 0,
         info: `<span class="tt">${UI.esc(g.name)}</span>`
           + `<span class="tm">공${st.atk} 방${st.def} 속${st.spd} 집${st.focus} · 수확 +${bonus}%</span>`
-          + `<div class="trow">${g.parts.map((x) => `<span>${UI.esc(partName(x))} ${x.integrity}/${x.maxIntegrity}</span>`).join('')}</div>`,
+          + `<div class="trow">${g.parts.map((x) => `<span>${UI.partHTML(x)} ${x.integrity}/${x.maxIntegrity}</span>`).join('')}</div>`,
         on: () => tripPickStage(g.id),
       };
     }),
@@ -2878,7 +2878,7 @@ function shopScreen() {
   } else if (kind === 'part') {
     const p = stock.parts.find((x) => x.uid === id);
     const price = partPrice(p);
-    list.push({ label: `${partName(p)} 구입`, cls: 'primary', meta: money(price),
+    list.push({ label: `${UI.partHTML(p)} 구입`, cls: 'primary', meta: money(price),
       info: UI.partTip(p), disabled: S.silver < price, on: () => {
         S.silver -= price;
         S.inventory.push(p);
@@ -2929,7 +2929,7 @@ function sellScreen() {
   UI.logLine('무엇을 넘길까.', 'dim');
   UI.choices([
     ...sellable.map((p) => ({
-      label: `${partName(p)} 판매`, meta: money(sellPrice(p)), info: UI.partTip(p), on: () => {
+      label: `${UI.partHTML(p)} 판매`, meta: money(sellPrice(p)), info: UI.partTip(p), on: () => {
         S.silver += sellPrice(p);
         S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
         UI.logLine(`${partName(p)}을(를) 넘겼다. (+${sellPrice(p)})`, 'good');
@@ -2989,7 +2989,7 @@ function forgeScreen() {
   const cru = DB.attachmentsBy.at_crucible;
   const jobs = S.town.smithy ?? [];
   for (const j of jobs) {
-    list.push({ label: `${partName(j.part)} 강화 중`, meta: O.remainText(j.startedAt, j.durationMs),
+    list.push({ label: `${UI.partHTML(j.part)} 강화 중`, meta: O.remainText(j.startedAt, j.durationMs),
       disabled: true, nokey: true });
   }
   list.push({ label: '파츠 강화', meta: `${jobs.length}/2칸`, disabled: jobs.length >= 2, on: upgradeScreen });
@@ -3028,7 +3028,7 @@ function upgradeScreen() {
     ...pool.map((p) => {
       const lv = p.upgrade ?? 0;
       return {
-        label: `${partName(p)} 강화`,
+        label: `${UI.partHTML(p)} 강화`,
         meta: `${costText(lv)} · ${Math.round(O.upgradeMs(lv) / 60000)}분`,
         disabled: !afford(lv),
         on: () => {
@@ -3359,7 +3359,7 @@ function inventoryScreen(back = town) {
        여기서는 장착 중인 것도 함께 내민다 (숨기는 것은 읽는 목록뿐이다). */
     ...S.inventory.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
       .map((p) => ({
-        label: `${partName(p)}에 역청${slotOf.has(p.uid) ? ` <span class="chip good">${SLOT_LABEL[slotOf.get(p.uid)]}</span>` : ''}`,
+        label: `${UI.partHTML(p)}에 역청${slotOf.has(p.uid) ? ` <span class="chip good">${SLOT_LABEL[slotOf.get(p.uid)]}</span>` : ''}`,
         meta: `+${BITUMEN()} (${S.consumables.it_bitumen}개 남음)`, on: () => {
           S.consumables.it_bitumen--;
           p.integrity = Math.min(p.maxIntegrity, p.integrity + BITUMEN());
@@ -3748,7 +3748,7 @@ function repairScreen() {
 
   UI.choices([
     ...rows.map((r) => ({
-      label: `${r.kind === 'wear' ? '🩹' : '🛡'} ${SLOT_LABEL[r.slot]} — ${partName(r.part)}`,
+      label: `${r.kind === 'wear' ? '🩹' : '🛡'} ${SLOT_LABEL[r.slot]} — ${UI.partHTML(r.part)}`,
       meta: `${r.kind === 'wear' ? '내구도' : '방어도'} ${r.cur}/${r.max} · 조각 ${r.cost}`,
       cls: r.kind === 'wear' && wornLow(r.part) ? 'primary' : '',
       info: r.kind === 'wear'
@@ -3867,7 +3867,7 @@ function restRoom(room) {
       room.cleared = true; UI.dungeonPanel(S, S.run.floorData); roomChoices(room);
     } },
     ...damaged.map(({ part }) => ({
-      label: `방부 처리 — ${partName(part)}`, meta: `${part.integrity}/${part.maxIntegrity} → 완전`,
+      label: `방부 처리 — ${UI.partHTML(part)}`, meta: `${part.integrity}/${part.maxIntegrity} → 완전`,
       on: () => {
         part.integrity = part.maxIntegrity;
         UI.logLine(`${partName(part)}을(를) 방부 처리했다.`, 'good');
@@ -3932,7 +3932,7 @@ function eventRoom(room) {
     const spare = S.inventory.filter((p) => !equipped.has(p.uid));
     UI.choices([
       ...spare.map((p) => ({
-        label: `${partName(p)}을(를) 바친다`, on: () => {
+        label: `${UI.partHTML(p)}을(를) 바친다`, on: () => {
           S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
           for (const { part } of g.worn) part.integrity = Math.min(part.maxIntegrity, part.integrity + 8);
           UI.logLine('해부대가 피를 삼키고, 골렘의 이음새가 단단해진다. (전 파츠 내구도 +8)', 'good');
@@ -4125,7 +4125,7 @@ function combatCards() {
               meta: on ? '대고 있다 — 다시 누르면 푼다' : `방어도 ${sh}/${shMax}`,
               picked: on,
               info: `<span class="tt">${GUARD_LABEL[k]}(으)로 받는다</span>`
-                + `<span class="tm">${fs.map((f) => UI.esc(partName(f.part))).join(' · ')}</span>`
+                + `<span class="tm">${fs.map((f) => UI.partHTML(f.part)).join(' · ')}</span>`
                 + `<div class="trow"><span>결</span><b>${els.join(' · ') || '없음'}</b></div>`
                 + `<div class="trow"><span>성공</span><b>${chance}%</b></div>`,
               on: () => { cb.guard = on ? null : k; combatTurn(); },
@@ -4314,7 +4314,7 @@ function guardPickScreen() {
         meta: on ? '대고 있다 — 다시 누르면 푼다'
           : `방어도 ${shield}/${shieldMaxAll} · 성공 ${chance}%`,
         info: `<span class="tt">${GUARD_LABEL[k]}(으)로 받는다</span>`
-          + `<span class="tm">${fs.map((f) => UI.esc(partName(f.part))).join(' · ')}</span>`
+          + `<span class="tm">${fs.map((f) => UI.partHTML(f.part)).join(' · ')}</span>`
           + `<div class="trow"><span>결</span><b>${els.join(' · ') || '없음'}</b></div>`
           + `<div class="trow"><span>남은 방어도</span><b>${shield}/${shieldMaxAll}</b></div>`
           + `<div class="trow"><span>대는 데 성공</span><b>${chance}%</b></div>`
@@ -4431,7 +4431,7 @@ function winBattle() {
   const isBoss = room.type === 'boss';
   UI.choices([
     ...loot.map((p) => ({
-      label: `${partName(p)} 수습`,
+      label: `${UI.partHTML(p)} 수습`,
       meta: `${KIND_LABEL[DB.partsBy[p.defId].slot]} · 날것 · 내구 ${p.integrity}`,
       info: UI.partTip(p),
       on: () => {
