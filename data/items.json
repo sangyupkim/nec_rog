@@ -66,5 +66,17 @@
       "target": "self"
     },
     "staple": true
+  },
+  {
+    "id": "it_ward_nail",
+    "name": "불괴의 쐐기",
+    "kind": "부적",
+    "price": 420,
+    "desc": "강화에 실패해도 단계가 내려가거나 부서지지 않는다. +5부터 뜻이 있다.",
+    "use": "forge",
+    "effect": {
+      "op": "ward"
+    },
+    "staple": false
   }
 ]

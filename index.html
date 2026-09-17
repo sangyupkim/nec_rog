@@ -746,6 +746,9 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .row .vl{min-width:0;overflow-wrap:anywhere}
 .row .rt{font-family:var(--mono);font-size:.72rem;color:var(--muted);white-space:nowrap}
 .row .rt.warn{color:var(--danger)}
+/* 봉인된 기술 — 목록에는 남되 눌려 보이지 않는다 (§12.23) */
+.rows .row.off .vl{color:var(--muted)}
+.rows .row.off{opacity:.75}
 
 /* 오른쪽 곁말이 길면 「auto」 칸이 통째로 버티면서 가운데 이름 칸을 한 글자 폭까지
    짜부라뜨린다 — 「시궁 아래 · 젖은 입구」가 세로로 서 버렸다. 긴 곁말은 칸을 다투지

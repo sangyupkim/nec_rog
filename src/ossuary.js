@@ -15,7 +15,7 @@ export const FACILITIES = {
   rotVat:     { name: '부패조',          icon: '🫗', unlock: 0 },
   dissection: { name: '해체대',          icon: '🔪', unlock: 0 },
   vault:      { name: '표본실',          icon: '🏺', unlock: 30 },
-  forge:      { name: '접합로',          icon: '🕯', unlock: 0 },
+  forge:      { name: '단련로',          icon: '🕯', unlock: 0 },
   laborBay:   { name: '사역 골렘 안치소', icon: '⛓', unlock: 150 },
 };
 
@@ -56,25 +56,21 @@ export function tripRate(stageIndex) {
 export const tripPartLuck = (stageIndex, hours) =>
   Math.min(85, 15 + stageIndex * 5 + hours * 5);
 
+/* ── 단련로의 조리법 (§9.15) ──────────────────────────────
+   전에는 일곱이었다 — 정착·융합·이식·수복·정제·소생·굳히기.
+   「기능들이 복잡하다」는 말이 맞았다: 무엇을 언제 쓰는지 아무도 모르는 채,
+   비슷한 일을 하는 자리가 시설마다 흩어져 있었다.
+
+   이제 **고치는 일은 정비대**, **재료를 만드는 일은 재료**, **되살리는 일은 표본실**로 보내고,
+   여기에는 둘만 남긴다 — 날것을 길들이는 **정착**, 그리고 남는 부속을 먹여 키우는 **강화**.
+   (강화는 시간을 걸지 않는다. 열 번을 걸며 노는 일이라 한 번에 끝나야 한다.) */
 export const RECIPES = {
-  attune:  { name: '정착', ms: 20 * 60_000, desc: '전투에서 막 뜯어온 날것 부속을 골렘에 맞춘다. 성능 100%로 회복된다.',
-             cost: { scrap: 8, ichor: 1 }, rawOnly: true },
-  fuse:    { name: '융합', ms: 45 * 60_000, desc: '같은 슬롯 파츠 2개를 합친다. 스탯 평균 +15%, 스킬은 양쪽에서 하나씩.',
-             cost: { ichor: 3 } },
-  graft:   { name: '이식', ms: 20 * 60_000, desc: '파츠 하나에 무작위 모디파이어를 붙인다.',
-             cost: { ichor: 2, scrap: 10 } },
-  mend:    { name: '수복', ms: 30 * 60_000, desc: '닳거나 부패한 부속의 내구도를 상한까지 되돌린다.',
-             cost: { scrap: 12, boneMeal: 2 } },
-  refine:  { name: '정제', ms: 60 * 60_000, desc: '내구도 상한 +8, 스탯 +10%.',
-             cost: { boneMeal: 5 } },
-  revive:  { name: '소생', ms: 240 * 60_000, desc: '런에서 잃은 파츠를 복원한다.',
-             cost: { ichor: 10, boneMeal: 8 } },
-  /* 남는 것을 모자란 것으로 바꾸는 길 (§10.6).
-     부패조는 진액을 끝없이 만들지만 쓰는 곳이 적어 상한에 눌러앉는다.
-     굳히기는 그 진액을 골분으로 바꾼다 — 재료를 넣지 않고 부속도 쓰지 않는 유일한 조리법이다. */
-  congeal: { name: '굳히기', ms: 25 * 60_000, desc: '넘치는 진액을 졸여 골분으로 굳힌다. 진액 8 → 골분 3.',
-             cost: { ichor: 8 }, noInput: true, gives: { boneMeal: 3 } },
+  attune: { name: '정착', ms: 20 * 60_000, desc: '무덤에서 갓 뜯어온 날것을 길들인다. 제 성능이 나온다.',
+            cost: { scrap: 8, ichor: 1 }, rawOnly: true },
 };
+
+/** 진액을 졸여 골분으로 (재료 화면에서 바로 한다 — 시간을 걸 일이 아니다) */
+export const CONGEAL = { ichor: 8, boneMeal: 3 };
 
 /* ── 초기 상태 ──────────────────────────────────── */
 export function newOssuary() {
@@ -82,7 +78,7 @@ export function newOssuary() {
     lastSeenAt: Date.now(),
     offlineCapMs: CAP_STEPS[0],
     capStep: 0,
-    // 접합로는 처음부터 열려 있다 — 전투 드랍이 전부 날것이라 '정착'이 필수 경로다
+    // 단련로는 처음부터 열려 있다 — 전투 드랍이 전부 날것이라 '정착'이 필수 경로다
     built: { rotVat: true, dissection: true, vault: false, forge: true, laborBay: false },
     rotVat: { level: 1, input: 0, stored: 0 },
     dissection: { level: 1, slots: [] },
@@ -228,7 +224,7 @@ export const OVERHAUL = {
     base: 3 * 60_000, per: 30, step: 60_000, cap: 20 * 60_000,
   },
   // 내구도도 고칠 수 있어야 좋은 부속을 계속 데려간다 (§3.3-B).
-  // 접합로의 '수복'은 한 부속씩 30분이라 상비 정비로는 무겁다 — 여기서는 골렘 통째로 한 번에.
+  // 골렘 한 기의 부속을 통째로 되돌린다. 붙지 않은 여분은 정비대의 '여분 부속 수복'이 맡는다.
   wear: {
     name: '부속 수복', desc: '장착한 모든 부속의 내구도를 상한까지 되돌린다.',
     cost: { scrap: 25, boneMeal: 2 },
@@ -243,14 +239,7 @@ export function overhaulMs(kind, missing) {
   return Math.min(r.cap, r.base + Math.ceil(Math.max(0, missing) / r.per) * r.step);
 }
 
-/* ── 대장간 강화 (§10.4) ───────────────────────── */
-export const UPGRADE_MAX = 3;
-export const upgradeCost = (lv) => ({
-  silver: 120 + lv * 90,
-  scrap: 10 + lv * 8,
-  boneMeal: 2 + lv * 2,
-});
-export const upgradeMs = (lv) => (25 + lv * 20) * 60_000;
+/* (구) 대장간 파츠 강화 — 단련로의 강화 하나로 합쳤다 (§9.15) */
 
 /* ── 정산 ──────────────────────────────────────── */
 /**
@@ -385,84 +374,35 @@ function settleForge(save, o, now, rng, lines) {
     const gives = RECIPES[s.recipe]?.gives;
     if (gives) {
       for (const [k, v] of Object.entries(gives)) save[k] = (save[k] ?? 0) + v;
-      lines.push({ facility: '접합로',
+      lines.push({ facility: '단련로',
         text: `${RECIPES[s.recipe].name} 완료 — ${Object.entries(gives).map(([k, v]) => `${RES_LABEL[k]} +${v}`).join(', ')}` });
       continue;
     }
-    const part = finishRecipe(save, s, rng);
-    if (!part) { lines.push({ facility: '접합로', text: `${RECIPES[s.recipe].name} 실패 — 재료를 돌려받았다` }); continue; }
+    /* 없앤 조리법이 걸린 채 저장된 판이 있을 수 있다. 이름조차 없는 것을 읽으려 하면
+       정산 전체가 멈추고 **그 판은 영영 못 연다** — 재료를 돌려주고 조용히 넘긴다 (§16.1-B). */
+    const known = RECIPES[s.recipe];
+    const part = known ? finishRecipe(save, s) : null;
+    if (!part) {
+      for (const inp of s.inputs ?? []) {
+        if (!(save.inventory ?? []).some((x) => x.uid === inp.uid)) save.inventory.push(inp);
+      }
+      lines.push({ facility: '단련로',
+        text: `${known?.name ?? '옛 작업'}이(가) 끝나지 않았다 — 재료를 돌려받았다` });
+      continue;
+    }
     pushToVault(save, o, part, lines);
-    lines.push({ facility: '접합로', text: `${RECIPES[s.recipe].name} 완료 → ${partName(part)}` });
+    lines.push({ facility: '단련로', text: `${RECIPES[s.recipe].name} 완료 → ${partName(part)}` });
   }
 }
 
-function finishRecipe(save, job, rng) {
-  const inputs = job.inputs ?? [];
-  switch (job.recipe) {
-    case 'fuse': {
-      const [a, b] = inputs;
-      if (!a || !b) return null;
-      const part = makePart(a.defId, a.mod ?? b.mod ?? null);
-      part.fused = {
-        stats: mergeStats(a, b),
-        skills: [...new Set([...(job.skillsA ?? []), ...(job.skillsB ?? [])])],
-      };
-      part.integrity = part.maxIntegrity = Math.max(a.maxIntegrity, b.maxIntegrity);
-      /* 들인 것을 조용히 잃게 두지 않는다 — 대장간 강화와 정제는 **더 좋은 쪽을 따라간다.**
-         전에는 합치는 순간 둘 다 사라졌다. 은화와 골분을 들인 기록이 말없이 증발하면,
-         「좋은 부속은 아예 건드리지 않는 것이 낫다」가 되어 접합로가 죽는다. */
-      part.upgrade = Math.max(a.upgrade ?? 0, b.upgrade ?? 0) || undefined;
-      part.refined = Math.max(a.refined ?? 0, b.refined ?? 0) || undefined;
-      return part;
-    }
-    case 'graft': {
-      const a = inputs[0];
-      if (!a) return null;
-      const pool = DB.modifiers.filter((m) => m.tier <= 2);
-      const part = makePart(a.defId, rng.weighted(pool.map((m) => [m.id, m.weight])));
-      if (a.fused) part.fused = a.fused;
-      part.upgrade = a.upgrade;      // 이상만 갈아 끼운다 — 들인 강화·정제는 그대로 둔다
-      part.refined = a.refined;
-      part.integrity = Math.min(a.integrity, part.maxIntegrity);
-      return part;
-    }
-    case 'refine': {
-      const a = inputs[0];
-      if (!a) return null;
-      const part = makePart(a.defId, a.mod);
-      part.maxIntegrity = a.maxIntegrity + 8;
-      part.integrity = part.maxIntegrity;
-      part.refined = (a.refined ?? 0) + 1;
-      if (a.fused) part.fused = a.fused;
-      part.upgrade = a.upgrade;      // 정제는 강화 위에 얹힌다
-      return part;
-    }
-    case 'mend': {
-      const a = inputs[0];
-      if (!a) return null;
-      return { ...a, integrity: a.maxIntegrity };
-    }
-    case 'attune': {
-      const a = inputs[0];
-      if (!a) return null;
-      const part = { ...a, raw: false };
-      return part;
-    }
-    case 'revive': {
-      const defId = job.defId;
-      if (!defId) return null;
-      return makePart(defId, null);
-    }
-    default: return null;
-  }
+/* 이제 조리법은 정착 하나다 (§9.15). 옛 조리법들은 각자의 집으로 갔다 —
+   수복은 정비대, 굳히기는 재료, 소생은 표본실, 융합·이식·정제는 **강화 하나로 합쳤다.** */
+function finishRecipe(save, job) {
+  const a = (job.inputs ?? [])[0];
+  if (job.recipe !== 'attune' || !a) return null;
+  return { ...a, raw: false };
 }
 
-function mergeStats(a, b) {
-  const out = {};
-  const sa = DB.partsBy[a.defId].stats, sb = DB.partsBy[b.defId].stats;
-  for (const k of Object.keys(sa)) out[k] = Math.round(((sa[k] + sb[k]) / 2) * 1.15);
-  return out;
-}
 
 /**
  * 작업반 정산 — 붙여 둔 골렘의 **핵이 시간만큼 닳는다** (§9.12).
@@ -519,6 +459,14 @@ function settleLabor(save, o, elapsed, rng, lines) {
       part.raw = true;                            // 주워 온 것은 날것이다 (§3.4)
       pushToVault(save, o, part, lines);
       gained.push(`${partName(part)} 주워 옴`);
+    }
+
+    /* 자율 탐험도 아주 가끔 쐐기를 주워 온다 (§9.15-B) — 무덤에 보낸 값이다.
+       상자만큼 자주는 아니다. 내가 내려가는 것이 늘 더 나아야 한다. */
+    if (rng.chance(8 + Math.min(12, hours * 2))) {
+      save.consumables ??= {};
+      save.consumables.it_ward_nail = (save.consumables.it_ward_nail ?? 0) + 1;
+      gained.push(`${DB.itemsBy.it_ward_nail?.name ?? '쐐기'} 주워 옴`);
     }
 
     /* 무덤으로 내려갔으니 **핵도 닳는다** (§9.12). 작업반보다 빠르게 갉고,

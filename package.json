@@ -8,7 +8,7 @@
     "start": "node tools/serve.mjs",
     "validate": "node tools/validate.mjs",
     "balance": "node tools/balance.mjs",
-    "check": "npm run validate && npm run balance && npm run taunt && npm run synergy && npm run wear && npm run labor && npm run forge && npm run simulate",
+    "check": "npm run validate && npm run balance && npm run taunt && npm run synergy && npm run wear && npm run labor && npm run forge && npm run enhance && npm run simulate",
     "rebalance": "node tools/rebalance.mjs",
     "simulate": "node tools/simulate.mjs",
     "taunt": "node tools/taunt.mjs",
@@ -16,6 +16,7 @@
     "synergy": "node tools/synergy.mjs",
     "wear": "node tools/wear.mjs",
     "labor": "node tools/labor.mjs",
-    "forge": "node tools/forge.mjs"
+    "forge": "node tools/forge.mjs",
+    "enhance": "node tools/enhance.mjs"
   }
 }

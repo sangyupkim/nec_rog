@@ -1,4 +1,5 @@
 /** 커맨드 턴제 전투 엔진. DOM에 의존하지 않으므로 콘솔 시뮬레이션에도 쓸 수 있다. */
+import * as EN from './enhance.js';
 import {
   DB, damage, elemMul, rankMul, addStatus, hasStatus,
   assembleGolem, skillElement, partSkills, partName,
@@ -291,7 +292,10 @@ export class Combat {
          결이 겹친 속성으로 때리면 공명한다 (§5.13). 둘 다 **조립에서 번 것**이다. */
       const step = stackStep(this.g.stacks?.[sid] ?? 1);
       const reso = resoAttackMul(this.g.elements ?? {}, el);
-      const power = Math.round(s.power * (1 + STACK_POWER * step) * reso);
+      /* 강화한 부속은 **기술까지 세진다** (§9.15) — 능력치만 오르면
+         「위력 0인 보조 기술만 주는 부속」은 강화할 이유가 없다 */
+      const plus = EN.powerMul(owner?.plus);
+      const power = Math.round(s.power * (1 + STACK_POWER * step) * reso * plus);
       const acc = s.accuracy + conf.acc + STACK_ACC * step;
       if (step) this.say(`같은 결의 부속 ${(this.g.stacks[sid])}개가 함께 움직인다. (위력 +${Math.round(STACK_POWER * step * 100)}%)`, 'good');
       else if (reso > 1) this.say(`${el}의 결이 공명한다. (위력 +${Math.round((reso - 1) * 100)}%)`, 'good');

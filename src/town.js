@@ -184,6 +184,11 @@ export function rollStock(rng, unlocks = {}) {
   const staples = STAPLE_ITEMS();
   const rotating = rng.shuffle(DB.items.filter((i) => !i.staple)).map((i) => i.id);
   const items = [...staples, ...rotating.slice(0, Math.max(0, 4 - staples.length))];
+  /* 「불괴의 쐐기」는 **수소문을 해야** 들어온다 (§9.15-B).
+     강화가 아플 때쯤 살 수 있어야 뜻이 있는 물건이라, 처음부터 깔아 두지는 않는다.
+     매번 있으면 도박이 아니라 수수료가 되므로 확률로만 낸다. */
+  const lift0 = unlocks.partPool ?? 0;
+  if (lift0 >= 1 && rng.chance(25 + lift0 * 15) && !items.includes('it_ward_nail')) items.push('it_ward_nail');
   const parts = [];
   // 유니크·전설은 상점에 깔리지 않는다 — 보스를 잡아야 나온다
   // '수소문' 해금 단계마다 희귀 이상이 깔릴 확률이 오른다 (§8)

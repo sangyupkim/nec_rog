@@ -593,8 +593,11 @@ function render(box, list, opts = {}) {
     // golemScreen(back) 같은 기본 인자를 덮어써 버린다.
     if (!c.disabled && c.on) {
       b.addEventListener('click', () => {
-        // 손가락으로 처음 누른 것이고 더 보여 줄 게 있으면, 이번 누름은 '보기'다
-        if (lastTouch && armedBtn !== b && hasMore(b, c)) {
+        /* 손가락으로 처음 누른 것이고 더 보여 줄 게 있으면, 이번 누름은 '보기'다.
+           다만 **누르면 왼쪽에 상세가 펼쳐지는 화면**(제단·단련로 …)에서는 그러면 안 된다 —
+           거기서는 첫 누름이 곧 '보기'이므로, 쪽지가 그 누름을 삼키면 아무 일도 안 일어난 것처럼 보인다.
+           그런 단추는 `now`를 달아 **한 번에 눌리게** 한다 (§12.20-A). */
+        if (!c.now && lastTouch && armedBtn !== b && hasMore(b, c)) {
           hideTip();
           armedBtn = b;
           b.classList.add('armed');
@@ -1299,12 +1302,15 @@ export function golemPanel(save, onPick = null, focus = null) {
     ${bm.html}
     ${focus ? focusHTML(save, g, focus) : ''}
     ${sec('stat', '능력치', `공격 ${g.stats.atk} · 방어 ${g.stats.def} · 속도 ${g.stats.spd}`, statGridHTML(g))}
-    ${sec('skills', '사용 가능한 스킬', `${g.active.length}개`,
-      `<div class="rows">${g.active.map((sid) => {
+    ${sec('skills', '기술', `${g.active.length}개 쓴다${g.skills.length > g.active.length ? ` · ${g.skills.length - g.active.length} 봉인` : ''}`,
+      /* 봉인한 것도 **같이 보여 준다** (§12.23). 목록에서 빼 버리면
+         「그 기술이 어디 갔지」가 되고, 봉인했다는 사실 자체를 잊는다. */
+      `<div class="rows">${g.skills.map((sid) => {
         const sk = DB.skillsBy[sid];
         const el = save.golem.retuned?.[sid] ?? sk.element;
-        return `<div class="row"><span class="lb" style="color:var(--el-${el})">${el}</span>
-          <span class="vl">${esc(sk.name)}</span>
+        const off = !g.active.includes(sid);
+        return `<div class="row${off ? ' off' : ''}"><span class="lb" style="color:var(--el-${el})">${el}</span>
+          <span class="vl">${off ? '<span class="chip warn">봉인</span> ' : ''}${esc(sk.name)}</span>
           <span class="rt">${sk.power || '—'} · ${sk.charges === null ? '∞' : sk.charges}</span></div>`;
       }).join('')}</div>`)}
     ${sec('att', '부착물', `${att.length}/2`,

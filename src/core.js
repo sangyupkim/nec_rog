@@ -1,4 +1,5 @@
 /** 데이터 로딩 · 난수 · 골렘 조립 · 데미지 계산. DOM에 의존하지 않는다. */
+import * as EN from './enhance.js';
 
 export const DB = {};
 
@@ -162,8 +163,8 @@ export function partName(p) {
   const fl = partFlavor(p);
   const prefix = (fl.prefix ? `${fl.prefix} ` : '')
     + (p.fused ? '이어붙인 ' : '')
-    + (p.refined ? '정제된 ' : '');
-  const suffix = p.upgrade ? ` +${p.upgrade}` : '';
+    + (p.fused ? '' : '');
+  const suffix = p.plus ? ` +${p.plus}` : '';
   return def.name_template
     .replace('{mod}', prefix)
     .replace('{owner}', fl.owner)
@@ -175,9 +176,11 @@ export function partName(p) {
 export function partStats(p) {
   const def = DB.partsBy[p.defId];
   const mod = p.mod ? DB.modifiersBy[p.mod] : null;
-  // 접합로에서 융합·정제된 파츠는 자체 스탯을 들고 다닌다 (§9.3-③)
+  // 옛 융합으로 만든 파츠는 자체 스탯을 들고 다닌다 — 세이브에 남아 있으므로 계속 읽는다
   const base = p.fused?.stats ?? def.stats;
-  const refine = 1 + 0.1 * (p.refined ?? 0) + 0.08 * (p.upgrade ?? 0);
+  /* 강화는 **하나뿐이다** (§9.15). 전에는 대장간의 `upgrade`와 접합로의 `refined`가
+     따로 쌓여, 같은 「강화」라는 말이 두 축을 가리켰다 — 무엇을 올린 건지 아무도 몰랐다. */
+  const refine = EN.statMul(p.plus);
   // 겹치면 더 세게, 엇갈리면 반쯤만 (§3.8). 1에서 얼마나 떨어져 있는지를 늘리거나 줄인다
   const fl = partFlavor(p);
   const gain = fl.kind === 'merge' ? (DB.naming?.merge_boost ?? 1.5)

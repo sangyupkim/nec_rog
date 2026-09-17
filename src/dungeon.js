@@ -3,11 +3,12 @@ import { makeRng } from './core.js';
 
 export const ROOM_ICON = {
   start: '▣', battle: '⚔', elite: '☠', event: '?', workshop: '🔨',
-  rest: '🔥', sealed: '🔒', bones: '💀', trap: '⚠', boss: '👑',
+  rest: '🔥', sealed: '🔒', bones: '💀', trap: '⚠', boss: '👑', cache: '📦',
 };
 export const ROOM_LABEL = {
   start: '시작방', battle: '전투', elite: '엘리트', event: '이벤트', workshop: '작업대',
   rest: '안치실', sealed: '봉인실', bones: '유해 더미', trap: '함정', boss: '보스방',
+  cache: '특수 상자',
 };
 
 const key = (x, y) => `${x},${y}`;
@@ -75,6 +76,9 @@ function tryGenerate(seed, floor, force = false) {
   // 중요한 방은 말단 우선
   const special = ['elite', 'workshop'];
   if (floor >= 2) special.push('sealed');
+  /* 특수 상자 — **가끔** 나온다 (§7.6). 층마다 반드시 있으면 상자가 아니라 세금이고,
+     말단에 두어야 「일부러 발을 들여 얻는 것」이 된다 (§6.8과 같은 이유). */
+  if (rng.chance(28 + floor * 6)) special.push('cache');
   for (const t of special) {
     const r = leaves.shift();
     if (r) r.type = t;
