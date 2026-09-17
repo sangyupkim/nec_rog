@@ -727,14 +727,31 @@ export const panel = (html) => {
    이 화면을 어지럽게 만들던 원인이다. */
 
 /** 가로 배치를 쓸 만큼 넓은가 — 좁으면 예전처럼 위아래로 쌓는다 */
-export const isWide = () => window.matchMedia?.('(min-width:900px)').matches ?? false;
+/* 새 배치를 쓸 만큼 넓은가.
+   900px로 잡았더니 **폴드를 펼친 화면(≈880px)이 턱걸이로 떨어져** 옛 배치로 돌아갔다.
+   정사각에 가까운 화면도 네 칸을 쓸 폭은 된다 — 다만 로그를 옆에 세우면 한 줄에
+   열 몇 자밖에 안 들어가므로, 그런 화면에서는 로그를 **무대 아래로** 내린다(§12.17-B). */
+export const WIDE_MIN = 760;
+export const MID_MAX = 1080;      // 이보다 좁으면 「정사각형에 가까운」 배치
+export const isWide = () => (window.innerWidth ?? 0) >= WIDE_MIN;
+export const isMid = () => isWide() && (window.innerWidth ?? 0) < MID_MAX;
 
-/** 화면이 바뀔 때마다 먼저 부른다 — 지난 화면의 퀵패널·무대를 끌고 다니지 않는다 */
+/**
+ * 화면이 바뀔 때마다 먼저 부른다.
+ * 무대는 비운다 — 지난 화면의 고를 것을 끌고 다니면 안 된다.
+ * **퀵패널은 비우지 않는다.** 화면마다 퀵패널을 다시 세우라고 해 두면, 그걸 빠뜨린
+ * 화면(가방·상성표·안내 화면들)에서 왼쪽 띠가 통째로 사라진다 — 실제로 그랬다.
+ * 퀵패널은 「늘 있는 것」이므로, 새로 세우지 않으면 **직전 것을 그대로 다시 그린다.**
+ */
+let lastQuick = null;
 export function resetShell() {
-  const q = $('quick'), st = $('stage');
-  if (q) { q.innerHTML = ''; q.hidden = true; }
+  const st = $('stage');
   if (st) { st.innerHTML = ''; st.hidden = true; }
-  $('app')?.classList.toggle('wide', isWide());
+  const app = $('app');
+  app?.classList.toggle('wide', isWide());
+  app?.classList.toggle('mid', isMid());
+  if (lastQuick) quickPanel(lastQuick);
+  else { const q = $('quick'); if (q) { q.innerHTML = ''; q.hidden = true; } }
 }
 
 /**
@@ -744,7 +761,9 @@ export function resetShell() {
  */
 export function quickPanel(items) {
   const el = $('quick');
-  if (!el || !isWide()) return;
+  if (!el) return;
+  lastQuick = items;                 // 다음 화면이 자기 것을 세우지 않으면 이걸 다시 쓴다
+  if (!isWide()) return;
   const list = items.filter(Boolean);
   if (!list.length) { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;

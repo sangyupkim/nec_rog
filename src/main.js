@@ -456,6 +456,25 @@ const OSS_QUICK = () => [
   { key: 'altar', icon: '🕯', label: '제단', on: altarScreen },
 ];
 
+/** 무덤 안에서는 마을 건물이 아니라 **지금 쓸 수 있는 것**이 선다 (§12.17-B) */
+const RUN_QUICK = () => {
+  const items = S.consumables?.it_sigil_return ?? 0;
+  return [
+    { key: 'golem', icon: '🦿', label: '골렘', on: () => golemScreen(backToRoom, false) },
+    { key: 'bag', icon: '🎒', label: '가방', sub: `${S.inventory.length}`,
+      on: () => inventoryScreen(backToRoom) },
+    { key: 'affinity', icon: '🜂', label: '상성표', on: () => affinityScreen(backToRoom) },
+    { sep: true },
+    { key: 'quest', icon: '📜', label: '의뢰', on: () => { UI.logLine('오른쪽 위 📜에 적어 뒀다.', 'dim'); } },
+    items ? { key: 'return', icon: '🌀', label: '귀환', sub: `${items}개`,
+      on: () => {
+        S.consumables.it_sigil_return--;
+        UI.logLine('문양이 타오르고, 시야가 뒤집힌다.', 'necro');
+        abandonRun(true);
+      } } : null,
+  ];
+};
+
 /** 지금 있는 곳에 표를 붙여 퀵패널을 세운다 */
 function quickHere(key, items = null) {
   // 납골당 안에 있으면 문 셋까지 함께 세운다 — 납골당 화면 자체도 그 안이다
@@ -1283,6 +1302,7 @@ function mainQuestScreen() {
 /* ── 뼈 수습꾼 바르그 (구제 · 안내 NPC) ── */
 function scavengerScreen() {
   UI.topbar(S, '시체골 · 뼈 수습꾼');
+  quickHere('scavenger');
   const g = assembleGolem(S);
   const ready = Boolean(S.golem.core) && wornCount() >= MIN_PARTS;
   UI.listPanel('바르그의 수레', [
@@ -3278,6 +3298,7 @@ function banScreen(back, canEdit = true) {
 
 function inventoryScreen(back = town) {
   UI.topbar(S, '소지품');
+  if (!S.run) quickHere('inventory');
   const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
   const mats = [
     ['시체 조각', S.scrap], ['부패 진액', S.ichor], ['골분', S.boneMeal],
@@ -3630,6 +3651,7 @@ function enterRoom(room, first = false) {
 }
 
 function roomChoices(room) {
+  UI.quickPanel(RUN_QUICK());     // 무덤 안에서는 마을 건물을 들고 다니지 않는다
   const fd = S.run.floorData;
   const exits = exitsOf(fd, room.id);
   // 이동은 십자키가 맡는다. 선택지에 또 넣으면 같은 것이 두 벌이 되고,

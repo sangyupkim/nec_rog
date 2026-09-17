@@ -221,8 +221,29 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 /* 넓은 화면에서는 하단 독을 아예 쓰지 않는다 — 가운데가 이미 둘로 나뉘어 있다 */
 #app.wide #choices{display:none}
 
+/* ── 정사각형에 가까운 화면 (§12.17-B) ────────────────
+   폴드를 펼친 화면처럼 「가로도 세로도 넉넉한」 판이 있다. 여기서 네 칸을 옆으로
+   늘어놓으면 로그가 한 줄에 열 몇 자밖에 못 담아 읽을 수 없게 된다.
+   그래서 로그를 **무대 아래로** 내린다 — 퀵패널·상태는 세로로 길게 두고,
+   오른쪽 칸을 위아래로 갈라 위는 고를 것, 아래는 로그. */
+#app.wide.mid #panes{
+  grid-template-columns:var(--quick-w,4.6rem) minmax(0,1fr) minmax(0,1.1fr);
+  grid-template-rows:minmax(0,1.3fr) minmax(0,1fr);
+}
+#app.wide.mid #quick{grid-column:1;grid-row:1/3}
+#app.wide.mid #left{grid-column:2;grid-row:1/3}
+#app.wide.mid #stage{grid-column:3;grid-row:1}
+#app.wide.mid #right{grid-column:3;grid-row:2;border-top:1px solid var(--line)}
+#app.wide.mid #log{font-size:.8rem}
+#app.wide.mid{--quick-w:4.6rem}
+/* 무대가 없을 때는 상태가 위, 로그가 아래 — 오른쪽 칸이 통째로 비지 않게 */
+#app.wide.mid #panes:not(:has(#stage:not([hidden]))){
+  grid-template-columns:var(--quick-w,4.6rem) minmax(0,1fr) minmax(0,1.1fr);
+}
+#app.wide.mid #panes:not(:has(#stage:not([hidden]))) #right{grid-row:1/3;border-top:0}
+
 /* 좁은 화면에서는 예전처럼 위아래로 쌓는다 — 세로 레이아웃은 이번에 손대지 않는다 */
-@media not all and (min-width:900px){
+@media not all and (min-width:760px){
   #quick,#stage{display:none !important}
 }
 
@@ -233,7 +254,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
  * 글자를 키우면 상태 패널과 선택지가 함께 커져 로그가 짜부라진다.
  * 그래서 ① 상태 패널을 접을 수 있게 하고 ② 로그에 최소 높이를 보장한다.
  */
-@media (max-aspect-ratio:4/5), (max-width:560px){
+@media (max-aspect-ratio:4/5) and (max-width:759px), (max-width:560px){
   #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) auto minmax(22dvh,1fr)}
   #app #left{max-height:46dvh;border-right:0;border-bottom:1px solid var(--line)}
   /* 기본 규칙이 파일 뒤쪽에 있어 명시도를 한 단계 올려야 이긴다 */
