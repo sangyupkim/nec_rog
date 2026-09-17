@@ -1771,7 +1771,7 @@ function overhaulScreen() {
       const gp = gapsOf(x);
       const busy = jobsOf(x.id);
       const state = busy.length ? `정비 중 ${O.remainText(busy[0].startedAt, busy[0].durationMs)}`
-        : x.where === 'labor' ? '나가 있다'
+        : BUSY_ELSEWHERE[x.where] ? BUSY_ELSEWHERE[x.where]
         : (gp.shield + gp.core + gp.wear) === 0 ? '온전하다'
         : `방 ${gp.shield} · 핵 ${gp.core} · 내 ${gp.wear} 모자라다`;
       return UI.rowHTML(x.active ? '탐험' : WHERE[x.where]?.label ?? '대기',
@@ -1793,7 +1793,8 @@ function overhaulScreen() {
     `<p class="note">줄을 누르면 그 골렘을 올린다. 지금 올라간 것은 <b>${UI.esc(v?.name ?? '없음')}</b>.<br>
      <b>방</b>은 방어도(맞으면 깎인다), <b>내</b>는 내구도(쓰면 닳는다). 둘 다 여기서 되돌린다.<br>
      방어도는 포션으로 돌아오지 않는다 — 작업대나 여기서만 되돌릴 수 있다.<br>
-     맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다.</p>`,
+     맡긴 골렘은 작업이 끝날 때까지 움직이지 못한다.<br>
+     <b>일하는 몸은 올릴 수 없다</b> — 자율 탐험을 나갔거나 작업반에 붙어 있으면 먼저 물려야 한다.</p>`,
     (key) => { overhaulPick = key.slice(2); overhaulScreen(); }, `g:${v?.id}`);
 
   UI.logHead('정비대');
@@ -1802,7 +1803,11 @@ function overhaulScreen() {
     const who = repairView(j.golemId)?.name ?? '골렘';
     UI.logLine(`${who} · ${O.OVERHAUL[j.kind].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
   }
-  if (v && v.where === 'labor') UI.logLine(`${v.name}은(는) 자율 탐험을 나가 있다. 돌아와야 올릴 수 있다.`, 'dim');
+  if (v && BUSY_ELSEWHERE[v.where]) {
+    UI.logLine(v.where === 'labor'
+      ? `${v.name}은(는) 자율 탐험을 나가 있다. 돌아와야 올릴 수 있다.`
+      : `${v.name}은(는) 작업반에서 일하고 있다. 작업반에서 물려야 정비대에 올릴 수 있다.`, 'dim');
+  }
 
   const costText = (c) => Object.entries(c).map(([k, v2]) => `${O.RES_LABEL[k]} ${v2}`).join(' · ');
   const afford = (c) => Object.entries(c).every(([k, v2]) => (S[k] ?? 0) >= v2);
@@ -1812,16 +1817,18 @@ function overhaulScreen() {
     ...Object.entries(O.OVERHAUL).map(([kind, r]) => {
       const missing = gaps[kind === 'shield' ? 'shield' : kind === 'wear' ? 'wear' : 'core'];
       const ms = O.jobDuration(S, O.overhaulMs(kind, missing));
-      const away = v?.where === 'labor';
+      /* 일하는 몸은 정비대에 못 올린다 (§9.14). 자율 탐험은 무덤에 가 있고,
+         작업반은 지금 이 작업을 **빠르게 만들고 있는** 몸이다 — 둘 다 여기 없다. */
+      const away = v ? BUSY_ELSEWHERE[v.where] ?? null : null;
       return {
         label: r.name,
         info: `${r.desc}\n망가진 만큼 시간이 늘어난다. 작업반 골렘을 붙이면 줄어든다.`,
         meta: !v ? '올릴 골렘이 없다'
-          : away ? '나가 있다'
+          : away ? away
           : running(kind) ? '진행 중'
           : !missing ? '온전하다'
           : `${costText(r.cost)} · ${Math.round(ms / 60000)}분`,
-        disabled: !v || away || running(kind) || !missing || !afford(r.cost),
+        disabled: !v || Boolean(away) || running(kind) || !missing || !afford(r.cost),
         on: () => {
           for (const [k, n] of Object.entries(r.cost)) S[k] -= n;
           o.overhaul.push({ kind, golemId: v.id, startedAt: Date.now(), durationMs: ms });
@@ -1871,6 +1878,12 @@ const workBlock = (g) => ((g?.parts?.length ?? 0) < WORK_MIN_PARTS
   : O.coreSpent(g) ? '핵이 바닥났다 — 정비대에서 안정화해야 한다' : null);
 /** 핵 체력을 한 조각으로 */
 const coreChip = (g) => `핵 ${O.coreHpOf(g)}/${O.coreMaxOf(g)}`;
+
+/** 지금 다른 일을 하고 있어 정비대에 올릴 수 없는 자리 (§9.14) */
+const BUSY_ELSEWHERE = {
+  labor: '자율 탐험 중 — 돌아와야 올린다',
+  crew: '작업반에서 일하는 중 — 물려야 올린다',
+};
 
 const WHERE = {
   active: { label: '탐험', cls: 'good' },
@@ -2341,59 +2354,159 @@ function crewScreen() {
   save();
 }
 
-/* ── 접합로 ─────────────────────────────── */
-function forgeJobScreen() {
+/* ── 접합로 ───────────────────────────────
+   「접합로에 기능들이 정확하게 어떤 건지 모르겠어, 정착 말고는」 —
+   조리법은 이름과 시간과 값만 적혀 있었다. `desc`는 데이터에 있었는데
+   **화면 어디에도 나오지 않았다.** 정착만 아는 것이 당연했다.
+   제단과 같은 방식으로 고친다(§12.20) — 누르면 왼쪽에 무엇을 넣어 무엇이 나오는지
+   펼쳐지고, 재료를 고르는 것은 그 다음이다. */
+
+/** 조리법마다 「무엇이 되는가」와 「무엇을 잃는가」 (§9.13) */
+const FORGE_GUIDE = {
+  attune: {
+    takes: '날것 부속 하나',
+    gives: '같은 부속이 온전해진다',
+    why: `무덤에서 주워 온 것은 전부 <b>날것</b>이다 — 능력치가 60%만 나오고, 기술이 넷 중 하나꼴로
+      불발되며, 내구도가 두 배로 닳는다. 정착은 그것을 <b>제 성능으로 되돌리는 유일한 길</b>이다.
+      붙인 채로는 못 한다. 골렘에서 떼어내야 올릴 수 있다.`,
+  },
+  fuse: {
+    takes: '<b>같은 자리</b>의 여분 부속 둘 (둘 다 사라진다)',
+    gives: '한 짝 — 능력치는 둘의 평균 +15%, 기술은 양쪽에서 골라 물려받는다',
+    why: `접합로의 핵심이다. 「화염 기술이 달린 팔」과 「공격력이 높은 팔」을 <b>한 짝으로 합친다</b> —
+      런에서 아쉽게 버린 부속에 두 번째 생명이 생긴다.
+      이름과 자리는 <b>먼저 고른 쪽</b>을 따르고, 내구도 상한은 둘 중 높은 쪽을 가져온다.
+      대장간 강화와 정제는 <b>더 좋은 쪽이 남는다</b>.`,
+  },
+  graft: {
+    takes: '여분 부속 하나',
+    gives: '<b>이상</b>(수식어)이 무작위로 붙은 같은 부속',
+    why: `이상은 몬스터에 붙는 수식어와 같은 것이다 — 능력치에 배율이 걸리고, 어떤 것은 기술을 하나 더 얹는다.
+      <b>이미 붙어 있던 이상은 사라지고 새것으로 바뀐다.</b> 무엇이 붙을지는 고를 수 없다.
+      강화·정제 기록과 내구도는 그대로 따라간다.`,
+  },
+  mend: {
+    takes: '닳은 여분 부속 하나',
+    gives: '내구도가 상한까지 찬다',
+    why: `역청은 한 병에 조금씩 메우지만, 수복은 <b>한 번에 끝까지</b> 되돌린다.
+      능력치는 건드리지 않는다 — 닳은 것만 메운다.
+      골렘에 붙인 것을 통째로 고치려면 <b>정비대의 부속 수복</b>이 빠르다.`,
+  },
+  refine: {
+    takes: '여분 부속 하나',
+    gives: '<b>내구도 상한 +8 · 능력치 +10%</b>',
+    why: `영구히 좋아진다. 겹쳐 쓸 수 있어 정제한 것을 또 정제할 수 있다.
+      값이 골분이라 자주 돌리기는 어렵다 — <b>오래 쓸 한 짝</b>에 몰아 주는 것이 맞다.
+      대장간 강화(+8%씩 3단계)와 따로 쌓인다.`,
+  },
+  revive: {
+    takes: '표본실에 남은 <b>잃어버린 기록</b> 하나',
+    gives: '그 부속을 다시 만들어 낸다 (이상은 붙지 않는다)',
+    why: `무덤에서 무너져 흘린 부속은 사라지지만 <b>기록은 표본실에 남는다</b>.
+      소생은 그 기록으로 같은 것을 다시 세운다. 네 시간이 걸리고 값도 가장 비싸다 —
+      아무거나 되살리는 자리가 아니라, <b>잃어서 아까운 것</b>을 위한 자리다.`,
+  },
+  congeal: {
+    takes: '아무 부속도 쓰지 않는다',
+    gives: '진액 8 → <b>골분 3</b>',
+    why: `부패조는 진액을 끝없이 만드는데 쓰는 곳이 적어 상한에 눌러앉는다.
+      굳히기는 <b>남는 것을 모자란 것으로 바꾸는 길</b>이다. 골분은 정제·소생·정비대가 먹는다.`,
+  },
+};
+
+function forgeJobScreen(pick = null) {
   const o = S.ossuary;
   UI.topbar(S, `납골당 · 접합로 ${o.forge.slots.length}/${O.forgeSlots(o)}칸`);
-  ossPanel();
+  const free = O.forgeSlots(o) - o.forge.slots.length;
+  const equippedF = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
+  const spare = S.inventory.filter((p) => !equippedF.has(p.uid));
+  const spareCount = spare.length;
+  const rawSpare = spare.filter((p) => p.raw).length;
+  const rawWorn = S.inventory.filter((p) => p.raw && equippedF.has(p.uid)).length;
+  const damagedCount = spare.filter((p) => p.integrity < p.maxIntegrity).length;
+
+  /** 이 조리법에 넣을 것이 지금 있는가 — 없으면 왜 없는지까지 */
+  const stockOf = (key) => {
+    if (key === 'congeal') return { n: null, lack: null };
+    if (key === 'revive') return { n: o.vault.lostRecords.length, lack: '잃어버린 기록이 없다' };
+    if (key === 'attune') return { n: rawSpare, lack: rawWorn ? '골렘에 붙인 날것뿐 — 먼저 떼어내라' : '정착할 날것이 없다' };
+    if (key === 'mend') return { n: damagedCount, lack: '상한 부속이 없다' };
+    if (key === 'fuse') return { n: spareCount, lack: '여분이 둘 이상 필요하다', need: 2 };
+    return { n: spareCount, lack: '여분 부속이 없다' };
+  };
+  const blockOf = (key, r) => {
+    const st = stockOf(key);
+    if (free <= 0) return `접합로가 꽉 참 (${o.forge.slots.length}/${O.forgeSlots(o)}칸)`;
+    if (st.n !== null && st.n < (st.need ?? 1)) return st.lack;
+    return shortText(r.cost) || null;
+  };
+  const costText = (r) => Object.entries(r.cost).map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
+
+  const sel = O.RECIPES[pick] ? pick : null;
+  const g = sel ? FORGE_GUIDE[sel] : null;
+
+  /* 왼쪽: 고른 것이 있으면 그 조리법의 설명, 없으면 **전부 한눈에** */
+  if (sel) {
+    const r = O.RECIPES[sel];
+    const st = stockOf(sel);
+    const block = blockOf(sel, r);
+    UI.listPanel(`접합로 · ${r.name}`, [
+      UI.rowHTML('넣는 것', g.takes, st.n === null ? '' : `지금 ${st.n}개`),
+      UI.rowHTML('나오는 것', g.gives, ''),
+      UI.rowHTML('걸리는 시간', `${Math.round(r.ms / 60000)}분`, '작업반을 붙이면 줄어든다'),
+      UI.rowHTML('값', `<b>${costText(r)}</b>`, block && /모자라/.test(block) ? block : '치를 수 있다',
+        Boolean(block && /모자라/.test(block))),
+    ], `<p class="note">${g.why}</p>${block ? `<p class="note"><b>지금은 못 건다</b> — ${block}</p>` : ''}`);
+  } else {
+    UI.listPanel('접합로에서 할 수 있는 일',
+      Object.entries(O.RECIPES).map(([key, r]) => UI.rowHTML(r.name,
+        FORGE_GUIDE[key].gives, blockOf(key, r) ?? `${Math.round(r.ms / 60000)}분`,
+        Boolean(blockOf(key, r)))),
+      `<p class="note">누르면 무엇을 넣어 무엇이 나오는지 왼쪽에 자세히 적힌다.<br>
+       재료로 쓸 수 있는 것은 <b>여분 부속</b>뿐이다 — 골렘에 붙인 것은 떼어내야 올릴 수 있다.
+       (지금 여분 ${spareCount}개 · 날것 ${rawSpare}개 · 상한 것 ${damagedCount}개)</p>`);
+  }
+
   UI.logHead('접합로');
+  UI.logLine('불이 낮게 깔려 있다.', 'narrate');
   for (const j of o.forge.slots) {
     UI.logLine(`${O.RECIPES[j.recipe].name} — ${O.remainText(j.startedAt, j.durationMs)}`, 'dim');
   }
-  const free = O.forgeSlots(o) - o.forge.slots.length;
-  const equippedF = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
-  const spareCount = S.inventory.filter((p) => !equippedF.has(p.uid)).length;
-  UI.logLine('불이 낮게 깔려 있다.', 'narrate');
-  // 장착 중인 날것은 여기서 정착시킬 수 없다 — 세는 것도 따로 센다
-  const rawSpare = S.inventory.filter((p) => p.raw && !equippedF.has(p.uid)).length;
-  const rawWorn = S.inventory.filter((p) => p.raw && equippedF.has(p.uid)).length;
   if (rawSpare) UI.logLine(`정착하지 않은 날것 부속이 ${rawSpare}개 있다.`, 'bad');
-  if (rawWorn) {
-    UI.logLine(`골렘에 붙인 날것이 ${rawWorn}개 있다. 떼어내야 정착시킬 수 있다.`, 'bad');
-  }
+  if (rawWorn) UI.logLine(`골렘에 붙인 날것이 ${rawWorn}개 있다. 떼어내야 정착시킬 수 있다.`, 'bad');
   if (free <= 0) {
     UI.logLine(`접합로가 꽉 찼다 (${o.forge.slots.length}/${O.forgeSlots(o)}칸). 지금 걸린 작업이 끝나야 다음을 건다.`, 'bad');
     UI.logLine('제단에서 접합로를 증설하면 동시에 여러 개를 걸 수 있다.', 'dim');
   } else if (!spareCount) UI.logLine('재료로 쓸 여분 파츠가 없다.', 'dim');
 
-  const rawCount = rawSpare;
-  const damagedCount = S.inventory.filter((p) => p.integrity < p.maxIntegrity && !equippedF.has(p.uid)).length;
-  const costText = (r) => Object.entries(r.cost)
-    .map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ');
-
-  UI.choices([
-    ...Object.entries(O.RECIPES).map(([key, r]) => {
+  const list = [];
+  if (sel) {
+    const r = O.RECIPES[sel];
+    const block = blockOf(sel, r);
+    list.push({
+      label: `${r.name} — 재료를 고른다`, cls: 'primary',
+      meta: block ?? `${Math.round(r.ms / 60000)}분 · ${costText(r)}`,
+      disabled: Boolean(block),
+      on: () => recipeScreen(sel),
+    });
+    list.push({ label: '고르지 않는다', cls: 'ghost', on: () => forgeJobScreen() });
+  }
+  for (const [key, r] of Object.entries(O.RECIPES)) {
+    if (key === sel) continue;
+    const block = blockOf(key, r);
+    list.push({
+      label: r.name,
       // 못 누르는 이유를 버튼에 적는다. 그냥 흐려지기만 하면 고장으로 읽힌다
-      const noStock = r.noInput ? false                 // 굳히기는 부속을 쓰지 않는다 (§10.6)
-        : key === 'revive' ? !o.vault.lostRecords.length
-        : key === 'attune' ? rawCount < 1
-        : key === 'mend' ? damagedCount < 1
-        : spareCount < (key === 'fuse' ? 2 : 1);
-      const why = free <= 0 ? `접합로가 꽉 참 (${o.forge.slots.length}/${O.forgeSlots(o)}칸)`
-        : noStock ? (key === 'revive' ? '잃어버린 기록이 없다'
-          : key === 'attune' ? (rawWorn ? '골렘에 붙인 날것뿐 — 먼저 떼어내라' : '정착할 날것이 없다')
-          : key === 'mend' ? '상한 부속이 없다'
-          : key === 'fuse' ? '여분이 둘 이상 필요하다' : '여분 부속이 없다')
-        : shortText(r.cost);
-      return {
-        label: `${r.name}`,
-        meta: why ?? `${Math.round(r.ms / 60000)}분 · ${costText(r)}`,
-        disabled: Boolean(why),
-        on: () => recipeScreen(key),
-      };
-    }),
-    { label: '돌아간다', cls: 'ghost', pin: true, on: workshopHubScreen },
-  ]);
+      meta: block ?? `${Math.round(r.ms / 60000)}분 · ${costText(r)}`,
+      cls: block ? 'ghost' : '',
+      info: `<span class="tt">${UI.esc(r.name)}</span>`
+        + `<div class="trow"><span>나오는 것</span><b>${FORGE_GUIDE[key].gives}</b></div>`
+        + '<div class="trow"><span>눌러 보라 — 왼쪽에 자세히 적힌다</span></div>',
+      on: () => forgeJobScreen(key),      // 못 걸더라도 **설명은 볼 수 있어야 한다**
+    });
+  }
+  list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: workshopHubScreen });
+  UI.choices(list, { stage: true, stageTitle: sel ? `접합로 — ${O.RECIPES[sel].name}` : '접합로 — 무엇을 만드는가' });
   save();
 }
 
@@ -2535,12 +2648,15 @@ function laborScreen() {
     UI.logLine(`${d.stageName} — ${byId(d.golemId)?.name ?? '?'} · ${O.remainText(d.startedAt, d.durationMs)}`, 'dim');
   }
   const free = O.laborSlots(o) - o.laborBay.dispatch.length;
-  const idle = golems.filter((g) => !g.assigned && canWork(g));
+  // 정비대에 올라간 몸은 보낼 수 없다 — 작업반이 이미 그렇게 하고 있다 (§9.14)
+  const idle = golems.filter((g) => !g.assigned && canWork(g) && whereOf({ id: g.id }) !== 'repair');
   if (free <= 0) {
     UI.logLine(`안치소가 ${O.laborSlots(o)}칸뿐이다. 제단에서 안치소를 넓히면 더 보낼 수 있다.`, 'dim');
   }
   if (!golems.length) UI.logLine('조립대에 선 골렘이 없다. 여분 핵으로 한 기를 세워야 보낸다.', 'dim');
   else if (!idle.length) {
+    const fixing = golems.filter((g) => !g.assigned && whereOf({ id: g.id }) === 'repair').length;
+    if (fixing) UI.logLine(`정비대에 올라간 몸이 ${fixing}기 — 정비가 끝나야 보낼 수 있다.`, 'dim');
     const spent = golems.filter((g) => !g.assigned && O.coreSpent(g)).length;
     const empty = golems.filter((g) => !g.assigned && !canWork(g) && !O.coreSpent(g)).length;
     UI.logLine(spent

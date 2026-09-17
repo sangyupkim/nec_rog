@@ -408,6 +408,11 @@ function finishRecipe(save, job, rng) {
         skills: [...new Set([...(job.skillsA ?? []), ...(job.skillsB ?? [])])],
       };
       part.integrity = part.maxIntegrity = Math.max(a.maxIntegrity, b.maxIntegrity);
+      /* 들인 것을 조용히 잃게 두지 않는다 — 대장간 강화와 정제는 **더 좋은 쪽을 따라간다.**
+         전에는 합치는 순간 둘 다 사라졌다. 은화와 골분을 들인 기록이 말없이 증발하면,
+         「좋은 부속은 아예 건드리지 않는 것이 낫다」가 되어 접합로가 죽는다. */
+      part.upgrade = Math.max(a.upgrade ?? 0, b.upgrade ?? 0) || undefined;
+      part.refined = Math.max(a.refined ?? 0, b.refined ?? 0) || undefined;
       return part;
     }
     case 'graft': {
@@ -416,6 +421,9 @@ function finishRecipe(save, job, rng) {
       const pool = DB.modifiers.filter((m) => m.tier <= 2);
       const part = makePart(a.defId, rng.weighted(pool.map((m) => [m.id, m.weight])));
       if (a.fused) part.fused = a.fused;
+      part.upgrade = a.upgrade;      // 이상만 갈아 끼운다 — 들인 강화·정제는 그대로 둔다
+      part.refined = a.refined;
+      part.integrity = Math.min(a.integrity, part.maxIntegrity);
       return part;
     }
     case 'refine': {
@@ -426,6 +434,7 @@ function finishRecipe(save, job, rng) {
       part.integrity = part.maxIntegrity;
       part.refined = (a.refined ?? 0) + 1;
       if (a.fused) part.fused = a.fused;
+      part.upgrade = a.upgrade;      // 정제는 강화 위에 얹힌다
       return part;
     }
     case 'mend': {
