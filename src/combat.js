@@ -29,6 +29,14 @@ const GUARD_CUT = 0.25;          // 댄 자리로 받아 내면 피해 -25%
 const GUARD_BASE = 50;           // 속도가 같을 때 대는 데 성공할 확률
 const GUARD_PER_SPD = 3;         // 속도 1 차이마다 ±3%p
 const GUARD_MIN = 25, GUARD_MAX = 90;
+
+/* ── 내구도는 맞아서 닳는다 (§3.3-C) ────────────────
+   전에는 전투가 끝날 때 **쓴 부속마다 무조건 1**씩 닳았다. 한 층에 전투가 대여섯이니
+   한 단계를 도는 것만으로 모든 부속이 15~20씩 깎여, 방어도가 다 벗겨지기도 전에
+   부속이 먼저 바스러졌다 — 「방어도를 관리한다」는 규칙이 설 자리가 없었다.
+   이제는 **그 부위가 실제로 맞았을 때** 확률로 닳는다. 맞지 않은 팔은 멀쩡하다. */
+const WEAR_CHANCE = 18;          // 한 대 맞을 때마다 그 부위가 닳을 확률(%)
+const WEAR_RAW_MUL = 2;          // 날것은 두 배로 잘 상한다
 /** 화상 한 틱 = 최대 체력의 몇 %인가 */
 const BURN_RATIO = 0.03;
 
@@ -88,6 +96,8 @@ export class Combat {
     // ── 파츠 방어도 (§5.7) — 전투가 끝나도 회복되지 않는다 ──
     this.aim = 'random';
     this.guard = null;          // 이번 턴 막기로 댄 부위 (null = 맡긴다)
+    this.wear = {};             // 이 전투에서 닳은 내구도 (uid → 칸 수)
+    this.wearMul = 1;           // 환경이 더 상하게 하면 여기서 올린다 (범람 등)
     this.frames = {};
     for (const { slot, part, shieldMax: max, shield } of g.worn) {
       this.frames[slot] = { slot, part, hp: shield, max, down: shield <= 0 };
@@ -569,6 +579,8 @@ export class Combat {
       const taken = Math.min(f.hp, left);
       f.hp -= taken;
       left -= taken;
+      // 맞은 자리가 닳는다 — 맞지 않은 부속은 멀쩡하다 (§3.3-C)
+      if (taken > 0) this.rollWear(f);
       if (f.hp <= 0) {
         f.hp = 0; f.down = true;
         this.say(`${partName(f.part)}의 방어가 무너졌다. 연결된 기술을 쓸 수 없다.`, 'bad', { broke: true });
@@ -628,6 +640,14 @@ export class Combat {
   }
 
   /** 남은 방어도를 파츠에 새긴다. 수리하기 전까지 이대로 남는다 */
+  /** 한 대 맞은 부위가 닳는지 굴린다 (§3.3-C) */
+  rollWear(f) {
+    const p = f.part;
+    const chance = WEAR_CHANCE * (p.raw ? WEAR_RAW_MUL : 1) * this.wearMul;
+    if (!this.rng.chance(Math.min(90, chance))) return;
+    this.wear[p.uid] = (this.wear[p.uid] ?? 0) + 1;
+  }
+
   commitShields() {
     for (const f of Object.values(this.frames)) f.part.shield = f.hp;
   }

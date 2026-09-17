@@ -3919,6 +3919,8 @@ function startBattle(room, elite, isBoss = false) {
   cb = new Combat(S, mon, r);
   cb.room = room;
   const hzNow = CP.hazardOf(S.run.stage);
+  // 범람: 물이 차면 몸이 더 잘 상한다 (§7-A.2) — 이제 내구도는 맞을 때 닳으므로 확률을 올린다
+  if (hzNow?.kind === 'flood' && hazardNow() >= 2) cb.wearMul = 2;
   if (hzNow?.kind === 'flood' && hazardNow() >= 3) {
     cb.golem.ranks.spd = (cb.golem.ranks.spd ?? 0) - 1;
     cb.say('물이 허리까지 찼다. 발을 떼기가 무겁다. (속도 -1)', 'bad');
@@ -4189,22 +4191,21 @@ function winBattle() {
   notifyQuests({ kind: 'kill', monster: cb.mon.defId });
   if (!cb.usedNecro) notifyQuests({ kind: 'cleanwin' });
 
-  // 내구도 소모 (§3.3) — 이 전투에서 실제로 쓴 파츠만
+  /* 내구도는 **맞아서** 닳는다 (§3.3-C). 전투 동안 combat이 세어 둔 것을 여기서 새긴다.
+     전에는 「쓴 부속마다 전투당 1」이라 때리기만 해도 팔이 닳았고, 한 단계를 도는 것만으로
+     모든 부속이 바스러졌다. 이제 맞지 않은 부속은 멀쩡하다. */
   const g = assembleGolem(S);
   S.run.battles = (S.run.battles ?? 0) + 1;
   const skipWear = g.traits.wearHalf && S.run.battles % 2 === 1;
   if (!skipWear) {
-    for (const uid of cb.usedParts) {
+    for (const [uid, n] of Object.entries(cb.wear ?? {})) {
       const p = findPart(uid);
-      if (!p) continue;
-      // 범람: 무릎까지 물이 차면 다리가 젖어 두 배로 상한다 (§7-A.2)
-      const flooded = CP.hazardOf(S.run.stage)?.kind === 'flood' && hazardNow() >= 2
-        && DB.partsBy[p.defId].slot === 'leg';
-      p.integrity -= (p.raw ? RAW_WEAR : 1) * (flooded ? 2 : 1);
+      if (!p || n <= 0) continue;
+      p.integrity -= n;
       if (p.integrity <= 0) destroyPart(p);
       else if (wornLow(p)) UI.logLine(`⚠ ${partName(p)}의 내구도가 ${p.integrity}밖에 남지 않았다.`, 'bad');
     }
-  } else UI.logLine('철제 이음쇠가 마모를 받아냈다.', 'dim');
+  } else if (Object.keys(cb.wear ?? {}).length) UI.logLine('철제 이음쇠가 마모를 받아냈다.', 'dim');
 
   if (S.run.collapsed) { collapseRun(); return; }
 

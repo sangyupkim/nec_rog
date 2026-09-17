@@ -405,10 +405,14 @@ export function skillElement(save, skillId) {
  * 처음엔 한 판 기준으로 잡았다가, 1층에서 3~4전투 만에 모든 부위가 무너져
  * 아무도 1-1을 깰 수 없었다. `npm run balance`의 층 완주 검사가 정한 값이다.
  */
-const SHIELD_BASE = { head: 160, body: 320, armL: 220, armR: 220, legL: 220, legR: 220 };
+/* 방어도를 한 차례 낮췄다 (§5.7-A).
+   내구도가 「맞을 때 확률로」 닳게 바뀌면서(§3.3-C) 부속이 훨씬 오래 버티게 됐다.
+   그대로 두면 방어도는 **한 단계 내내 다 닳지도 않는** 숫자가 되어,
+   막기도 수리도 의미가 없어진다. 닳는 쪽이 느려졌으니 총량도 같이 내린다. */
+const SHIELD_BASE = { head: 140, body: 275, armL: 190, armR: 190, legL: 190, legR: 190 };
 export function shieldMax(part, slot) {
   const st = partStats(part);
-  return Math.max(30, Math.round(SHIELD_BASE[slot] + st.def * 6 + st.hp / 6));
+  return Math.max(26, Math.round(SHIELD_BASE[slot] + st.def * 5 + st.hp / 7));
 }
 export const frameMax = shieldMax;   // 옛 이름 호환
 

@@ -711,6 +711,21 @@ export const bar = (cur, max, foe = false, key = null) => {
   return `<div class="bar ${foe ? 'foe' : ''}"><i style="width:${pct}%"></i>${ghost}</div>
           <div class="hpnum">HP ${Math.max(0, Math.round(cur))} / ${max}</div>`;
 };
+/**
+ * 방어도 막대 (§12.16).
+ * 체력은 막대인데 방어도는 「방어 1223/1223」 숫자칩뿐이라, 둘이 같은 자원인데도
+ * 한쪽만 눈에 들어왔다. **깎이는 것은 전부 막대로 보여 준다.**
+ */
+export const shieldBar = (cur, max, key = 'shield') => {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (cur / max) * 100)) : 0;
+  let ghost = '';
+  const prev = lastBar.get(key);
+  lastBar.set(key, pct);
+  if (prev != null && prev > pct) ghost = `<u style="left:${pct}%;width:${prev - pct}%"></u>`;
+  return `<div class="bar shield ${pct <= 25 ? 'low' : ''}"><i style="width:${pct}%"></i>${ghost}</div>
+          <div class="hpnum">방어도 ${Math.max(0, Math.round(cur))} / ${max}</div>`;
+};
+
 /** 전투가 끝나면 잔상 기억을 비운다 */
 export const resetBars = () => lastBar.clear();
 
@@ -878,10 +893,10 @@ export function combatPanel(cb, save) {
         <h3>누더기 골렘</h3>
         <span class="tag" ${elColor(g.defElement)}>${g.defElement}</span>
         ${bar(g.hp, g.maxHp, false, 'golem')}
+        ${shieldBar(shieldSum, shieldCap)}
         ${statusChips(g)}
         <div class="chips">
           <span class="chip good">영력 ${cb.will}/10</span>
-          <span class="chip ${shieldSum < shieldCap ? 'warn' : ''}">방어 ${shieldSum}/${shieldCap}</span>
           ${cb.prep && DB.necro_skillsBy[cb.prep]
             ? `<span class="chip good">🕯 ${esc(DB.necro_skillsBy[cb.prep].name)}</span>` : ''}
         </div>

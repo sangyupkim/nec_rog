@@ -27,6 +27,7 @@
   --rare:#7FB6D8;        /* 희귀 부속 — 차가운 푸른빛 */
   --el-참격:#C9CDD4; --el-타격:#C79A6B; --el-화염:#E0794A; --el-냉기:#7FB6D8;
   --el-독:#9FBF5A; --el-부패:#8A9B57; --el-진혼:#E6D99B;
+  --shield:#7E93A8;                     /* 방어도 막대 — 체력(초록)과 한눈에 구분되는 강철빛 */
   --display:"Gowun Batang","Nanum Myeongjo",Georgia,serif;
   --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
@@ -570,6 +571,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .bar i{display:block;height:100%;background:var(--accent-dim);transition:width .3s}
 .bar.foe i{background:var(--danger)}
 .bar.small{height:6px}
+/* 방어도 막대 (§12.16) — 체력과 나란히, 색으로 구분한다 */
+.bar.shield{height:7px;margin-top:.18rem}
+.bar.shield i{background:var(--shield)}
+.bar.shield.low i{background:var(--danger)}
 .hpnum{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:.2rem}
 .chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.35rem}
 .chip{
