@@ -2634,97 +2634,181 @@ function tripPickStage(golemId) {
   UI.choices(list);
 }
 
-/* ── 제단 (영구 해금) ───────────────────── */
-function altarScreen() {
+/* ── 제단 (영구 해금) ─────────────────────
+   제단은 **영영 돌아오지 않는 지출**이다. 영혼재는 무덤에서만 나오고(§10.1),
+   한 번 태우면 되돌릴 수 없다. 그런데 화면은 단추 한 줄에 값만 적어 두고,
+   무엇을 사는지는 **쪽지를 띄워야** 알 수 있었다 — 쪽지는 손가락으로 쓰는 화면에서
+   잘 안 뜨고, 뜨더라도 짧다.
+
+   그래서 제단은 **두 걸음**이 됐다. 누르면 왼쪽에 그것이 무엇인지 · 지금이 어떻고
+   사고 나면 어떻게 되는지 · 왜 중요한지가 펼쳐지고, 그 다음에 태운다.
+   중요한 지출 앞에서 한 걸음 쉬는 것은 **손해가 아니라 안전장치**다 (§12.20). */
+function altarScreen(pick = null) {
   const o = S.ossuary;
   UI.topbar(S, '납골당 · 제단');
   quickHere('altar');
-  ossPanel();
-  UI.logHead('제단');
-  UI.logLine('영혼재를 태우는 자리.', 'narrate');
 
-  /* 값은 **언제나** 앞에 적는다 (§12.12). 전에는 곁말 자리를 얻는 것에 내주는 바람에
-     「안치소 증설 — 받침대 4기 · 자율 탐험 2칸」처럼 영혼재가 얼마나 드는지가 통째로
-     사라진 단추가 있었다. 모자랄 때는 부족분까지 함께 적는다. */
-  const buy = (label, cost, meta, fn, disabled = false) => ({
-    label,
-    meta: `영혼재 ${cost}${S.soulAsh < cost ? ` (${cost - S.soulAsh} 모자라다)` : ''}${meta && !/^영혼재 \d+$/.test(meta) ? ` · ${meta}` : ''}`,
-    disabled: disabled || S.soulAsh < cost,
-    info: `<div class="trow"><span>값</span><b>영혼재 ${cost}</b></div>`
-      + `<div class="trow"><span>지금 가진 것</span><b>영혼재 ${S.soulAsh}</b></div>`
-      + `<div class="trow"><span>치르고 나면</span><b>영혼재 ${Math.max(0, S.soulAsh - cost)}</b></div>`,
-    on: () => { S.soulAsh -= cost; fn(); altarScreen(); },
-  });
+  /** 제단에 오른 것 하나 — 값·지금·나중·왜를 한 덩어리로 들고 있는다 */
+  const offers = [];
+  const add = (id, label, cost, now, then, why, fn, extra = null) =>
+    offers.push({ id, label, cost, now, then, why, fn, extra });
 
-  const list = [];
   for (const [key, f] of Object.entries(O.FACILITIES)) {
     if (o.built[key]) continue;
-    list.push(buy(`${f.icon} ${f.name} 건설`, f.unlock, `영혼재 ${f.unlock}`, () => {
-      o.built[key] = true;
-      UI.logLine(`${f.name}을(를) 세웠다.`, 'good');
-    }));
+    add(`build_${key}`, `${f.icon} ${f.name} 건설`, f.unlock,
+      '아직 없다 — 이 시설의 일은 통째로 막혀 있다',
+      `${f.name}이 열린다`,
+      FACILITY_WHY[key] ?? '납골당의 시설 하나가 열린다.',
+      () => { o.built[key] = true; UI.logLine(`${f.name}을(를) 세웠다.`, 'good'); });
   }
+
   const vatCost = 60 + o.rotVat.level * 40;
-  list.push(buy(`부패조 확장 Lv${o.rotVat.level} → ${o.rotVat.level + 1}`, vatCost, `영혼재 ${vatCost}`, () => {
-    o.rotVat.level++;
-    UI.logLine(`부패조가 커졌다. 상한 ${O.vatCap(o)}.`, 'good');
-  }));
+  add('vat', `부패조 확장 Lv${o.rotVat.level} → ${o.rotVat.level + 1}`, vatCost,
+    `Lv${o.rotVat.level} · 저장 상한 ${O.vatCap(o)}`,
+    `Lv${o.rotVat.level + 1} · 저장 상한 ${(o.rotVat.level + 1) * 50}`,
+    `부패조는 넣어 둔 조각을 </b>진액<b>으로 삭힌다. 단계가 오르면 삭히는 속도와 담아 두는 양이
+     함께 는다. 상한에 닿으면 생산이 멈추므로, 오래 자리를 비울수록 상한이 값어치를 한다.
+     진액은 정착·융합·소생·핵 안정화에 들어간다 — 사역 골렘을 굴릴수록 많이 먹는다.`,
+    () => { o.rotVat.level++; UI.logLine(`부패조가 커졌다. 상한 ${O.vatCap(o)}.`, 'good'); });
+
   if (o.built.dissection && o.dissection.level < 4) {
-    const c = 50 * o.dissection.level;
-    list.push(buy(`해체대 증설 (${o.dissection.level} → ${o.dissection.level + 1}칸)`, c, `영혼재 ${c}`,
-      () => { o.dissection.level++; }));
+    add('dissect', `해체대 증설 (${o.dissection.level} → ${o.dissection.level + 1}칸)`, 50 * o.dissection.level,
+      `${o.dissection.level}칸 — 한 번에 ${o.dissection.level}개까지 올린다`,
+      `${o.dissection.level + 1}칸`,
+      `해체대는 안 쓰는 부속을 </b>조각·진액·골분<b>으로 되돌린다. 칸이 늘면 한 번에 여러 개를
+       걸어 둘 수 있다 — 유니크 하나가 두 시간짜리라, 칸이 하나뿐이면 그 사이 다른 것을 못 녹인다.`,
+      () => { o.dissection.level++; });
   }
   if (o.built.forge && o.forge.level < 4) {
-    const c = 90 * o.forge.level;
-    list.push(buy(`접합로 증설 (${o.forge.level} → ${o.forge.level + 1}칸)`, c, `영혼재 ${c}`,
-      () => { o.forge.level++; }));
+    add('forge', `접합로 증설 (${o.forge.level} → ${o.forge.level + 1}칸)`, 90 * o.forge.level,
+      `${o.forge.level}칸`, `${o.forge.level + 1}칸`,
+      `접합로는 </b>정착·융합·이식·정제·소생<b>이 도는 자리다. 특히 정착은 무덤에서 주워 온
+       날것을 온전하게 만드는 유일한 길이라, 칸이 하나면 주워 온 것이 줄을 선다.`,
+      () => { o.forge.level++; });
   }
   if (o.built.laborBay && o.laborBay.level < 3) {
-    const c = 120 * o.laborBay.level;
-    list.push(buy(`안치소 증설 (${o.laborBay.level} → ${o.laborBay.level + 1})`, c,
+    add('labor', `안치소 증설 (${o.laborBay.level} → ${o.laborBay.level + 1})`, 120 * o.laborBay.level,
+      `받침대 ${O.golemCap(o)}기 · 자율 탐험 ${O.laborSlots(o)}칸 · 작업반 ${O.crewCap(o)}기`,
       `받침대 ${O.golemCap(o) + 1}기 · 자율 탐험 ${o.laborBay.level + 1}칸 · 작업반 ${o.laborBay.level + 2}기`,
+      `한 번에 </b>세 가지<b>가 늘어난다 — 세워 둘 수 있는 사역 골렘(받침대), 동시에 내보낼 수 있는
+       자율 탐험 칸, 작업반에 붙일 수 있는 기수. 제단에서 가장 값이 큰 대신 가장 넓게 퍼지는 확장이다.
+       사역 골렘은 일을 시키면 핵이 닳으므로, 기수가 늘면 </b>번갈아 쉬게 할 수 있다.<b>`,
       () => {
         o.laborBay.level++;
         UI.logLine(`안치소가 넓어졌다. 받침대 ${O.golemCap(o)}기 · 자율 탐험 ${O.laborSlots(o)}칸 · 작업반 ${O.crewCap(o)}기.`, 'good');
-      }));
+      });
   }
   if (o.built.vault && o.vault.capacity < 10) {
-    list.push(buy(`표본실 확장 (${o.vault.capacity} → ${o.vault.capacity + 1}칸)`, 40, '영혼재 40',
-      () => { o.vault.capacity++; }));
+    add('vault', `표본실 확장 (${o.vault.capacity} → ${o.vault.capacity + 1}칸)`, 40,
+      `${o.vault.parts.length}/${o.vault.capacity}칸 차 있다`, `${o.vault.capacity + 1}칸`,
+      `표본실은 자율 탐험이 주워 온 것과 맡겨 둔 부속이 들어가는 창고다.
+       꽉 차면 </b>주워 와도 들어갈 자리가 없다.<b>`,
+      () => { o.vault.capacity++; });
   }
   if (o.capStep < O.CAP_STEPS.length - 1) {
-    list.push(buy(`오프라인 상한 확장 (${Math.round(o.offlineCapMs / O.HOUR)} → ${Math.round(O.CAP_STEPS[o.capStep + 1] / O.HOUR)}시간)`,
-      O.CAP_COST, `영혼재 ${O.CAP_COST}`, () => {
-        o.capStep++;
-        o.offlineCapMs = O.CAP_STEPS[o.capStep];
-      }));
+    add('cap', `오프라인 상한 확장 (${Math.round(o.offlineCapMs / O.HOUR)} → ${Math.round(O.CAP_STEPS[o.capStep + 1] / O.HOUR)}시간)`,
+      O.CAP_COST, `${Math.round(o.offlineCapMs / O.HOUR)}시간까지 정산한다`,
+      `${Math.round(O.CAP_STEPS[o.capStep + 1] / O.HOUR)}시간`,
+      `자리를 비운 사이의 생산은 </b>이 시간까지만<b> 계산된다. 하루를 비워도 상한이 8시간이면
+       8시간치만 들어온다. 하루에 한 번 들르는 사람에게는 이것이 곧 수입이다.`,
+      () => { o.capStep++; o.offlineCapMs = O.CAP_STEPS[o.capStep]; });
   }
-  // (구) '표본 지참 수'는 자동 반출과 함께 없앴다. 표본실은 이제 순수한 창고이고,
-  // 값어치는 칸 수에서 나온다 — 바로 위의 '표본실 확장'이 그 창구다.
   if (S.unlocks.salvage < 3) {
-    const c = 100 + 80 * S.unlocks.salvage;
-    list.push(buy(`잔해 수습 (회수율 +${(S.unlocks.salvage + 1) * 10}%p)`, c, `영혼재 ${c}`,
-      () => { S.unlocks.salvage++; UI.logLine('무너진 골렘에서 더 건질 수 있게 됐다.', 'good'); }));
+    add('salvage', `잔해 수습 (회수율 +${(S.unlocks.salvage + 1) * 10}%p)`, 100 + 80 * S.unlocks.salvage,
+      `+${S.unlocks.salvage * 10}%p`, `+${(S.unlocks.salvage + 1) * 10}%p`,
+      `골렘이 무너지면 장착한 부속을 확률로만 건진다. 그 확률이 영구히 오른다 —
+       </b>패배가 덜 아프게<b> 만드는 유일한 확장이라, 깊이 내려갈수록 값어치가 커진다.`,
+      () => { S.unlocks.salvage++; UI.logLine('무너진 골렘에서 더 건질 수 있게 됐다.', 'good'); });
   }
   if (S.unlocks.partPool < 2) {
-    const c = 140 + 120 * S.unlocks.partPool;
-    list.push(buy(`수소문 (상점 부속 등급 ↑)`, c, `영혼재 ${c}`,
+    add('pool', '수소문 (상점 부속 등급 ↑)', 140 + 120 * S.unlocks.partPool,
+      `단계 ${S.unlocks.partPool}`, `단계 ${S.unlocks.partPool + 1}`,
+      `바르그의 손수레에 </b>더 좋은 등급의 부속<b>이 들어온다. 무덤에서 나오기를 기다리지 않고
+       은화로 살 수 있게 되는 셈이라, 은화가 남아도는 판에서 특히 값어치가 있다.`,
       () => { S.unlocks.partPool++; S.town.stock = rollStock(rng, S.unlocks);
-              UI.logLine('바르그가 아는 사람을 통해 더 나은 것이 들어온다.', 'good'); }));
+              UI.logLine('바르그가 아는 사람을 통해 더 나은 것이 들어온다.', 'good'); });
   }
   if (!S.unlocks.modTier) {
-    list.push(buy('이상 감식 (tier 2 이상 조기 등장)', 260, '영혼재 260',
-      () => { S.unlocks.modTier = 1; UI.logLine('이상한 것을 알아보는 눈이 생겼다.', 'good'); }));
+    add('mod', '이상 감식 (tier 2 이상 조기 등장)', 260, '1단계 이상만 붙는다', '2단계 이상도 붙는다',
+      `몬스터에 붙는 </b>수식어<b>가 드랍하는 부속에 그대로 계승된다. 높은 단계의 수식어는
+       배율이 크고 기술을 하나 더 얹는다 — 같은 부속의 값어치가 통째로 달라진다.`,
+      () => { S.unlocks.modTier = 1; UI.logLine('이상한 것을 알아보는 눈이 생겼다.', 'good'); });
   }
   if (S.unlocks.necroSlots < 5) {
-    const c = 150 * (S.unlocks.necroSlots - 2);
-    list.push(buy(`술법 장착 칸 (${S.unlocks.necroSlots} → ${S.unlocks.necroSlots + 1})`, c, `영혼재 ${c}`,
-      () => { S.unlocks.necroSlots++; S.necro.equipped.push(null); }));
+    add('necro', `술법 장착 칸 (${S.unlocks.necroSlots} → ${S.unlocks.necroSlots + 1})`,
+      150 * (S.unlocks.necroSlots - 2), `${S.unlocks.necroSlots}칸`, `${S.unlocks.necroSlots + 1}칸`,
+      `네크로맨서의 술법은 </b>모든 런에 따라온다<b>. 칸이 늘면 회복·소환·공격을 함께 들고
+       갈 수 있다 — 골렘 빌드가 못 메우는 구멍을 메우는 자리다.`,
+      () => { S.unlocks.necroSlots++; S.necro.equipped.push(null); });
+  }
+
+  const sel = offers.find((x) => x.id === pick) ?? null;
+
+  /* 왼쪽: 고른 것이 있으면 **그것의 설명**, 없으면 시설 도식 그대로 */
+  if (sel) {
+    const short = S.soulAsh < sel.cost;
+    UI.listPanel(sel.label, [
+      UI.rowHTML('값', `<b>영혼재 ${sel.cost}</b>`, short ? `${sel.cost - S.soulAsh} 모자라다` : '치를 수 있다', short),
+      UI.rowHTML('가진 것', `영혼재 ${S.soulAsh}`, ''),
+      UI.rowHTML('남는 것', `영혼재 ${Math.max(0, S.soulAsh - sel.cost)}`, ''),
+      UI.rowHTML('지금', sel.now, ''),
+      UI.rowHTML('사고 나면', `<b>${sel.then}</b>`, ''),
+    ], `<p class="note">${sel.why}</p>
+      <p class="note"><b>제단의 지출은 되돌릴 수 없다.</b>
+      영혼재는 무덤에서만 나온다 — 방치로는 한 톨도 벌리지 않는다.</p>`);
+  } else {
+    ossPanel();
+  }
+
+  /* 고를 때마다 화면을 다시 그리므로, 머리말까지 매번 찍으면 로그가 제단으로 도배된다.
+     처음 들어왔을 때만 자리를 설명하고, 고른 뒤에는 고른 것만 한 줄 적는다. */
+  if (sel) {
+    UI.logLine(`${sel.label} — 왼쪽에 적어 뒀다. 값은 영혼재 ${sel.cost}.`, 'necro');
+  } else {
+    UI.logHead('제단');
+    UI.logLine('영혼재를 태우는 자리.', 'narrate');
+    UI.logLine('무엇이든 눌러 보라. 왼쪽에 그것이 무엇인지 적힌다. 태우는 것은 그 다음이다.', 'dim');
+  }
+
+  const list = [];
+  if (sel) {
+    const short = S.soulAsh < sel.cost;
+    list.push({
+      label: `${sel.label} — 태운다`, cls: 'primary',
+      meta: short ? `영혼재 ${sel.cost} · ${sel.cost - S.soulAsh} 모자라다` : `영혼재 ${sel.cost} → ${S.soulAsh - sel.cost} 남는다`,
+      disabled: short,
+      on: () => { S.soulAsh -= sel.cost; sel.fn(); altarScreen(); },
+    });
+    list.push({ label: '고르지 않는다', cls: 'ghost', on: () => altarScreen() });
+  }
+  for (const it of offers) {
+    if (sel && it.id === sel.id) continue;
+    list.push({
+      label: it.label,
+      /* 값은 **언제나** 앞에 적는다 (§12.12) — 모자랄 때는 부족분까지 */
+      meta: `영혼재 ${it.cost}${S.soulAsh < it.cost ? ` (${it.cost - S.soulAsh} 모자라다)` : ''} · ${it.then}`,
+      cls: S.soulAsh < it.cost ? 'ghost' : '',
+      info: `<span class="tt">${UI.esc(it.label)}</span>`
+        + `<div class="trow"><span>값</span><b>영혼재 ${it.cost}</b></div>`
+        + `<div class="trow"><span>사고 나면</span><b>${UI.esc(it.then)}</b></div>`
+        + '<div class="trow"><span>눌러 보라 — 왼쪽에 자세히 적힌다</span></div>',
+      on: () => altarScreen(it.id),
+    });
   }
   list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen });
-  UI.choices(list, { stage: true, stageTitle: '제단 — 영혼재를 태운다' });
+  UI.choices(list, { stage: true, stageTitle: sel ? `제단 — ${sel.label}` : '제단 — 영혼재를 태운다' });
   save();
 }
+
+/** 아직 없는 시설이 무엇을 여는가 — 짓기 전에는 이름만으로 알 수가 없다 */
+const FACILITY_WHY = {
+  rotVat: `넣어 둔 조각을 시간이 <b>진액</b>으로 삭힌다. 손을 대지 않아도 도는 유일한 생산이다.`,
+  dissection: `안 쓰는 부속을 <b>조각·진액·골분</b>으로 되돌린다. 등급이 높을수록 오래 걸리고 많이 나온다.`,
+  vault: `부속을 맡겨 두는 창고. <b>자율 탐험이 주워 온 것이 여기로 들어온다</b> — 없으면 주워 올 자리가 없다.`,
+  forge: `정착·융합·이식·정제·소생이 도는 자리. 무덤에서 주워 온 <b>날것을 온전하게 만드는 유일한 길</b>이다.`,
+  laborBay: `여분 핵으로 세운 <b>사역 골렘</b>에게 일을 시킨다 — 작업반으로 모든 작업 시간을 줄이고,
+    자율 탐험으로 깬 단계에 보내 재료와 부속을 주워 오게 한다. 납골당이 스스로 도는 시작점이다.`,
+};
 
 /* ── 의뢰소 ─────────────────────────────── */
 /* ── 마을 대분류 (§12.8) ─────────────────────────────
@@ -3438,15 +3522,18 @@ function inventoryScreen(back = town) {
     })),
     ...useRows,
     // 회복량은 데이터가 정한다. 여기에 숫자를 박아 두면 items.json을 고쳐도 안 따라온다
-    /* 역청은 목록이 아니라 **할 일**이다 — 닳는 것은 대개 붙어 있는 부속이므로
-       여기서는 장착 중인 것도 함께 내민다 (숨기는 것은 읽는 목록뿐이다). */
-    ...S.inventory.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
+    /* 역청도 **여분에만** 내민다 (§12.14-B).
+       전에는 「닳는 것은 대개 붙어 있는 부속」이라 장착 중인 것까지 함께 내밀었는데,
+       그러자 가방이 골렘 정비와 같은 목록을 두 벌 보여 주는 화면이 됐다.
+       붙은 것은 골렘 정비에서 보고 고친다 — 가방은 **여분을 보는 자리**다. */
+    ...spare.filter((p) => p.integrity < p.maxIntegrity && S.consumables.it_bitumen > 0)
       .map((p) => ({
-        label: `${UI.partHTML(p)}에 역청${slotOf.has(p.uid) ? ` <span class="chip good">${SLOT_LABEL[slotOf.get(p.uid)]}</span>` : ''}`,
+        label: `${UI.partHTML(p)}에 역청`,
         meta: `+${BITUMEN()} (${S.consumables.it_bitumen}개 남음)`, on: () => {
           S.consumables.it_bitumen--;
           p.integrity = Math.min(p.maxIntegrity, p.integrity + BITUMEN());
           UI.logLine(`${partName(p)}의 내구도를 메웠다. (${p.integrity}/${p.maxIntegrity})`, 'good');
+          save();                       // 메운 것은 곧장 적어 둔다 — 다음 저장까지 미루지 않는다
           inventoryScreen(back);
         },
       })),
