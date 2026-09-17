@@ -540,12 +540,19 @@ function town(intro = true) {
       on: () => { UI.logLine('새 판으로 바꾼다…', 'good'); PWA.applyUpdate(); } } : null,
     { label: `판 ${PWA.version()}`, cls: 'ghost', nokey: true,
       meta: PWA.hasUpdate() ? '새 판 있음' : '최신',
-      info: `지금 돌고 있는 판은 <b>${PWA.version()}</b>이다.<br>눌러 새 판이 있는지 다시 확인한다.`,
+      /* 화면 크기를 함께 적는다 — 「왜 내 화면만 배치가 다르지」를 물어보려면
+         **그 화면이 몇 px인지**부터 알아야 한다. 폴드 펼침이 690×829인 걸
+         모르고 문턱을 두 번 잘못 잡았다 (§12.17-C). */
+      info: `지금 돌고 있는 판은 <b>${PWA.version()}</b>이다.<br>`
+        + `화면 <b>${window.innerWidth}×${window.innerHeight}</b> · 배치 `
+        + `<b>${UI.isWide() ? (UI.isMid() ? '정사각형에 가까움' : '넓음') : '좁음'}</b><br>`
+        + `눌러 새 판이 있는지 다시 확인한다.`,
       on: () => {
         PWA.checkForUpdate();
         UI.logLine(PWA.hasUpdate()
           ? '새 판이 와 있다 — 「새 판으로 바꾼다」를 누르면 적용된다.'
-          : `판 ${PWA.version()} — 확인했다. 잠시 뒤에도 새것이 없으면 이게 최신이다.`, 'dim');
+          : `판 ${PWA.version()} — 확인했다. 화면 ${window.innerWidth}×${window.innerHeight}, 배치 `
+            + `${UI.isWide() ? (UI.isMid() ? '정사각형에 가까움' : '넓음') : '좁음'}.`, 'dim');
         setTimeout(() => { if (!S.run && !cb) town(false); }, 1500);
       } },
   ]);

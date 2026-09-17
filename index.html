@@ -235,6 +235,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #app.wide.mid #stage{grid-column:3;grid-row:1}
 #app.wide.mid #right{grid-column:3;grid-row:2;border-top:1px solid var(--line)}
 #app.wide.mid #log{font-size:.8rem}
+/* 정사각형 배치에서는 무대 칸이 좁다 — 카드를 조금 줄여 두 줄로 세운다 */
+#app.wide.mid #stage .cards{grid-template-columns:repeat(auto-fill,minmax(8.4rem,1fr))}
 #app.wide.mid{--quick-w:4.6rem}
 /* 무대가 없을 때는 상태가 위, 로그가 아래 — 오른쪽 칸이 통째로 비지 않게 */
 #app.wide.mid #panes:not(:has(#stage:not([hidden]))){
@@ -242,9 +244,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 }
 #app.wide.mid #panes:not(:has(#stage:not([hidden]))) #right{grid-row:1/3;border-top:0}
 
-/* 좁은 화면에서는 예전처럼 위아래로 쌓는다 — 세로 레이아웃은 이번에 손대지 않는다 */
-@media not all and (min-width:760px){
-  #quick,#stage{display:none !important}
+/* 새 배치를 쓰는 조건은 **폭과 높이를 함께** 본다 (§12.17-C) —
+   폴드를 펼친 세로는 690×829라 폭만 보면 걸리지 않고,
+   폰을 눕히면 891×411이라 폭만 보면 걸리지만 높이가 없다.
+   기본은 숨김이고, 아래 조건에 맞을 때만 켠다. JS의 isWide()와 같은 값이어야 한다. */
+#quick,#stage{display:none !important}
+@media (min-width:1000px), (min-width:600px) and (min-height:640px){
+  #quick:not([hidden]){display:flex !important}
+  #stage:not([hidden]){display:flex !important}
 }
 
 #panetoggle{display:none}
@@ -254,7 +261,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
  * 글자를 키우면 상태 패널과 선택지가 함께 커져 로그가 짜부라진다.
  * 그래서 ① 상태 패널을 접을 수 있게 하고 ② 로그에 최소 높이를 보장한다.
  */
-@media (max-aspect-ratio:4/5) and (max-width:759px), (max-width:560px){
+@media (max-aspect-ratio:4/5) and (max-width:599px), (max-width:560px){
   #panes{grid-template-columns:1fr;grid-template-rows:minmax(0,auto) auto minmax(22dvh,1fr)}
   #app #left{max-height:46dvh;border-right:0;border-bottom:1px solid var(--line)}
   /* 기본 규칙이 파일 뒤쪽에 있어 명시도를 한 단계 올려야 이긴다 */

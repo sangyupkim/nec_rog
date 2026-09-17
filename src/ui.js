@@ -727,14 +727,24 @@ export const panel = (html) => {
    이 화면을 어지럽게 만들던 원인이다. */
 
 /** 가로 배치를 쓸 만큼 넓은가 — 좁으면 예전처럼 위아래로 쌓는다 */
-/* 새 배치를 쓸 만큼 넓은가.
-   900px로 잡았더니 **폴드를 펼친 화면(≈880px)이 턱걸이로 떨어져** 옛 배치로 돌아갔다.
-   정사각에 가까운 화면도 네 칸을 쓸 폭은 된다 — 다만 로그를 옆에 세우면 한 줄에
-   열 몇 자밖에 안 들어가므로, 그런 화면에서는 로그를 **무대 아래로** 내린다(§12.17-B). */
-export const WIDE_MIN = 760;
-export const MID_MAX = 1080;      // 이보다 좁으면 「정사각형에 가까운」 배치
-export const isWide = () => (window.innerWidth ?? 0) >= WIDE_MIN;
-export const isMid = () => isWide() && (window.innerWidth ?? 0) < MID_MAX;
+/* 새 배치를 쓸 만큼 넓은가 — **폭만 보면 안 된다** (§12.17-C).
+   900 → 760으로 내려 봤지만 여전히 안 됐다. 재 보니 폴드를 펼친 세로 화면은
+   CSS로 **690×829**다 — 물리 1812px를 배율 2.625로 나눈 값이라 「크다」는 느낌보다 훨씬 좁다.
+   반대로 폰을 눕히면 891×411로 **폭은 넓지만 높이가 없다** — 거기서 무대와 로그를
+   위아래로 가르면 둘 다 못 읽는다.
+
+   그래서 두 갈래로 본다:
+     · 아주 넓다(1000px~)              → 넷을 옆으로
+     · 폭 600 이상 **그리고** 높이 700 이상 → 정사각형에 가까운 배치 (로그를 아래로)
+   둘 다 아니면 예전의 하단 독. */
+export const WIDE_MIN = 1000;         // 이 폭이면 높이와 무관하게 넷을 옆으로
+export const TALL_MIN_W = 600;        // 정사각형 배치의 최소 폭
+export const TALL_MIN_H = 640;        //  ... 과 최소 높이 (폴드를 눕히면 829×690이다 — 700이면 그것도 떨어진다)
+export const MID_MAX = 1080;
+const vw = () => window.innerWidth ?? 0;
+const vh = () => window.innerHeight ?? 0;
+export const isWide = () => vw() >= WIDE_MIN || (vw() >= TALL_MIN_W && vh() >= TALL_MIN_H);
+export const isMid = () => isWide() && vw() < MID_MAX;
 
 /**
  * 화면이 바뀔 때마다 먼저 부른다.
