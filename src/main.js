@@ -3303,6 +3303,46 @@ function banScreen(back, canEdit = true) {
   ]);
 }
 
+/* ── 소모품을 가방에서 쓴다 (§12.14-A) ───────────────────
+   가방은 **읽는 목록**일 뿐 쓰는 자리가 아니었다. 무덤 한복판에서 물약을 들고도
+   전투에 들어가야만 쓸 수 있었다 — 가방을 연 이유가 대개 그것인데.
+   전투 밖에서 뜻이 있는 것만 쓸 수 있게 하고, 나머지는 **왜 못 쓰는지 적는다.**
+   왼쪽 목록과 오른쪽 선택지가 같은 판단을 쓰도록 한 곳에 모은다 — 둘이 갈리면
+   왼쪽에서 누른 것이 오른쪽에서는 안 되는 일이 생긴다. */
+function consumableUse(id, after) {
+  const it = DB.itemsBy[id];
+  const e = it?.effect ?? {};
+  const inRun = Boolean(S.run);
+  const usable = e.op === 'heal' ? Boolean(S.golem.core)
+    : e.op === 'escape' ? inRun
+    : false;
+  const why = e.op === 'rank' ? '전투 중에만 쓴다'
+    : e.op === 'repair' ? '고칠 부속을 아래에서 고른다'
+    : e.op === 'escape' ? (inRun ? '무덤을 빠져나온다' : '무덤 안에서만 쓴다')
+    : e.op === 'heal' && !S.golem.core ? '핵이 없다'
+    : '';
+  const run = () => {
+    if (!usable) { UI.logLine(`${it.name}은(는) 지금 쓸 수 없다 — ${why}`, 'dim'); return; }
+    if (e.op === 'heal') {
+      const g = assembleGolem(S);
+      const before = S.golem.coreHp ?? g.stats.hp;
+      S.golem.coreHp = Math.min(g.stats.hp, before + Math.round(g.stats.hp * (e.ratio ?? 0)));
+      if (S.run) S.run.golemHp = S.golem.coreHp;          // 무덤 안이면 지금 몸에도 곧장 돈다
+      S.consumables[id]--;
+      UI.logLine(`${it.name}을(를) 부었다. 핵이 ${S.golem.coreHp - before} 회복했다. (${S.golem.coreHp}/${g.stats.hp})`, 'good');
+      save();
+      after();
+      return;
+    }
+    if (e.op === 'escape') {
+      S.consumables[id]--;
+      UI.logLine('문양이 타오르고, 시야가 뒤집힌다.', 'necro');
+      abandonRun(true);
+    }
+  };
+  return { it, usable, why, run };
+}
+
 function inventoryScreen(back = town) {
   UI.topbar(S, '소지품');
   if (!S.run) quickHere('inventory');
@@ -3311,8 +3351,21 @@ function inventoryScreen(back = town) {
     ['시체 조각', S.scrap], ['부패 진액', S.ichor], ['골분', S.boneMeal],
     ['은화', S.silver], ['영혼재', S.soulAsh],
   ].filter(([, n]) => n > 0).map(([k, n]) => UI.rowHTML('재료', UI.esc(k), String(n)));
-  const items = Object.entries(S.consumables).filter(([, n]) => n > 0)
-    .map(([id, n]) => UI.rowHTML(DB.itemsBy[id].kind, UI.esc(DB.itemsBy[id].name), `${n}개`));
+  const uses = Object.entries(S.consumables).filter(([, n]) => n > 0)
+    .map(([id, n]) => ({ id, n, ...consumableUse(id, () => inventoryScreen(back)) }))
+    .filter((u) => u.it);
+  /* 왼쪽도 **누를 수 있어야 한다** — 목록만 보여 주고 손이 안 닿으면 죽은 칸이다 (§12.14-A) */
+  const items = uses.map((u) => UI.rowHTML(u.it.kind, UI.esc(u.it.name),
+    u.usable ? `${u.n}개 · 쓴다` : `${u.n}개`, false, `c:${u.id}`));
+  const useRows = uses.map((u) => ({
+    label: `${UI.esc(u.it.name)} 쓴다`,
+    meta: `${u.n}개 · ${u.why || UI.esc(u.it.desc ?? '')}`,
+    disabled: !u.usable,
+    info: `<span class="tt">${UI.esc(u.it.name)}</span><span class="tm">${UI.esc(u.it.kind)} · ${u.n}개</span>`
+      + `<div class="trow"><span>${UI.esc(u.it.desc ?? '')}</span></div>`
+      + (u.usable ? '' : `<div class="trow"><span>지금은 쓸 수 없다 — ${UI.esc(u.why)}</span></div>`),
+    on: u.run,
+  }));
   // 어느 자리에 끼워져 있는지까지 적는다. '장착'만으로는 어느 팔인지 알 수 없다
   const slotOf = new Map(SLOTS.filter((x) => S.golem[x]).map((x) => [S.golem[x], x]));
   /* 「가진 것」은 **쓸 수 있는 것**의 목록이다 (§12.14).
@@ -3323,7 +3376,7 @@ function inventoryScreen(back = town) {
   const parts = spare.map((p) => UI.rowHTML(
     KIND_LABEL[DB.partsBy[p.defId].slot],
     `${p.raw ? '<span class="chip warn">날것</span> ' : ''}${UI.partHTML(p)}`,
-    `${p.integrity}/${p.maxIntegrity}`, wornLow(p)));
+    `${p.integrity}/${p.maxIntegrity}`, wornLow(p), `p:${p.uid}`));
   const rows = [...mats, ...items, ...parts];
   const away = [
     ['표본실', (S.ossuary?.vault?.parts ?? []).length],
@@ -3340,7 +3393,13 @@ function inventoryScreen(back = town) {
     away.length
       ? `<p class="note">맡겨 둔 것: ${away.map(([k, n]) => `${k} ${n}`).join(' · ')}<br>
          여기 없는 부속은 사라진 게 아니라 그쪽에 가 있다.</p>`
-      : '');
+      : '',
+    (pick) => {
+      const [kind, key] = [pick.slice(0, 1), pick.slice(2)];
+      if (kind === 'c') { uses.find((u) => u.id === key)?.run(); return; }
+      const p = spare.find((x) => x.uid === key);
+      if (p) partDetailScreen(p, () => inventoryScreen(back));
+    });
   UI.logLine(`재료: 조각 ${S.scrap} · 진액 ${S.ichor} · 골분 ${S.boneMeal} / 은화 ${S.silver} · 영혼재 ${S.soulAsh}`, 'dim');
   UI.logLine(`골렘에 붙은 ${slotOf.size}개는 여기 없다 — 골렘 정비에서 본다.`, 'dim');
   UI.logLine(`여분 ${spare.length}개. 여분은 무덤에서 무너지면 일부를 흘린다.`, 'dim');
@@ -3354,6 +3413,7 @@ function inventoryScreen(back = town) {
         + ` · 마력 ${partMana(p)}${p.raw ? ' · 날것' : ''} · ${p.integrity}/${p.maxIntegrity}`,
       on: () => partDetailScreen(p, () => inventoryScreen(back)),
     })),
+    ...useRows,
     // 회복량은 데이터가 정한다. 여기에 숫자를 박아 두면 items.json을 고쳐도 안 따라온다
     /* 역청은 목록이 아니라 **할 일**이다 — 닳는 것은 대개 붙어 있는 부속이므로
        여기서는 장착 중인 것도 함께 내민다 (숨기는 것은 읽는 목록뿐이다). */
