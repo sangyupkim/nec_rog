@@ -2570,13 +2570,19 @@ function forgeJobScreen() {
   const attuneBlock = free <= 0 ? `단련로가 꽉 참 (${o.forge.slots.length}/${O.forgeSlots(o)}칸)`
     : !rawSpare ? (rawWorn ? '골렘에 붙인 날것뿐 — 먼저 떼어내라' : '정착할 날것이 없다')
     : shortText(r.cost) || null;
-  // 강화는 **바탕 하나 + 같은 자리 여분**이 있어야 한다
-  const bySlot = {};
+  /* 강화는 **바탕 하나 + 같은 자리 여분 하나**가 있으면 된다.
+     바탕이 골렘에 붙어 있어도 되므로(§9.15-C), 붙인 자리와 같은 자리의 여분이
+     하나라도 있으면 열린다 — 전에는 여분이 둘일 때만 열려서, 붙인 것을 키우려는
+     사람에게는 문이 잠겨 보였다. */
+  const spareBySlot = {};
   for (const p of spare) {
     const sl = DB.partsBy[p.defId].slot;
-    (bySlot[sl] ??= []).push(p);
+    spareBySlot[sl] = (spareBySlot[sl] ?? 0) + 1;
   }
-  const canEnhance = Object.values(bySlot).some((arr) => arr.length >= 2);
+  const wornSlots = new Set(SLOTS.map((x) => S.inventory.find((p) => p.uid === S.golem[x]))
+    .filter(Boolean).map((p) => DB.partsBy[p.defId].slot));
+  const canEnhance = Object.entries(spareBySlot)
+    .some(([sl, n]) => n >= 2 || (n >= 1 && wornSlots.has(sl)));
 
   UI.listPanel('단련로에서 할 수 있는 일', [
     UI.rowHTML('정착', '날것을 길들여 <b>제 성능</b>이 나오게 한다',
@@ -2621,8 +2627,13 @@ function forgeJobScreen() {
    확률과 잃는 것은 **누르기 전에** 전부 적는다 — 도박에서 숨기는 것은 사기다. */
 function enhancePickScreen() {
   UI.topbar(S, '단련로 · 무엇을 키우는가');
+  /* 바탕은 **붙인 것이라도 된다** (§9.15-C). 강화할 때마다 떼었다 끼웠다 하는 것은
+     순전한 수고였다 — 뗀 다음 끼우는 것을 잊으면 그대로 무덤에 내려가기까지 한다.
+     먹이는 것만 여분이면 된다. 골렘에서 무엇이 빠져나가는 일이 없으니 안전하다. */
   const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
   const spare = S.inventory.filter((p) => !equipped.has(p.uid));
+  const slotOfPart = new Map(SLOTS.filter((x) => S.golem[x]).map((x) => [S.golem[x], x]));
+  const worn = SLOTS.map((x) => S.inventory.find((p) => p.uid === S.golem[x])).filter(Boolean);
   const countOf = (sl) => spare.filter((p) => DB.partsBy[p.defId].slot === sl).length;
 
   UI.listPanel('강화의 규칙', [
@@ -2631,32 +2642,39 @@ function enhancePickScreen() {
       EN.riskText(t), t > EN.PROTECT_FROM)),
   ], `<p class="note">한 단계마다 능력치 +${Math.round(EN.PLUS_STAT * 100)}% ·
       기술 위력 +${Math.round(EN.PLUS_POWER * 100)}%. 최대 +${EN.PLUS_MAX}.<br>
-      먹이는 부속은 <b>같은 자리</b>여야 하고, 먹인 것은 돌아오지 않는다.<br>
+      <b>골렘에 붙인 것도 그대로 키운다</b> — 뗄 필요가 없다.
+      먹이로 쓰는 것만 여분이어야 하고, 먹인 것은 돌아오지 않는다.<br>
       +${EN.PROTECT_FROM}부터는 실패가 아프다 — <b>${UI.esc(DB.itemsBy.it_ward_nail?.name ?? '쐐기')}</b>가
       내려감과 부서짐을 막아 준다 (지금 ${S.consumables.it_ward_nail ?? 0}개).</p>`);
 
   UI.logHead('강화');
   UI.logLine('같은 자리의 것을 녹여 한 짝에 붙인다.', 'narrate');
 
+  /** 바탕 하나를 고르는 단추 — 붙인 것이든 여분이든 같은 모양이다 */
+  const pickCard = (p) => {
+    const sl = DB.partsBy[p.defId].slot;
+    const cur = p.plus ?? 0;
+    const target = cur + 1;
+    const on = slotOfPart.get(p.uid);
+    // 먹이는 언제나 여분에서만 나온다. 붙인 것이 바탕이면 여분을 통째로 쓸 수 있다
+    const fodder = countOf(sl) - (on ? 0 : 1);
+    const maxed = cur >= EN.PLUS_MAX;
+    const lack = maxed ? '이미 끝까지 컸다'
+      : fodder < EN.partsNeeded(target) ? `${KIND_LABEL[sl]} 여분이 ${EN.partsNeeded(target)}개 필요하다 (지금 ${fodder}개)`
+      : null;
+    return {
+      label: `${on ? `<span class="chip good">${SLOT_LABEL[on]}</span> ` : ''}${UI.partHTML(p)}`,
+      meta: `${on ? '장착 중' : '여분'} · ${cur ? `+${cur}` : '강화 없음'}`
+        + (lack ? ` · ${lack}` : ` · 다음 +${target} 성공 ${EN.SUCCESS[target]}%`),
+      disabled: Boolean(lack),
+      info: UI.partTip(p), now: true,
+      on: () => enhanceScreen(p.uid),
+    };
+  };
   UI.choices([
-    ...spare.map((p) => {
-      const sl = DB.partsBy[p.defId].slot;
-      const cur = p.plus ?? 0;
-      const target = cur + 1;
-      const fodder = countOf(sl) - 1;                  // 자기 자신은 재료가 아니다
-      const maxed = cur >= EN.PLUS_MAX;
-      const lack = maxed ? '이미 끝까지 컸다'
-        : fodder < EN.partsNeeded(target) ? `${KIND_LABEL[sl]} 여분이 ${EN.partsNeeded(target)}개 필요하다 (지금 ${fodder}개)`
-        : null;
-      return {
-        label: UI.partHTML(p),
-        meta: `${KIND_LABEL[sl]} · ${cur ? `+${cur}` : '강화 없음'}`
-          + (lack ? ` · ${lack}` : ` · 다음 +${target} 성공 ${EN.SUCCESS[target]}%`),
-        disabled: Boolean(lack),
-        info: UI.partTip(p), now: true,
-        on: () => enhanceScreen(p.uid),
-      };
-    }),
+    // 붙인 것을 위에 둔다 — 대개 키우고 싶은 것은 지금 쓰는 것이다
+    ...worn.map(pickCard),
+    ...spare.map(pickCard),
     { label: '돌아간다', cls: 'ghost', pin: true, on: forgeJobScreen },
   ], { stage: true, stageTitle: '무엇을 키우는가' });
   save();
@@ -2668,6 +2686,7 @@ function enhanceScreen(uid, useWard = false) {
   UI.topbar(S, `단련로 · ${partName(base)} 강화`);
   const sl = DB.partsBy[base.defId].slot;
   const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
+  const wornAt = SLOTS.find((x) => S.golem[x] === uid) ?? null;   // 붙인 것을 키우는가
   const fodder = S.inventory.filter((p) => !equipped.has(p.uid) && p.uid !== uid
     && DB.partsBy[p.defId].slot === sl);
   const cur = base.plus ?? 0;
@@ -2688,7 +2707,7 @@ function enhanceScreen(uid, useWard = false) {
   const lackPart = feed.length < need ? `${KIND_LABEL[sl]} 여분 ${need - feed.length}개 모자라다` : null;
   const block = lackPart ?? lackMat ?? null;
 
-  UI.listPanel(`${partName(base)} — +${cur} → +${target}`, [
+  UI.listPanel(`${wornAt ? `[${SLOT_LABEL[wornAt]}] ` : ''}${partName(base)} — +${cur} → +${target}`, [
     UI.rowHTML('성공', `<b>${EN.SUCCESS[target]}%</b>`, EN.riskText(target), target > EN.PROTECT_FROM),
     UI.rowHTML('먹이는 것', `${KIND_LABEL[sl]} 여분 <b>${need}개</b>`,
       lackPart ?? `가진 것 ${fodder.length}개`, Boolean(lackPart)),
@@ -2702,7 +2721,9 @@ function enhanceScreen(uid, useWard = false) {
     ...feed.map((p) => UI.rowHTML('먹이', UI.partHTML(p),
       `${p.integrity}/${p.maxIntegrity}${p.plus ? ` · +${p.plus}` : ''}`)),
   ], `<p class="note">먹인 부속은 <b>돌아오지 않는다</b>. 덜 아까운 것부터(등급이 낮고 많이 닳은 것) 골라 뒀다.<br>
-      ${EN.riskText(target)}.</p>`);
+      ${EN.riskText(target)}.</p>`
+      + (wornAt ? `<p class="note"><b>지금 ${SLOT_LABEL[wornAt]}에 붙어 있는 것</b>이다 — 뗄 필요 없이 그대로 키운다.
+          ${EN.protectable(target) ? '다만 <b>부서지면 그 자리가 빈 채로 남는다.</b>' : ''}</p>` : ''));
 
   UI.logHead('강화');
   UI.logLine(`${partName(base)}을(를) +${target}으로 올린다. 성공 ${EN.SUCCESS[target]}%.`, 'necro');
@@ -2727,6 +2748,7 @@ function enhanceScreen(uid, useWard = false) {
 function doEnhance(base, feed, cost, guarding) {
   const rng = makeRng((Date.now() ^ (S.seed ?? 1)) >>> 0);
   const name = partName(base);
+  const wornAt = SLOTS.find((x) => S.golem[x] === base.uid) ?? null;
   for (const [k, v] of Object.entries(cost)) S[k] -= v;
   const eaten = new Set(feed.map((p) => p.uid));
   S.inventory = S.inventory.filter((p) => !eaten.has(p.uid));
@@ -2739,7 +2761,11 @@ function doEnhance(base, feed, cost, guarding) {
     UI.logLine(`이음새가 붙었다. ${partName(base)} — +${res.next}.`, 'good');
   } else if (res.destroyed) {
     S.inventory = S.inventory.filter((p) => p.uid !== base.uid);
-    UI.logLine(`${name}이(가) 견디지 못하고 부서졌다.`, 'bad');
+    /* 붙어 있던 것이 부서지면 **그 자리를 비워 둔다.** 골렘이 없는 부속을 가리킨 채
+       남으면 그 다음 화면부터 전부 깨진다 (§9.15-C). */
+    if (wornAt) S.golem[wornAt] = null;
+    UI.logLine(`${name}이(가) 견디지 못하고 부서졌다.`
+      + (wornAt ? ` ${SLOT_LABEL[wornAt]} 자리가 비었다.` : ''), 'bad');
   } else if (res.dropped) {
     base.plus = res.next || undefined;
     UI.logLine(`이음새가 풀렸다. ${name} — +${res.next}으로 내려갔다.`, 'bad');
