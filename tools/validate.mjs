@@ -112,7 +112,7 @@ for (const p of parts) {
   }
 
   // 요구 마력은 등급에서 나온다 (§3.7)
-  const MANA_BY_RARITY = { common: 2, rare: 3, unique: 5 };
+  const MANA_BY_RARITY = { common: 2, rare: 3, unique: 5, legendary: 7 };
   if (p.mana !== MANA_BY_RARITY[p.rarity]) {
     err(`[part ${p.id}] 요구 마력이 등급과 어긋납니다: ${p.rarity}면 ${MANA_BY_RARITY[p.rarity]}이어야 하는데 ${p.mana}`);
   }
@@ -184,6 +184,28 @@ const usedSkills = new Set([
 ]);
 for (const s of skills)
   if (!usedSkills.has(s.id)) warn(`[skill ${s.id}] 어떤 파츠·몬스터·모디파이어도 사용하지 않습니다`);
+
+/* ---- 등급의 사다리 (§3.10) ----
+   등급을 하나 더 얹으면 값·마력·해체 산출·상점 진열이 전부 따라와야 한다.
+   하나라도 빠뜨리면 「전설인데 상점에 깔린다」 같은 일이 조용히 생긴다. */
+{
+  const ORDER = ['common', 'rare', 'unique', 'legendary'];
+  for (const p of parts) {
+    if (!ORDER.includes(p.rarity)) err(`[part ${p.id}] 모르는 등급: ${p.rarity}`);
+  }
+  const legend = parts.filter((p) => p.rarity === 'legendary');
+  if (!legend.length) warn('전설 등급 부속이 하나도 없습니다');
+  // 전설은 **보스만** 내놓는다 — 아무 몬스터나 흘리면 등급이 뜻을 잃는다
+  const bosses = new Set(load('campaign').parts.flatMap((pt) => pt.stages.map((st) => st.boss)));
+  for (const p of legend) {
+    const from = monsters.filter((m) => (m.drops ?? []).includes(p.id));
+    if (!from.length) { err(`[part ${p.id}] 전설인데 아무도 떨어뜨리지 않습니다`); continue; }
+    const notBoss = from.filter((m) => !bosses.has(m.id));
+    if (notBoss.length) {
+      err(`[part ${p.id}] 전설은 단계 보스만 내놓아야 합니다 — ${notBoss.map((m) => m.name).join(', ')}`);
+    }
+  }
+}
 
 /* ---- 단계마다 의뢰문이 있는가 (§7-A.6) ----
    「어디로 가서 무엇을 잡고 무엇을 가져오라」가 없는 단계는 목표가 아니라 지명일 뿐이다.

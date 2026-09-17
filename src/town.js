@@ -185,10 +185,10 @@ export function rollStock(rng, unlocks = {}) {
   const rotating = rng.shuffle(DB.items.filter((i) => !i.staple)).map((i) => i.id);
   const items = [...staples, ...rotating.slice(0, Math.max(0, 4 - staples.length))];
   const parts = [];
-  // 유니크는 상점에 깔리지 않는다 — 보스를 잡아야 나온다
+  // 유니크·전설은 상점에 깔리지 않는다 — 보스를 잡아야 나온다
   // '수소문' 해금 단계마다 희귀 이상이 깔릴 확률이 오른다 (§8)
   const lift = unlocks.partPool ?? 0;
-  const all = DB.parts.filter((p) => p.rarity !== 'unique');
+  const all = DB.parts.filter((p) => p.rarity !== 'unique' && p.rarity !== 'legendary');
   const rareOnly = all.filter((p) => p.rarity === 'rare').map((p) => p.id);
   const pool = all.map((p) => p.id);
   const modCap = unlocks.modTier ? 2 : 1;
@@ -208,7 +208,7 @@ export function rollStock(rng, unlocks = {}) {
 
 export function partPrice(p) {
   const def = DB.partsBy[p.defId];
-  const base = { common: 90, rare: 220, unique: 520 }[def.rarity] ?? 120;
+  const base = { common: 90, rare: 220, unique: 520, legendary: 1100 }[def.rarity] ?? 120;
   return Math.round(base * (p.mod ? 1.5 : 1));
 }
 

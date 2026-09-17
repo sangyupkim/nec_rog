@@ -25,6 +25,7 @@
   --danger:#D4825A; --danger-bg:#2B1A12;
   --gold:#D6B65C;
   --rare:#7FB6D8;        /* 희귀 부속 — 차가운 푸른빛 */
+  --legend:#E05A4E;      /* 전설 부속 — 미궁의 끝에서만 나오는 붉은빛 */
   --el-참격:#C9CDD4; --el-타격:#C79A6B; --el-화염:#E0794A; --el-냉기:#7FB6D8;
   --el-독:#9FBF5A; --el-부패:#8A9B57; --el-진혼:#E6D99B;
   --shield:#7E93A8;                     /* 방어도 막대 — 체력(초록)과 한눈에 구분되는 강철빛 */
@@ -522,6 +523,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .bcell.mid .bv{color:var(--gold)}
 .bcell.low .bfill{background:var(--danger)}
 .bcell.low .bv{color:var(--danger)}
+/* 끼운 부속의 등급 — 칸 왼쪽의 가는 띠 (§12.18).
+   방어도는 채움 색으로, 등급은 띠로 말한다. 둘이 같은 자리를 다투지 않는다. */
+.bcell::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;z-index:2;
+  background:transparent;border-radius:2px 0 0 2px;
+}
+.bcell.r-rare::before{background:var(--rare)}
+.bcell.r-unique::before{background:var(--gold)}
+.bcell.r-legendary::before{background:var(--legend)}
+.bcell.r-legendary{border-color:var(--legend)}
 .bcell.down{border-color:var(--danger);opacity:.55}
 .bcell.down .bv{color:var(--danger)}
 .bcell.empty{border-style:dashed;opacity:.4}
@@ -544,6 +555,10 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 .rar.rare{color:var(--rare)}
 .rar.unique{color:var(--gold)}
 .rar.unique{font-weight:600}
+.rar.legendary{color:var(--legend);font-weight:600}
+.chip.rar.rare{border-color:var(--rare)}
+.chip.rar.unique{border-color:var(--gold)}
+.chip.rar.legendary{border-color:var(--legend)}
 
 /* 이동 십자키 — 던전에서만 뜬다. 화면 오른쪽 아래에 붙박이로 둔다 */
 #dpad[hidden]{display:none}

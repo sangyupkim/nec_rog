@@ -16,7 +16,7 @@ let keyHandlers = [];
 /* ── 등급 ───────────────────────────────
    부속 이름에 등급 색을 입힌다. 목록에서 값어치가 한눈에 갈리게 하는 것이 목적이다.
    logLine은 textContent라 색이 먹지 않으므로, **HTML을 쓰는 자리에서만** 쓴다. */
-export const RARITY_LABEL = { common: '일반', rare: '희귀', unique: '유니크' };
+export const RARITY_LABEL = { common: '일반', rare: '희귀', unique: '유니크', legendary: '전설' };
 export const rarityOf = (part) => DB.partsBy[part.defId]?.rarity ?? 'common';
 /** 등급 색이 입혀진 부속 이름 (HTML) */
 export const partHTML = (part) =>
@@ -692,9 +692,11 @@ export const onTextClosed = [];
 const secOpen = new Map();
 
 /** 접이식 구역 한 칸. id는 기억의 열쇠, sub는 접힌 채로도 보이는 요약. */
-export const sec = (id, title, sub, html, open = false) => `
+/* `title`은 글자로 받아 그대로 이스케이프한다.
+   등급 색처럼 **제목에 꾸밈이 필요한 경우**에만 `titleHTML`을 쓴다 — 기본은 안전한 쪽이다. */
+export const sec = (id, title, sub, html, open = false, titleHTML = null) => `
   <details class="sec" data-sec="${id}"${open ? ' open' : ''}>
-    <summary><span class="st">${esc(title)}</span>${sub ? `<span class="ss">${sub}</span>` : ''}</summary>
+    <summary><span class="st">${titleHTML ?? esc(title)}</span>${sub ? `<span class="ss">${sub}</span>` : ''}</summary>
     <div class="sc">${html}</div>
   </details>`;
 
@@ -892,8 +894,10 @@ export function bodyMapHTML(cells) {
     }
     const pct = Math.max(0, Math.min(100, Math.round(c.pct)));
     const state = c.down ? 'down' : pct <= 35 ? 'low' : pct <= 70 ? 'mid' : 'ok';
-    return `<button type="button" class="bcell ${state}" style="grid-area:${c.slot}"
-      data-slot="${c.slot}" aria-label="${CELL_LABEL[c.slot]} ${pct}%">
+    /* 등급은 **띠**로 새긴다 — 글자색으로만 두면 방어도 색(초록·금·빨강)과 싸운다.
+       칸 왼쪽의 가는 띠는 방어도와 자리를 다투지 않는다 (§12.18). */
+    return `<button type="button" class="bcell ${state} r-${c.rarity ?? 'common'}" style="grid-area:${c.slot}"
+      data-slot="${c.slot}" aria-label="${CELL_LABEL[c.slot]} ${pct}% ${RARITY_LABEL[c.rarity] ?? ''}">
       <span class="bl">${CELL_LABEL[c.slot]}</span>
       <span class="bv">${c.down ? '✕' : `${pct}%`}</span>
       <span class="bfill" style="height:${c.down ? 0 : pct}%"></span>
@@ -958,7 +962,9 @@ export function golemBody(save) {
     const p = uid ? save.inventory.find((x) => x.uid === uid) : null;
     if (!p) return { slot, empty: true };
     const max = shieldMax(p, slot);
-    return { slot, pct: (shieldNow(p, slot) / max) * 100, down: shieldNow(p, slot) <= 0 };
+    // 끼운 것이 무슨 등급인지 **도식에서 바로** 보여야 한다 (§12.18)
+    return { slot, pct: (shieldNow(p, slot) / max) * 100, down: shieldNow(p, slot) <= 0,
+             rarity: rarityOf(p) };
   });
   const detail = (slot) => {
     const uid = save.golem[slot];
@@ -994,7 +1000,8 @@ export function combatPanel(cb, save) {
     const w = cb.g.worn.find((x) => x.slot === slot);
     if (!w) return { slot, empty: true };
     const f = cb.frames?.[slot];
-    return { slot, pct: f ? (f.hp / f.max) * 100 : 100, down: Boolean(f?.down) };
+    return { slot, pct: f ? (f.hp / f.max) * 100 : 100, down: Boolean(f?.down),
+             rarity: rarityOf(w.part) };
   });
 
   const shieldSum = Object.values(cb.frames ?? {}).reduce((n, f) => n + f.hp, 0);
@@ -1165,7 +1172,9 @@ function focusHTML(save, g, slot) {
     '<p class="empty">아무것도 붙어 있지 않다.</p>', true);
   const p = w.part;
   const st = partStats(p);
-  const el = partElement(p);
+  /* 결이 없는 부속도 있다 (§3.9) — 「null」이라고 적히던 자리다 */
+  const el = partElement(p) ?? null;
+  const elName = el ?? '없음';
   const sk = partSkills(p);
   const rows = [];
   const NAME = { hp: '체력', atk: '공격', def: '방어', eva: '회피', spd: '속도', focus: '집중' };
@@ -1185,21 +1194,24 @@ function focusHTML(save, g, slot) {
   });
   const n = g.elements?.[el] ?? 1;
   const rstep = resoStep(n);
-  return sec('focus', `${SLOT_LABEL[slot]} — ${esc(partName(p))}`,
-    `${el} · 내구 ${p.integrity}/${p.maxIntegrity}`,
+  const rar = rarityOf(p);
+  return sec('focus', `${SLOT_LABEL[slot]} — ${partName(p)}`,
+    `${RARITY_LABEL[rar]} · 결 ${elName} · 내구 ${p.integrity}/${p.maxIntegrity}`,
     `<div class="chips">
-       <span class="chip" style="color:var(--el-${el})">결 ${el}</span>
+       <span class="chip rar ${rar}">${RARITY_LABEL[rar]}</span>
+       <span class="chip" ${el ? `style="color:var(--el-${el})"` : ''}>결 ${elName}</span>
        <span class="chip ${w.shield < w.shieldMax ? 'warn' : ''}">방어도 ${w.shield}/${w.shieldMax}</span>
        ${p.raw ? '<span class="chip warn">날것</span>' : ''}
      </div>
      <div class="rows">${rows.join('')}</div>
      ${skRows.length ? `<p class="pt" style="margin-top:.5rem">이 부속이 주는 기술</p>
        <div class="rows">${skRows.join('')}</div>` : ''}
-     <p class="note">${rstep
+     <p class="note">${!el ? '이 부속은 결이 없다 — 공명에 세지 않는다.' : rstep
        ? `같은 결의 부속이 <b>${n}개</b> — ${el} 공격 +${Math.round(RESO_POWER * rstep * 100)}%,
           ${el}로 맞을 때 -${Math.round(RESO_GUARD * rstep * 100)}%.
           대신 ${el}을(를) 누르는 속성에는 그만큼 약하다.`
-       : `같은 결의 부속이 이것뿐이다. 하나 더 붙이면 ${el}이(가) 공명한다.`}</p>`, true);
+       : `같은 결의 부속이 이것뿐이다. 하나 더 붙이면 ${el}이(가) 공명한다.`}</p>`, true,
+    `${SLOT_LABEL[slot]} — <span class="rar ${rar}">${esc(partName(p))}</span>`);
 }
 
 export function golemPanel(save, onPick = null, focus = null) {

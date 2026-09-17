@@ -180,6 +180,7 @@ export const DISSECT = {
   common: { ms: 10 * 60_000, scrap: [4, 7], ichor: 0, boneMeal: 0 },
   rare:   { ms: 30 * 60_000, scrap: [8, 12], ichor: 1, boneMeal: 1 },
   unique: { ms: 120 * 60_000, scrap: [20, 20], ichor: 3, boneMeal: 2 },
+  legendary: { ms: 180 * 60_000, scrap: [32, 32], ichor: 5, boneMeal: 4 },
 };
 
 /* ── 정비대: 방어도·핵 회복 (§9.3-⑦) ───────────── */
@@ -455,7 +456,8 @@ function settleLabor(save, o, elapsed, rng, lines) {
 
     // 부속 줍기 — 확실한 수입이 아니라 덤이다
     if (rng.chance(tripPartLuck(d.stageIndex ?? 0, hours))) {
-      const pool = DB.parts.filter((p) => p.rarity !== 'unique');
+      // 자율 탐험이 주워 오는 것에 보스 전용(유니크·전설)은 섞이지 않는다
+      const pool = DB.parts.filter((p) => p.rarity !== 'unique' && p.rarity !== 'legendary');
       const part = makePart(rng.pick(pool).id, rng.chance(35)
         ? rng.weighted(DB.modifiers.filter((m) => m.tier === 1).map((m) => [m.id, m.weight])) : null);
       part.raw = true;                            // 주워 온 것은 날것이다 (§3.4)
