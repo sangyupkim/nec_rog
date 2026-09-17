@@ -125,7 +125,11 @@ export function logPlay(lines) {
 
 /** 연출이 도는 동안 선택지 자리에 둘 표시 */
 export function logWaiting() {
-  const box = $('choices');
+  /* 넓은 화면에서는 고를 것이 무대에 있다 (§12.17-A) — 기다림 표시도 거기 있어야
+     연출 도중에 화면이 통째로 비어 보이지 않는다. */
+  const st = $('stage');
+  const wide = isWide() && st && !st.hidden;
+  const box = wide ? (st.querySelector('.cards') ?? st) : $('choices');
   box.replaceChildren();
   keyHandlers = [];
   const b = document.createElement('div');
@@ -311,17 +315,13 @@ export function choices(list, opts = {}) {
   const box = $('choices');
   const all = list.filter(Boolean);
 
-  /* 무대로 올릴 것과 하단에 남길 것 (§12.17).
-     `stage: true`를 주면 **고르는 것은 가운데 카드로** 가고,
-     하단에는 「돌아간다」(pin)와 `dock: true`로 박아 둔 것만 남는다.
-     하단에 스무 개가 깔리던 것이 이 화면을 어지럽게 만들던 원인이다. */
-  if (opts.stage && isWide()) {
-    const cards = all.filter((c) => !c.pin && !c.dock);
-    const rest = all.filter((c) => c.pin || c.dock);
-    if (stagePanel(opts.stageTitle ?? '', cards, opts.stageNote ?? '')) {
-      render(box, rest);
-      return;
-    }
+  /* 넓은 화면에서는 **하단 독을 쓰지 않는다** (§12.17-A).
+     가운데가 이미 둘로 나뉘어 있다 — 왼쪽이 정보, 오른쪽이 고를 것.
+     그러면 화면 아래에 같은 것을 또 깔 이유가 없다. 돌아가기까지 전부 무대로 올린다.
+     좁은 화면은 예전 그대로 독을 쓴다. */
+  if (isWide()) {
+    $('choices')?.replaceChildren();
+    if (stagePanel(opts.stageTitle ?? '', all, opts.stageNote ?? '')) return;
   }
 
   const pinned = all.filter((c) => c.pin);
@@ -488,7 +488,7 @@ function dockCapacity() {
   return { cols, cells: cols * rows };
 }
 
-function render(box, list) {
+function render(box, list, opts = {}) {
   box.replaceChildren();
   keyHandlers = [];
   hideTip();
@@ -509,7 +509,10 @@ function render(box, list) {
       continue;
     }
     const b = document.createElement('button');
-    b.className = `btn ${c.cls ?? ''}${c.meta ? '' : ' tall'}`;
+    /* 무대 위에서는 `card`도 같이 단다 — 자리가 달라졌을 뿐 같은 부품이지만,
+       「가운데 카드인가」를 밖에서 가려낼 이름이 하나 필요하다. */
+    b.className = `btn ${opts.stage ? 'card ' : ''}${c.cls ?? ''}${c.meta ? '' : ' tall'}`
+      + `${c.picked ? ' on' : ''}${c.pin ? ' back' : ''}`;
     b.disabled = Boolean(c.disabled);
     let k = '';
     if (!c.disabled && !c.nokey && n < 9) { n++; k = String(n); keyHandlers[n] = c.on; }
@@ -556,7 +559,8 @@ function render(box, list) {
     }
     box.append(b);
   }
-  fillDock(box);
+  // 빈 칸 채우기는 **높이가 고정된 독**의 일이다. 무대는 내용만큼만 쓴다
+  if (!opts.stage) fillDock(box);
 }
 
 /**
@@ -748,32 +752,20 @@ export function quickPanel(items) {
 }
 
 /**
- * 가운데 무대 — 고를 것을 카드로.
- * @param title 머리말 · @param cards [{ label, meta, cls, on, disabled, info, on: fn, picked }]
+ * 가운데 무대 — 고를 것을 카드로 늘어놓는다 (§12.17).
+ *
+ * 그리는 일은 **하단 독과 같은 `render`를 쓴다.** 쪽지·숫자 키·미리보기(hover)·
+ * 두 번 눌러 고르기가 전부 거기 들어 있는데, 무대만 따로 그리면 그 기능들이
+ * 화면에 따라 있다 없다 하게 된다. 다른 것은 **자리와 모양뿐**이다.
  */
-export function stagePanel(title, cards, note = '') {
+export function stagePanel(title, list, note = '') {
   const el = $('stage');
   if (!el || !isWide()) return false;
-  const list = cards.filter(Boolean);
   el.hidden = false;
   el.innerHTML = `${title ? `<p class="sttl">${esc(title)}</p>` : ''}
-    ${list.length
-      ? `<div class="cards">${list.map((c, i) => `
-          <button type="button" class="card ${c.cls ?? ''} ${c.picked ? 'on' : ''}" data-i="${i}"
-            ${c.disabled ? 'disabled' : ''}>
-            <span class="cl">${c.label}</span>
-            ${c.meta ? `<span class="cm">${c.meta}</span>` : ''}
-          </button>`).join('')}</div>`
-      : '<p class="empty">고를 것이 없다.</p>'}
-    ${note}`;
-  for (const b of el.querySelectorAll('.card:not([disabled])')) {
-    const c = list[Number(b.dataset.i)];
-    b.addEventListener('click', () => { soundUnlock(); SFX.tap(); c.on?.(); });
-    if (c.info) {
-      b.addEventListener("mouseenter", () => showTip(c.info, b));
-      b.addEventListener("mouseleave", hideTip);
-    }
-  }
+    <div class="cards"></div>${note}`;
+  const box = el.querySelector('.cards');
+  render(box, list.filter(Boolean), { stage: true });
   $('app')?.classList.add('wide');
   return true;
 }

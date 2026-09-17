@@ -188,24 +188,33 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 #stage .sttl{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--muted)}
 #stage .cards{
   display:grid;gap:.4rem;
-  grid-template-columns:repeat(auto-fill,minmax(9.5rem,1fr));
-  align-content:start;
+  grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));
+  grid-auto-rows:minmax(3.1rem,auto);align-content:start;
 }
-#stage .card{
-  display:flex;flex-direction:column;gap:.15rem;align-items:flex-start;
-  padding:.45rem .5rem;min-height:3.2rem;
+/* 무대 위의 단추 — 독과 같은 부품(.btn)이지만 자리와 모양이 다르다 (§12.17-A) */
+#stage .cards .btn{
+  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:.12rem;
+  padding:.45rem .55rem;height:auto;min-height:3.1rem;
   background:var(--sunken);border:1px solid var(--line);border-radius:3px;
-  color:var(--ink-soft);font:inherit;text-align:left;cursor:pointer;
-  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  text-align:left;position:relative;
 }
-#stage .card:hover{border-color:var(--accent-dim);background:var(--accent-bg);color:var(--ink)}
-#stage .card.primary{border-color:var(--accent-dim);color:var(--ink)}
-#stage .card.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
-#stage .card[disabled]{opacity:.4;cursor:default}
-#stage .card .cl{font-size:.9rem;line-height:1.25}
-#stage .card .cm{font-family:var(--mono);font-size:.66rem;color:var(--muted)}
-#stage .card .ck{position:absolute}
+#stage .cards .btn:hover:not([disabled]){border-color:var(--accent-dim);background:var(--accent-bg)}
+#stage .cards .btn.primary{border-color:var(--accent-dim)}
+#stage .cards .btn.on{border-color:var(--accent);background:var(--accent-bg)}
+#stage .cards .btn.ghost,#stage .cards .btn.back{background:none;color:var(--muted)}
+#stage .cards .btn.back{grid-column:1/-1;min-height:2.2rem;align-items:center;flex-direction:row;justify-content:center}
+#stage .cards .btn .k{
+  position:absolute;top:.2rem;right:.35rem;
+  font-family:var(--mono);font-size:.6rem;color:var(--muted);
+}
+#stage .cards .btn .nm{font-size:.9rem;line-height:1.25}
+#stage .cards .btn .meta{font-family:var(--mono);font-size:.66rem;color:var(--muted);line-height:1.3}
+#stage .cards .pager{grid-column:1/-1}
+#stage .cards .textbox,#stage .cards .waiting{grid-column:1/-1}
 #stage .empty{color:var(--muted);font-style:italic;padding:.4rem}
+
+/* 넓은 화면에서는 하단 독을 아예 쓰지 않는다 — 가운데가 이미 둘로 나뉘어 있다 */
+#app.wide #choices{display:none}
 
 /* 좁은 화면에서는 예전처럼 위아래로 쌓는다 — 세로 레이아웃은 이번에 손대지 않는다 */
 @media not all and (min-width:900px){
@@ -322,11 +331,8 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
   grid-auto-rows:var(--btn-h);gap:var(--dock-gap);align-content:start;
   height:var(--dock-h);overflow-y:auto;overscroll-behavior:contain;
 }
-/* 무대로 다 올라가 하단이 비면 그 자리를 돌려준다 (§12.17).
-   빈 독이 고정 높이로 남아 있으면 화면 아래가 통째로 죽은 자리가 된다. */
+/* 비면 그 자리를 돌려준다 — 빈 독이 고정 높이로 남으면 화면 아래가 죽은 자리가 된다 */
 #choices:empty{display:none}
-/* 한두 개만 남았으면 굳이 네 줄짜리 독을 쓰지 않는다 */
-#app.wide #choices{height:auto;max-height:var(--dock-h);grid-auto-rows:minmax(var(--btn-h),auto)}
 
 /* 넘친 줄이 있다는 표시 — 독은 높이가 고정이라 그냥 두면 소리 없이 가려진다.
    글자를 가리지 않도록 그림자로만 알린다. */
