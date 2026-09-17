@@ -8,6 +8,7 @@ import {
   rollSpareLoss, partElement, elemMul,
 } from './core.js';
 import { Combat, GUARD_LABEL } from './combat.js';
+import * as TUT from './tutorial.js';
 import * as CP from './campaign.js';
 import { generateFloor, roomAt, exitsOf, ROOM_LABEL, ROOM_ICON, FLAVOR, DIR_KEY } from './dungeon.js';
 import {
@@ -64,6 +65,8 @@ function newSave() {
     ossuary: (() => { const o = O.newOssuary(); o.built.forge = true; return o; })(),
     unlocks: { necroSlots: 3, salvage: 0, partPool: 0, modTier: 0 },
     modSamples: {},
+    // 첫 판의 튜토리얼 (§7-B). step은 대본의 몇 번째 걸음인가
+    tutorial: { step: 0, done: false },
     log: { runs: 0, kills: 0, lost: 0, handouts: 0,
            hintAim: false, hintRaw: false, hintSwap: false, hintOssuary: false, hintVault: false, hintWear: false },
   };
@@ -108,6 +111,9 @@ function resyncUids(s) {
 
 function migrate(s) {
   s.cores ??= [];
+  /* 이미 마을에 있던 사람에게 튜토리얼을 다시 보여 주지 않는다 (§16.1-B).
+     기록이 있다는 것 자체가 「이미 배웠다」는 뜻이다. */
+  s.tutorial ??= { step: 0, done: true };
   s.coreUpgrades ??= {};
   s.daily ??= null;
   s.campaign ??= { stage: '1-1', cleared: {}, story: {}, ending: null };
@@ -919,6 +925,189 @@ function shortText(cost) {
 }
 const rewardText = (r) => Object.entries(r).filter(([, v]) => v > 0)
   .map(([k, v]) => `${RES_LABEL[k] ?? k} ${v}`).join(' · ');
+
+/* ── 튜토리얼 (§7-B) ─────────────────────────────────
+   컷신처럼 한 걸음씩. 한 화면에 단추 하나뿐이라 고를 것이 없다 —
+   처음 켠 사람에게 필요한 것은 자유가 아니라 **다음 한 걸음**이다.
+   대본은 src/tutorial.js에 글로 있고, 여기는 그 글을 화면에 올리는 장치다. */
+
+/** 대본이 가리키는 왼쪽 패널을 그린다 — 설명하는 곳과 나중에 들어갈 곳이 같아야 한다 */
+function tutorialPanel(kind) {
+  switch (kind) {
+    case 'golem': UI.golemPanel(S); break;
+    case 'ossuary': ossPanel(); break;
+    case 'town': UI.townPanel(S, { ...buildingStatus(S), scavenger: '', ossuary: '', quest: '', market: '', inventory: '' }); break;
+    case 'workshop': UI.listPanel('납골당 · 공방', [
+      UI.rowHTML('🕯 접합로', '정착 · 융합 · 이식', `${O.forgeSlots(S.ossuary)}칸`),
+      UI.rowHTML('🔩 조립대', '핵으로 골렘을 세운다', `${O.workshopGolems(S).length}/${O.golemCap(S.ossuary)}기`),
+      UI.rowHTML('🛠 골렘 정비', '부속을 붙이고 뗀다', ''),
+      UI.rowHTML('⚒ 정비대', '방어도 · 내구도 · 핵', ''),
+    ], '<p class="note">부속을 손보는 일은 전부 이 문 안에 있다.</p>'); break;
+    case 'materials': UI.listPanel('납골당 · 재료', [
+      UI.rowHTML('🫗 부패조', '두면 진액이 고인다', `${S.ossuary.rotVat.stored}/${O.vatCap(S.ossuary)}`),
+      UI.rowHTML('🔪 해체대', '부속을 갈라 재료로', `${O.dissectionSlots(S.ossuary)}칸`),
+      UI.rowHTML('⛓ 자율 탐험', '깬 단계로 골렘을 보낸다', '잠김'),
+    ], '<p class="note"><b>걸어 두고 나가야</b> 돈다. 꺼 놔도 시간은 흐른다.</p>'); break;
+    case 'cart': UI.listPanel('바르그의 수레', [
+      UI.rowHTML('핵', S.golem.core ? UI.esc(DB.coresBy[S.golem.core].name) : '<span class="empty">없음</span>', ''),
+      UI.rowHTML('골렘', `부속 ${wornCount()}개`, S.golem.armR ? '' : '우완 비었음', !S.golem.armR),
+      UI.rowHTML('가진 것', `부속 ${S.inventory.length}개`, `은화 ${S.silver}`),
+    ], '<p class="note">낡은 수레 하나에 뼈와 쇠붙이가 실려 있다.</p>'); break;
+    default: UI.listPanel('시체골', [], '<p class="note">굴뚝 연기가 낮게 깔린다.</p>');
+  }
+}
+
+/** 바르그가 건네는 팔 한 짝 — 날것으로 준다 (스킵하면 정착된 채로 준다) */
+function giveTutorialArm(settled = false) {
+  const arm = makePart(TUT.GIFT_ARM);
+  arm.raw = !settled;
+  S.inventory.push(arm);
+  return arm;
+}
+
+const tutorialArm = () => S.inventory.find((p) => p.defId === TUT.GIFT_ARM);
+
+function tutorialScreen() {
+  const step = TUT.STEPS[S.tutorial.step];
+  if (!step) { finishTutorial(); return; }
+  UI.setCombatMode(false);
+  UI.topbar(S, step.where);
+  tutorialPanel(step.panel);
+  UI.clearLog();
+  /* 방금 벌어진 일을 **다음 화면 맨 위에** 되읽어 준다.
+     한 걸음이 한 화면이라 화면을 넘길 때 로그가 지워진다 —
+     그대로 두면 「정착됐다」「새 기술」 같은 결과를 아무도 못 본다. */
+  const echo = S.tutorial.echo ?? [];
+  if (echo.length) {
+    UI.logHead('방금');
+    for (const [t, c] of echo) UI.logLine(t, c ?? '');
+    S.tutorial.echo = null;
+  }
+  UI.logHead(step.head);
+  for (const [t, c] of step.lines) UI.logLine(t, c ?? '');
+
+  const go = (lines = null) => {
+    S.tutorial.step++;
+    S.tutorial.echo = lines;
+    save();
+    tutorialScreen();
+  };
+  // 갈 길이 먼저다 — 건너뛰기를 앞에 두면 대본이 아니라 그쪽이 기본값처럼 읽힌다
+  const list = [{
+    label: step.btn, cls: 'primary', meta: step.sub,
+    on: () => tutorialAct(step, go),
+  }];
+  /* 건너뛰기는 **첫 걸음에만** 둔다. 매 화면에 두면 대본이 아니라 방해물이 된다.
+     건너뛴 사람도 팔은 받는다 — 튜토리얼을 본 사람과 같은 자리에서 시작해야 한다. */
+  if (S.tutorial.step === 0) {
+    list.push({
+      label: '건너뛴다', cls: 'ghost', meta: '팔은 받고 시작한다',
+      info: '설명을 넘기고 바로 마을로 간다. 바르그가 주기로 한 팔은 정착까지 끝난 채로 받는다.',
+      on: skipTutorial,
+    });
+  }
+  UI.choices(list);
+  save();
+}
+
+function tutorialAct(step, go) {
+  switch (step.act) {
+    case 'fight': tutorialFight(); return;
+    case 'give': {
+      const arm = giveTutorialArm(false);
+      go([[`${partName(arm)}을(를) 건네받았다. 아직 날것이다.`, 'good']]);
+      return;
+    }
+    case 'settle': {
+      const arm = tutorialArm();
+      if (arm) arm.raw = false;
+      go([[`${arm ? partName(arm) : '팔'}이(가) 정착됐다. 이제 온전히 쓸 수 있다.`, 'good'],
+          ['보통은 조각 8 · 진액 1에 20분이 든다. 이번만 바르그가 대신 해 주었다.', 'dim']]);
+      return;
+    }
+    case 'equip': {
+      const arm = tutorialArm();
+      const lines = [];
+      if (arm) {
+        S.golem.armR = arm.uid;
+        lines.push([`${partName(arm)}을(를) 우완에 붙였다.`, 'good']);
+        const gained = partSkills(arm).map((sid) => DB.skillsBy[sid].name).join(', ');
+        if (gained) lines.push([`새 기술: ${gained}`, 'good']);
+      }
+      go(lines);
+      return;
+    }
+    case 'finish': finishTutorial(); return;
+    default: break;
+  }
+  go();
+}
+
+/* 첫 전투 — 진짜 전투 엔진으로 붙는다. 흉내만 내면 배운 것이 남지 않는다.
+   다만 런이 아니므로 방 하나짜리 껍데기를 세워 둔다. 이긴 뒤의 전리품·내구도 처리는
+   튜토리얼 쪽으로 빠진다 (winBattle 첫 줄에서 갈린다). */
+function tutorialFight() {
+  const r = makeRng((S.seed ?? 1) * 31 + 7);
+  S.run = {
+    seed: S.seed ?? 1, floor: 1, golemHp: S.golem.coreHp ?? assembleGolem(S).stats.hp,
+    rooms: 0, noLoss: true, kills: 0, summons: 0, cleanWins: 0,
+    stage: '1-1', hazard: 0, floorData: null, tutorial: true,
+  };
+  const mon = rollMonster('1-1', 1, r, S.unlocks);
+  UI.resetBars(); UI.resetBodyPick();
+  cb = new Combat(S, mon, r);
+  cb.room = { type: 'battle', x: 0, y: 0, cleared: false, visited: true };
+  UI.clearLog();
+  UI.logHead('첫 전투');
+  UI.logLine('무덤 어귀의 어둠에서 무언가가 기어 나온다.', 'narrate');
+  UI.logLine('아래 단추가 골렘이 쓸 수 있는 기술이다. 하나 골라 보내면 된다.', 'necro');
+  UI.logLine('🎯 조준은 어디를 때릴지, 🛡 막기는 어디로 받을지를 정한다.', 'dim');
+  combatTurn();
+}
+
+/** 첫 전투가 끝났다 — 이기든 지든 바르그가 옆에 있다 */
+function tutorialBattleOver(won) {
+  cb = null;
+  S.run = null;
+  UI.setCombatMode(false);
+  if (!won) {
+    // 첫 전투에서 지는 것으로 판을 망치지 않는다. 핵도 쪼개지 않는다
+    S.golem.coreHp = null;
+    for (const p of S.inventory) p.shield = null;
+    UI.logLine('"이런. 일으켜 주지 — 첫판은 나도 그랬네."', 'dim');
+  }
+  S.tutorial.step++;
+  S.tutorial.echo = won
+    ? [['골렘이 그것을 눕혔다. 핵은 멀쩡하다.', 'good']]
+    : [['골렘이 주저앉았지만 부서지지는 않았다.', 'dim']];
+  save();
+  tutorialScreen();
+}
+
+function skipTutorial() {
+  const arm = giveTutorialArm(true);
+  S.golem.armR ??= arm.uid;
+  S.tutorial = { step: TUT.STEPS.length, done: true, skipped: true };
+  save();
+  UI.clearLog();
+  UI.logHead('시체골');
+  UI.logLine('바르그가 말없이 팔 한 짝을 건넸다. 이미 손질이 끝난 것이다.', 'narrate');
+  UI.logLine(`${partName(arm)}을(를) 우완에 붙였다.`, 'good');
+  UI.logLine('무엇이 어디에 쓰이는지 모르겠으면 바르그에게 물어보면 된다.', 'dim');
+  town(false);
+}
+
+function finishTutorial() {
+  // 스킵과 같은 자리에서 끝나야 한다 — 끝까지 본 사람이 손해를 보면 안 된다
+  if (!tutorialArm()) {
+    const arm = giveTutorialArm(true);
+    S.golem.armR ??= arm.uid;
+  }
+  S.tutorial.done = true;
+  S.campaign.story.opening = true;    // 바르그의 첫 이야기는 방금 들었다
+  save();
+  town();
+}
 
 /* ── 메인 퀘스트 — 바르그가 전담한다 (§7-A.5) ────────── */
 function mainQuestScreen() {
@@ -3870,6 +4059,11 @@ async function resolve(action) {
 }
 
 function winBattle() {
+  if (S.run?.tutorial) {          // 첫 전투는 전리품도 내구도도 건드리지 않는다 (§7-B)
+    UI.logLine('"거봐. 아직 움직이는구먼."', 'good');
+    tutorialBattleOver(true);
+    return;
+  }
   const room = cb.room;
   room.cleared = true;
   S.run.kills++;
@@ -4103,6 +4297,12 @@ function reportDismantle(r) {
    깨우는 것은 언제나 뼈 수습꾼이다. 건진 부속은 그의 손에서 나온다. */
 
 function loseRun() {
+  if (S.run?.tutorial) {          // 첫 전투에서 진다고 판이 끝나지는 않는다 (§7-B)
+    UI.logHead('주저앉다');
+    UI.logLine('골렘이 한쪽 무릎을 꺾는다. 바르그가 지팡이로 그것을 툭 친다.', 'narrate');
+    tutorialBattleOver(false);
+    return;
+  }
   UI.logHead('붕괴');
   UI.logLine('골렘의 핵이 갈라진다. 붙들고 있던 실이 한꺼번에 끊긴다.', 'narrate');
   UI.logLine('되받아친 영력이 네크로맨서의 안쪽을 때린다. 무릎이 먼저 꺾인다.', 'bad');
@@ -4213,6 +4413,13 @@ async function boot() {
     UI.logLine('무엇이 어디에 쓰이는지 모르겠으면 마을의 뼈 수습꾼에게 물어보면 된다.', 'dim');
   } else {
     UI.logLine('기록을 불러왔다.', 'dim');
+  }
+  /* 첫 판이면 마을 대신 대본부터 (§7-B).
+     대본 속 전투 도중에 껐다 켰다면 그 판은 버리고 **그 걸음부터** 다시 한다 —
+     튜토리얼 전투에는 층 지도가 없어서 탐험 복귀 경로로 보내면 그대로 깨진다. */
+  if (!S.tutorial?.done) {
+    if (S.run?.tutorial) S.run = null;
+    if (!S.run) { UI.clearLog(); tutorialScreen(); return; }
   }
   if (S.run) {
     UI.logLine('무덤 한가운데서 정신이 든다. 탐험이 아직 끝나지 않았다.', 'dim');
