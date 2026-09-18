@@ -18,9 +18,13 @@ let keyHandlers = [];
    logLine은 textContent라 색이 먹지 않으므로, **HTML을 쓰는 자리에서만** 쓴다. */
 export const RARITY_LABEL = { common: '일반', rare: '희귀', unique: '유니크', legendary: '전설' };
 export const rarityOf = (part) => DB.partsBy[part.defId]?.rarity ?? 'common';
-/** 등급 색이 입혀진 부속 이름 (HTML) */
-export const partHTML = (part) =>
-  `<span class="rar ${rarityOf(part)}">${esc(partName(part))}</span>`;
+/** 등급 색이 입혀진 부속 이름 (HTML).
+    `noPlus`를 주면 이름 끝의 「+n」을 뗀다 — 강화 단계를 **앞에 칩으로** 세우는 자리에서
+    같은 숫자가 두 번 나오지 않게 한다 (§9.15-D). */
+export const partHTML = (part, { noPlus = false } = {}) => {
+  const name = noPlus ? partName(part).replace(/\s*\+\d+$/, '') : partName(part);
+  return `<span class="rar ${rarityOf(part)}">${esc(name)}</span>`;
+};
 
 /* ── 로그 ─────────────────────────────────
    로그는 **새 줄이 생기면 스스로 맨 아래로 간다** (§12.19).
