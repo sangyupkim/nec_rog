@@ -14,7 +14,7 @@ export const CAP_COST = 80;
 export const FACILITIES = {
   rotVat:     { name: '부패조',          icon: '🫗', unlock: 0 },
   dissection: { name: '해체대',          icon: '🔪', unlock: 0 },
-  vault:      { name: '표본실',          icon: '🏺', unlock: 30 },
+  vault:      { name: '창고',            icon: '🏺', unlock: 30 },
   forge:      { name: '단련로',          icon: '🕯', unlock: 0 },
   laborBay:   { name: '사역 골렘 안치소', icon: '⛓', unlock: 150 },
 };
@@ -73,6 +73,30 @@ export const WEAR_CUT_CAP = 30;
 export const tripWearChance = (hours, st = null) =>
   clamp(8 + hours * 7 - Math.min(WEAR_CUT_CAP, (st?.def ?? 0) * 1.2), 5, 85);
 
+/* ── 핵 가루 (§3.11-A) ───────────────────────────────
+   핵을 키우는 재료는 **핵에서 나온다.** 여분 핵은 조립대에 세울 자리가 없으면
+   쓸 곳이 없었다 — 팔리기는 하지만 은화는 이미 남아돈다.
+   이제 빻아서 가루를 낸다. 좋은 핵일수록 많이 나온다. */
+export const DUST = { base: 2, perHp: 1 / 40, rare: 2, unique: 5 };
+export const dustOf = (core) => Math.max(1, Math.round(
+  DUST.base + (core?.hp ?? 0) * DUST.perHp
+  + (core?.rarity === 'rare' ? DUST.rare : core?.rarity === 'unique' ? DUST.unique : 0)));
+/** 핵을 빻는 데 걸리는 시간 — 해체대와 같은 결이다 */
+export const GRIND_MS = 20 * 60_000;
+
+/**
+ * 핵 강화 한 단계의 값 (§3.11-A).
+ * 가루가 주재료이고 기본 재료도 함께 든다 — 가루만이면 여분 핵의 수가 곧 상한이 된다.
+ */
+export const coreUpCost = (lv) => ({
+  dust: 2 + lv * 2,
+  boneMeal: 2 + lv,
+  ichor: 3 + lv * 2,
+  silver: 60 + lv * 40,
+});
+/** 핵 강화 성공률(%) — 실패해도 **잃는 것은 재료뿐이다** */
+export const CORE_UP_RATE = [0, 95, 90, 85, 78, 70, 62, 54, 46, 38, 30];
+
 /* ── 단련로의 조리법 (§9.15) ──────────────────────────────
    전에는 일곱이었다 — 정착·융합·이식·수복·정제·소생·굳히기.
    「기능들이 복잡하다」는 말이 맞았다: 무엇을 언제 쓰는지 아무도 모르는 채,
@@ -117,12 +141,13 @@ export function newOssuary() {
     // 다른 시설과 달리 두 칸에서 시작한다 (§9.3-③)
     forge: { level: 2, slots: [] },
     laborBay: { level: 1, dispatch: [] },
-    vault: { capacity: 3, parts: [], lostRecords: [] },
+    vault: { level: 1, parts: [], lostRecords: [] },
     // 조립대 — 여분 핵으로 세운 사역 골렘들. 작업반·파견에 세울 수 있는 것은 이들뿐이다
     workshop: { golems: [], seq: 0 },
     crew: { parts: [] },      // (구) 부속 직접 배치 — 마이그레이션에서 조립대로 흡수된다
     overhaul: [],             // 정비대 — 방어도·핵 회복 작업
     congeal: null,            // 굳히기 — 통에 걸어 둔 몫 (§9.17)
+    grind: null,              // 핵 빻기 (§3.11-A)
     pending: null,       // 복귀 정산 화면에서 보여줄 내역
   };
 }
@@ -294,6 +319,7 @@ export function settle(save, now = Date.now()) {
   settleDissection(save, o, now, lines);
   settleForge(save, o, now, rng, lines);
   settleCongeal(save, o, now, lines);
+  settleGrind(save, o, now, lines);
   settleCrew(save, o, elapsed, lines);
   settleLabor(save, o, elapsed, rng, lines);
   settleSmithy(save, now, lines);
@@ -342,6 +368,15 @@ function settleCongeal(save, o, now, lines) {
   save.boneMeal = (save.boneMeal ?? 0) + got;
   o.congeal = null;
   lines.push({ facility: '굳히기', text: `진액 ${CONGEAL.ichor * j.batches}을(를) 졸였다 — 골분 +${got}` });
+}
+
+/** 맷돌에 올린 핵이 다 갈렸는지 본다 (§3.11-A) */
+function settleGrind(save, o, now, lines) {
+  const j = o.grind;
+  if (!j || now < j.startedAt + j.durationMs) return;
+  save.coreDust = (save.coreDust ?? 0) + j.dust;
+  o.grind = null;
+  lines.push({ facility: '핵 빻기', text: `${j.name}을(를) 빻았다 — 핵 가루 +${j.dust}` });
 }
 
 /** 대장간에 맡긴 강화가 끝났는지 본다 */
@@ -553,13 +588,19 @@ const lowIntegrityWarn = (g) => {
 
 export const RES_LABEL = { scrap: '시체 조각', ichor: '부패 진액', boneMeal: '골분', silver: '은화', soulAsh: '영혼재' };
 
+/* 나온 것은 **가방으로 간다** (§9.18). 전에는 표본실로 보냈는데,
+   표본실은 「내가 맡겨 두는 창고」이지 산출물이 쌓이는 곳이 아니다 —
+   정착을 걸어 놓고 돌아오면 부속이 가방이 아니라 창고에 있어 매번 찾아 헤맸다. */
 export function pushToVault(save, o, part, lines) {
-  if (o.vault.parts.length < o.vault.capacity) o.vault.parts.push(part);
-  else {
-    save.inventory.push(part);
-    if (lines) lines.push({ facility: '표본실', text: `자리가 없어 ${partName(part)}을(를) 창고로 보냈다` });
-  }
+  save.inventory.push(part);
+  if (lines) lines.push({ facility: '창고', text: `${partName(part)}을(를) 가방에 넣었다` });
 }
+
+/** 표본실 칸 수 — 단계마다 다섯 칸씩 (§9.18) */
+export const VAULT_BASE = 10;
+export const VAULT_STEP = 5;
+export const VAULT_MAX_LV = 6;
+export const vaultCap = (o) => VAULT_BASE + VAULT_STEP * (Math.min(VAULT_MAX_LV, o?.vault?.level ?? 1) - 1);
 
 /* ── 남은 시간 표기 ─────────────────────────────── */
 export function remainText(startedAt, durationMs, now = Date.now()) {

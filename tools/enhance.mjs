@@ -14,7 +14,9 @@
  *
  *   npm run enhance
  */
+import { readFileSync } from 'node:fs';
 import { makeRng } from '../src/core.js';
+import * as O from '../src/ossuary.js';
 import * as EN from '../src/enhance.js';
 
 let bad = 0;
@@ -85,6 +87,37 @@ for (const t of [1, 5, 10]) {
 }
 ok(EN.statMul(EN.PLUS_MAX) <= 1.8, `끝까지 올려도 능력치가 두 배가 되지는 않는다 (×${EN.statMul(EN.PLUS_MAX).toFixed(2)})`);
 ok(EN.SUCCESS.slice(1).every((v, i, a) => i === 0 || v <= a[i - 1]), '성공률은 단계마다 낮아지기만 한다');
+
+console.log('\n■ 핵 강화 — 그릇을 키우는 값 (§3.11-A)');
+/* 핵은 부속과 다르다. 실패해도 단계가 내려가지 않으므로 「언젠가는 된다」가 보장된다 —
+   그러니 값은 **시간과 재료**로 받는다. 얼마나 받는지를 여기서 잰다. */
+{
+  const L = (n) => JSON.parse(readFileSync(new URL(`../data/${n}.json`, import.meta.url), 'utf8'));
+  const cores = L('cores');
+  const dustOf = (c) => Math.max(1, Math.round(2 + c.hp / 40
+    + (c.rarity === 'rare' ? 2 : c.rarity === 'unique' ? 5 : 0)));
+  console.log('  핵                가루   (빻으면 나오는 양)');
+  for (const c of cores) console.log(`  ${c.name.padEnd(16)}${String(dustOf(c)).padStart(4)}`);
+
+  let dust = 0, bone = 0, ichor = 0, silver = 0;
+  console.log('\n  단계   성공   가루   골분   진액   은화   쌓은 가루');
+  for (let lv = 0; lv < 10; lv++) {
+    const c = O.coreUpCost(lv);
+    dust += c.dust; bone += c.boneMeal; ichor += c.ichor; silver += c.silver;
+    const cap = 6 + Math.floor((lv + 1) / 3);
+    console.log(`  ${String(lv + 1).padStart(2)}강${String(`${O.CORE_UP_RATE[lv + 1]}%`).padStart(7)}`
+      + `${String(c.dust).padStart(7)}${String(c.boneMeal).padStart(7)}${String(c.ichor).padStart(7)}`
+      + `${String(c.silver).padStart(7)}${String(dust).padStart(11)}`
+      + (cap > 6 + Math.floor(lv / 3) ? `   ← 기술 ${cap}칸` : ''));
+  }
+  const avgDust = cores.reduce((n, c) => n + dustOf(c), 0) / cores.length;
+  console.log(`\n  1→10강 합계: 가루 ${dust} · 골분 ${bone} · 진액 ${ichor} · 은화 ${silver}`);
+  console.log(`  핵 한 개에서 평균 ${avgDust.toFixed(1)} → 대략 ${Math.ceil(dust / avgDust)}개를 빻아야 한다`);
+  ok(O.CORE_UP_RATE.slice(1).every((v, i, a) => i === 0 || v <= a[i - 1]), '성공률은 단계마다 낮아지기만 한다');
+  ok(O.coreUpCost(0).dust <= 4, `첫 단계는 핵 한 개로 닿는다 (가루 ${O.coreUpCost(0).dust})`);
+  ok(Math.ceil(dust / avgDust) >= 8, `끝까지 올리려면 핵을 여러 개 빻아야 한다 (${Math.ceil(dust / avgDust)}개)`);
+  ok(Math.ceil(dust / avgDust) <= 20, `그렇다고 손댈 수 없을 정도는 아니다 (${Math.ceil(dust / avgDust)}개)`);
+}
 
 console.log(bad ? `\nFAIL ${bad}` : '\n강화는 감당할 만한 도박이다.');
 process.exit(bad ? 1 : 0);

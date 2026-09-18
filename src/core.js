@@ -250,7 +250,17 @@ export const SLOT_LABEL = { head: '머리', body: '몸통', armL: '좌완', armR
                             legL: '좌각', legR: '우각' };
 export const SLOT_KIND = { head: 'head', body: 'body', armL: 'arm', armR: 'arm',
                            legL: 'leg', legR: 'leg' };
-export const SKILL_CAP = 9;
+/* ── 기술 상한 (§3.11) ────────────────────────────────
+   아홉은 너무 많았다 — 매 턴 아홉 개를 훑어야 하면 고르는 것이 아니라 세는 일이 된다.
+   기본은 **여섯**이고, **핵을 키우면** 늘어난다. 핵이 골렘의 그릇이라는 말이
+   마력에만 붙어 있었는데, 들고 갈 수 있는 기술 수야말로 그릇의 크기다. */
+export const SKILL_CAP_BASE = 6;
+/** 몇 강마다 한 칸이 열리는가 */
+export const SKILL_CAP_STEP = 3;
+export const skillCapOf = (coreLv = 0) =>
+  SKILL_CAP_BASE + Math.floor(Math.min(CORE_MAX_LV, coreLv) / SKILL_CAP_STEP);
+/** (구) 고정 상한 — 아직 이 값을 읽는 자리가 있으면 기본값을 준다 */
+export const SKILL_CAP = SKILL_CAP_BASE;
 
 /** 장착 상태 + 부착물로부터 골렘의 실제 능력치를 계산한다 */
 /**
@@ -258,13 +268,19 @@ export const SKILL_CAP = 9;
  * 좋은 부속일수록 마력을 많이 먹으므로, 좋은 것을 쓰려면 더 좋은 핵을 구하거나
  * 지금 핵을 키워야 한다 — 그 저울질이 요점이다.
  */
-export const CORE_MANA_STEP = 3;
-export const CORE_MANA_MAX_LV = 5;
+/* 핵 강화는 이제 **단련로**에서 한다 (§3.11-A). 한 단계가 주는 것:
+   마력 +2 · 핵 체력 +4% · 세 단계마다 기술 한 칸. */
+export const CORE_MANA_STEP = 2;
+export const CORE_MAX_LV = 10;
+export const CORE_HP_STEP = 0.04;
+/** (구) 이름 — 뼈 모루의 다섯 단계였다 */
+export const CORE_MANA_MAX_LV = CORE_MAX_LV;
+export const coreLevel = (save, coreId = save?.golem?.core) =>
+  Math.min(CORE_MAX_LV, save?.coreUpgrades?.[coreId] ?? 0);
 export function coreMana(save) {
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
   if (!core) return 0;
-  const lv = save.coreUpgrades?.[save.golem.core] ?? 0;
-  return (core.mana ?? 0) + lv * CORE_MANA_STEP;
+  return (core.mana ?? 0) + coreLevel(save) * CORE_MANA_STEP;
 }
 /** 이 부속이 요구하는 마력 */
 export const partMana = (part) => DB.partsBy[part.defId]?.mana ?? 0;
@@ -338,8 +354,10 @@ export function assembleGolem(save) {
   // 핵이 없으면 골렘은 서지 못한다 (§3.5)
   // 체력은 오직 핵에서 나온다. 파츠의 hp 스탯은 방어도로 간다 (§5.7)
   const core = save.golem.core ? DB.coresBy[save.golem.core] : null;
+  const coreLv = coreLevel(save);
   if (core) {
-    stats.hp = core.hp;
+    // 핵을 키우면 그릇도 커진다 (§3.11-A) — 체력은 단계마다 4%씩
+    stats.hp = Math.round(core.hp * (1 + CORE_HP_STEP * coreLv));
     for (const [k, v] of Object.entries(core.stats)) stats[k] += v;
   }
 
@@ -387,7 +405,8 @@ export function assembleGolem(save) {
            // 핵만 있으면 선다. 흉곽은 있으면 좋은 것이지 필수가 아니다 (§3.1)
            standing: Boolean(core),
            coreBare: !save.golem.body,
-           over: active.length > SKILL_CAP };
+           coreLv, skillCap: skillCapOf(coreLv),
+           over: active.length > skillCapOf(coreLv) };
 }
 
 /** 스킬의 실효 속성 (속성 도가니로 바꾼 경우 반영) */

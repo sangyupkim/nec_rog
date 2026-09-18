@@ -1,7 +1,7 @@
 /** 게임 진행 · 화면 전환 · 세이브 */
 import {
   DB, loadData, makeRng, makePart, partName, partStats, partSkills,
-  assembleGolem, SLOTS, SLOT_LABEL, SLOT_KIND, SKILL_CAP,
+  assembleGolem, SLOTS, SLOT_LABEL, SLOT_KIND, SKILL_CAP_BASE, SKILL_CAP_STEP, CORE_MAX_LV, CORE_HP_STEP, coreLevel,
   rollMonster, rollElite, rollBoss, rollLoot, syncUidSeq, skillElement, AIM, RAW_WEAR, wornLow,
   stageOf, partOf, shieldNow, shieldMax, partMana, coreMana, CORE_MANA_STEP, CORE_MANA_MAX_LV,
   partFlavor,
@@ -124,6 +124,15 @@ function migrate(s) {
      기록이 있다는 것 자체가 「이미 배웠다」는 뜻이다. */
   s.tutorial ??= { step: 0, done: true };
   s.coreUpgrades ??= {};
+  /* 핵 강화를 열 단계로 늘리면서 한 단계가 주는 마력이 3에서 2로 줄었다 (§3.11-A).
+     그대로 두면 이미 올려 둔 핵의 마력이 **말없이 깎인다** — 단계를 올려 값을 맞춘다. */
+  if (!s.coreUpgradesV2) {
+    for (const [cid, lv] of Object.entries(s.coreUpgrades)) {
+      s.coreUpgrades[cid] = Math.min(CORE_MAX_LV, Math.ceil((lv ?? 0) * 3 / 2));
+    }
+    s.coreUpgradesV2 = true;
+  }
+  s.coreDust ??= 0;                       // 핵을 빻아 얻은 가루 (§3.11-A)
   s.daily ??= null;
   s.campaign ??= { stage: '1-1', cleared: {}, story: {}, ending: null };
   s.campaign.cleared ??= {};
@@ -275,6 +284,7 @@ function migrate(s) {
   if (o.forge.level < 2) o.forge.level = 2;   // 한 칸이던 시절의 세이브를 올려 준다
   o.laborBay ??= { level: 1, dispatch: [] };
   o.congeal ??= null;                    // 굳히기는 이제 통에 걸어 둔다 (§9.17)
+  o.grind ??= null;                      // 핵 빻기 (§3.11-A)
   o.laborBay.dispatch ??= [];
   // 예전에는 부속 낱개를 파견 보냈다. 이제는 조립대 골렘만 나간다 —
   // 나가 있던 부속은 소지품으로 돌려주고 그 파견은 접는다
@@ -615,57 +625,84 @@ function ossuaryBadge() {
 /* ── 영혼석 강화 — 마력을 늘린다 (§3.7) ──────────────────
    좋은 부속일수록 마력을 많이 먹는다. 더 좋은 것을 쓰고 싶으면
    더 좋은 핵을 구하거나, 지금 핵을 여기서 키운다. */
-const CORE_UP_COST = (lv) => ({
-  silver: 250 + lv * 250,
-  scrap: 10 + lv * 8,
-  boneMeal: 2 + lv * 2,
-});
+/* (구) CORE_UP_COST — 핵 강화 값은 ossuary.coreUpCost로 옮겼다 (§3.11-A) */
 
-function coreManaScreen() {
+/* ── 핵 강화 (§3.11-A) ─────────────────────────
+   뼈 모루의 「영혼석 강화」가 여기로 왔다. 다섯 단계에 마력만 주던 것을
+   **열 단계**로 늘리고, 단계마다 셋을 함께 준다 — 마력 · 핵 체력 · 그리고
+   세 단계마다 **기술 한 칸**. 핵이 골렘의 그릇이라는 말이 그제야 맞는다.
+
+   주재료는 **핵 가루**다(재료 화면에서 여분 핵을 빻아 얻는다). 기본 재료도 함께 든다 —
+   가루만이면 여분 핵의 수가 곧 상한이 되어, 핵이 안 나오는 구간에서 통째로 막힌다. */
+function coreUpScreen() {
   const coreId = S.golem.core;
-  UI.topbar(S, '시체골 · 영혼석 강화');
+  UI.topbar(S, '단련로 · 핵 강화');
   const core = coreId ? DB.coresBy[coreId] : null;
-  const lv = coreId ? (S.coreUpgrades[coreId] ?? 0) : 0;
+  const lv = coreLevel(S);
   const g = assembleGolem(S);
+  const maxed = lv >= CORE_MAX_LV;
+  const cost = maxed ? null : O.coreUpCost(lv);
+  const dust = S.coreDust ?? 0;
+  const rate = O.CORE_UP_RATE[Math.min(CORE_MAX_LV, lv + 1)] ?? 0;
+  const lackDust = cost && dust < cost.dust ? `가루 ${cost.dust - dust} 모자라다` : null;
+  const lackMat = cost ? shortText({ boneMeal: cost.boneMeal, ichor: cost.ichor, silver: cost.silver }) : null;
+  const block = !core ? '핵이 없다' : maxed ? '더는 못 올린다' : lackDust ?? lackMat ?? null;
+  const nextCap = SKILL_CAP_BASE + Math.floor(Math.min(CORE_MAX_LV, lv + 1) / SKILL_CAP_STEP);
+  const capUp = nextCap > g.skillCap;
 
-  UI.listPanel('영혼석', core ? [
-    UI.rowHTML('지금 핵', UI.esc(core.name), `${lv}/${CORE_MANA_MAX_LV}단계`),
-    UI.rowHTML('마력', `${g.manaUsed} / ${g.manaMax}`, g.manaOver ? '넘침' : '여유', g.manaOver),
-    UI.rowHTML('기본', String(core.mana), `강화 +${lv * CORE_MANA_STEP}`),
-  ] : [], `<p class="note">부속은 등급마다 마력을 먹는다 — 일반 2 · 희귀 3 · 유니크 5.<br>
-      강화는 <b>이 핵에만</b> 남는다. 다른 핵으로 갈아끼우면 그 핵의 단계를 따른다.</p>`);
+  UI.listPanel(core ? `${core.name} — ${lv}강` : '핵이 없다', core ? [
+    UI.rowHTML('마력', `${g.manaUsed} / <b>${g.manaMax}</b>`,
+      maxed ? '' : `다음 단계 +${CORE_MANA_STEP}`, g.manaOver),
+    UI.rowHTML('핵 체력', `<b>${g.stats.hp}</b>`,
+      maxed ? '' : `다음 단계 +${Math.round(CORE_HP_STEP * 100)}%`),
+    UI.rowHTML('기술 칸', `<b>${g.active.length} / ${g.skillCap}</b>`,
+      maxed ? '' : capUp ? `다음 단계에 <b>${nextCap}칸</b>` : `${SKILL_CAP_STEP}강마다 한 칸`, g.over),
+    UI.rowHTML('─', '<b>다음 단계</b>', maxed ? '끝까지 올렸다' : `${lv} → ${lv + 1}강`),
+    ...(maxed ? [] : [
+      UI.rowHTML('성공', `<b>${rate}%</b>`, '실패해도 단계는 그대로다'),
+      UI.rowHTML('핵 가루', `<b>${cost.dust}</b>`, lackDust ?? `가진 것 ${dust}`, Boolean(lackDust)),
+      UI.rowHTML('재료', `<b>골분 ${cost.boneMeal} · 진액 ${cost.ichor} · 은화 ${cost.silver}</b>`,
+        lackMat ?? '치를 수 있다', Boolean(lackMat)),
+    ]),
+  ] : [], `<p class="note">한 단계마다 <b>마력 +${CORE_MANA_STEP} · 핵 체력 +${Math.round(CORE_HP_STEP * 100)}%</b>,
+      그리고 <b>${SKILL_CAP_STEP}강마다 기술 한 칸</b>. 최대 ${CORE_MAX_LV}강.<br>
+      주재료는 <b>핵 가루</b>다 — 재료 화면의 <b>핵 빻기</b>에서 여분 핵을 빻아 얻는다.<br>
+      강화는 <b>이 핵에만</b> 남는다. 다른 핵으로 갈아끼우면 그 핵의 단계를 따른다.<br>
+      <b>실패해도 단계는 내려가지 않는다</b> — 잃는 것은 재료뿐이다.</p>`);
 
-  UI.logHead('영혼석 강화');
-  UI.logLine('대장장이가 핵을 받아 들고 불에 가까이 댄다. 안쪽에서 무언가 천천히 돈다.', 'narrate');
-  if (!core) { UI.logLine('강화할 핵이 없다. 골렘에 핵부터 끼워야 한다.', 'bad'); }
-  else if (lv >= CORE_MANA_MAX_LV) UI.logLine('이 핵은 더 받아들이지 못한다. 더 좋은 핵을 구해야 한다.', 'dim');
-  else {
-    const c = CORE_UP_COST(lv);
-    UI.logLine(`한 단계에 마력 +${CORE_MANA_STEP}. 지금 ${g.manaMax} → ${g.manaMax + CORE_MANA_STEP}.`, '');
-    UI.logLine(`값: 은화 ${c.silver} · 시체 조각 ${c.scrap} · 골분 ${c.boneMeal}`, 'dim');
-  }
+  UI.logHead('핵 강화');
+  UI.logLine('핵을 불에 가까이 대면 안쪽에서 무언가 천천히 돈다.', 'narrate');
+  if (!core) UI.logLine('강화할 핵이 없다. 골렘에 핵부터 끼워야 한다.', 'bad');
+  else if (maxed) UI.logLine('이 핵은 더 받아들이지 못한다. 더 좋은 핵을 구해야 한다.', 'dim');
+  else if (capUp) UI.logLine(`다음 단계에서 기술 칸이 ${g.skillCap} → ${nextCap}로 늘어난다.`, 'necro');
 
-  const can = core && lv < CORE_MANA_MAX_LV;
-  const c = CORE_UP_COST(lv);
-  const lack = can ? shortText(c) : null;
   UI.choices([
-    { label: `마력 +${CORE_MANA_STEP} (${lv} → ${lv + 1}단계)`, cls: 'primary',
-      meta: !can ? (core ? '더는 못 올린다' : '핵이 없다')
-        : `${priceText(c)}${lack ? ` (${lack})` : ''}`,
-      disabled: !can || Boolean(lack),
+    { label: `${lv} → ${lv + 1}강으로 올린다`, cls: 'primary',
+      meta: block ?? `성공 ${rate}% · 가루 ${cost.dust} · 골분 ${cost.boneMeal} · 진액 ${cost.ichor} · 은화 ${cost.silver}`,
+      disabled: Boolean(block),
       on: () => {
-        S.silver -= c.silver; S.scrap -= c.scrap; S.boneMeal -= c.boneMeal;
-        S.coreUpgrades[coreId] = lv + 1;
-        UI.logLine(`${core.name}이(가) 더 많은 것을 품는다. 마력 ${coreMana(S)}.`, 'good');
+        S.coreDust -= cost.dust;
+        S.boneMeal -= cost.boneMeal; S.ichor -= cost.ichor; S.silver -= cost.silver;
+        const rng = makeRng((Date.now() ^ (S.seed ?? 1)) >>> 0);
+        if (rng.chance(rate)) {
+          S.coreUpgrades[coreId] = lv + 1;
+          const after = assembleGolem(S);
+          UI.logLine(`${core.name}이(가) 더 많은 것을 품는다. ${lv + 1}강 — 마력 ${after.manaMax} · 체력 ${after.stats.hp}.`, 'good');
+          if (after.skillCap > g.skillCap) UI.logLine(`기술 칸이 하나 늘었다. ${after.skillCap}칸.`, 'necro');
+        } else {
+          UI.logLine(`핵이 받아들이지 않았다. ${lv}강 그대로다 — 재료만 탔다.`, 'bad');
+        }
         save();
-        coreManaScreen();
+        coreUpScreen();
       } },
-    { label: '돌아간다', cls: 'ghost', pin: true, on: forgeScreen },
-  ]);
+    { label: '핵 빻기로', cls: 'ghost', meta: `여분 핵 ${S.cores.length}개 · 가루 ${dust}`,
+      on: grindScreen },
+    { label: '돌아간다', cls: 'ghost', pin: true, on: forgeJobScreen },
+  ], { stage: true, stageTitle: core ? `${core.name} — ${lv}강` : '핵 강화' });
   save();
 }
 
-/* ── 부속 한 장 들여다보기 ─────────────────────────────
+/* ── 부속 한 장 들여다보기 ─────────────────────────────/* ── 부속 한 장 들여다보기 ─────────────────────────────
    이름만 보고는 그 부속이 무슨 기술을 들고 오는지 알 수가 없었다.
    소지품에서 눌러 능력치·기술·상태를 한 화면에 펼친다. */
 /**
@@ -1556,6 +1593,9 @@ function materialsScreen() {
   UI.listPanel('재료를 만드는 곳', [
     UI.rowHTML('🫗 부패조', '두면 진액이 고인다', `${o.rotVat.stored}/${O.vatCap(o)}`, vatFull),
     UI.rowHTML('🔪 해체대', '부속을 갈라 재료로', `${o.dissection.slots.length}/${O.dissectionSlots(o)}칸`),
+    UI.rowHTML('🪨 핵 빻기', o.grind ? `${o.grind.name}을(를) 빻는 중` : '여분 핵을 가루로',
+      o.grind ? O.remainText(o.grind.startedAt, o.grind.durationMs)
+        : `여분 핵 ${S.cores.length}개 · 가루 ${S.coreDust ?? 0}`, !o.grind && !S.cores.length),
     UI.rowHTML('🥣 굳히기', o.congeal
       ? `${O.CONGEAL.boneMeal * o.congeal.batches}만큼 졸이는 중`
       : '진액을 졸여 골분으로',
@@ -1603,8 +1643,81 @@ function materialsScreen() {
       now: true,
       info: '<span class="tt">굳히기</span><div class="trow"><span>부패조는 진액을 끝없이 만드는데 쓰는 곳이 적다. 남는 것을 모자란 것으로 바꾼다.</span></div>',
       on: congealScreen },
+    /* 핵 빻기 — **재료를 만드는 일이므로 여기가 집이다** (§3.11-A).
+       여분 핵은 세울 자리가 없으면 쓸 곳이 없었다. 이제 가루가 되어 핵 강화로 돌아간다. */
+    { label: '🪨 핵 빻기 — 여분 핵을 가루로',
+      cls: o.grind ? 'ghost' : '',
+      meta: o.grind ? `빻는 중 · ${O.remainText(o.grind.startedAt, o.grind.durationMs)}`
+        : !S.cores.length ? '여분 핵이 없다'
+        : `여분 핵 ${S.cores.length}개 · 가루 ${S.coreDust ?? 0}`,
+      disabled: !o.grind && !S.cores.length,
+      now: true,
+      info: '<span class="tt">핵 빻기</span><div class="trow"><span>빻아 나온 가루는 단련로의 핵 강화에 쓴다. 좋은 핵일수록 많이 나온다.</span></div>',
+      on: grindScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: ossuaryScreen },
   ], { stage: true, stageTitle: '재료를 만드는 곳' });
+  save();
+}
+
+/* ── 핵 빻기 (§3.11-A) ─────────────────────────
+   여분 핵을 맷돌에 올린다. 한 번에 하나, 스무 분. */
+function grindScreen() {
+  const o = S.ossuary;
+  UI.topbar(S, '납골당 · 핵 빻기');
+  quickHere('materials');
+  const job = o.grind;
+
+  if (job) {
+    UI.listPanel('맷돌에 올린 것', [
+      UI.rowHTML('핵', UI.esc(job.name), '빻는 중'),
+      UI.rowHTML('나올 가루', `<b>${job.dust}</b>`, `지금 가진 것 ${S.coreDust ?? 0}`),
+      UI.rowHTML('남은 시간', O.remainText(job.startedAt, job.durationMs), '끝나면 정산에 함께 나온다'),
+    ], `<p class="note">맷돌은 하나뿐이다. 물리면 <b>핵을 도로 받는다</b> — 잃는 것은 시간뿐이다.</p>`);
+  } else {
+    UI.listPanel('빻을 수 있는 핵', S.cores.map((cid) => {
+      const c = DB.coresBy[cid];
+      return UI.rowHTML(UI.RARITY_LABEL[c.rarity] ?? '핵', UI.esc(c.name),
+        `가루 ${O.dustOf(c)} · 체력 ${c.hp}`);
+    }), `<p class="note">빻으면 <b>핵 가루</b>가 나온다 — 단련로의 <b>핵 강화</b>에 쓰는 주재료다.<br>
+        좋은 핵일수록 많이 나오지만, 빻은 핵은 <b>돌아오지 않는다</b>.
+        조립대에 세울 자리가 남았다면 골렘으로 세우는 편이 나을 수도 있다.<br>
+        지금 가진 가루 <b>${S.coreDust ?? 0}</b> · 여분 핵 ${S.cores.length}개.</p>`);
+  }
+
+  UI.logHead('핵 빻기');
+  UI.logLine('맷돌에 핵을 올리면 낮은 소리가 오래 난다.', 'narrate');
+  if (!job && !S.cores.length) UI.logLine('빻을 여분 핵이 없다.', 'dim');
+
+  UI.choices(job ? [
+    { label: '물린다', cls: 'danger', meta: `${job.name}을(를) 도로 받는다`,
+      on: () => {
+        S.cores.push(job.coreId);
+        o.grind = null;
+        UI.logLine('맷돌을 멈추고 핵을 도로 꺼냈다.', 'dim');
+        save(); grindScreen();
+      } },
+    { label: '돌아간다', cls: 'ghost', pin: true, on: materialsScreen },
+  ] : [
+    ...S.cores.map((cid, i) => {
+      const c = DB.coresBy[cid];
+      return {
+        label: `${UI.esc(c.name)} 빻는다`,
+        meta: `가루 ${O.dustOf(c)} · ${Math.round(O.jobDuration(S, O.GRIND_MS) / 60000)}분`,
+        info: `<span class="tt">${UI.esc(c.name)}</span>`
+          + `<div class="trow"><span>체력</span><b>${c.hp}</b></div>`
+          + `<div class="trow"><span>마력</span><b>${c.mana}</b></div>`
+          + `<div class="trow"><span>빻으면 돌아오지 않는다</span></div>`,
+        on: () => {
+          S.cores.splice(i, 1);
+          o.grind = { coreId: cid, name: c.name, dust: O.dustOf(c),
+            startedAt: Date.now(), durationMs: O.jobDuration(S, O.GRIND_MS) };
+          UI.logLine(`${c.name}을(를) 맷돌에 올렸다. 가루 ${o.grind.dust}이(가) 나온다.`, 'good');
+          save(); grindScreen();
+        },
+      };
+    }),
+    { label: '돌아간다', cls: 'ghost', pin: true, on: materialsScreen },
+  ], { stage: true, stageTitle: job ? '빻는 중' : '무엇을 빻을까' });
   save();
 }
 
@@ -1720,9 +1833,9 @@ function workshopHubScreen() {
     o.built.forge ? { label: '⚒ 단련로', meta: rawN ? `정착 대기 ${rawN}개` : `+1 ~ +${EN.PLUS_MAX} 강화`,
       cls: rawN ? 'primary' : '',
       info: '날것을 길들이고(정착), 남는 부속을 먹여 키운다(강화).', on: forgeJobScreen } : null,
-    o.built.vault ? { label: '🏺 표본실', meta: `${o.vault.parts.length}/${o.vault.capacity}칸`
+    o.built.vault ? { label: '🏺 창고', meta: `${o.vault.parts.length}/${O.vaultCap(o)}칸`
       + (o.vault.lostRecords?.length ? ` · 기록 ${o.vault.lostRecords.length}` : ''),
-      info: '맡긴 부속은 무너져도 사라지지 않는다. 잃은 부속의 기록으로 여기서 소생시킨다.',
+      info: '맡긴 부속은 무덤에서 무너져도 흘리지 않는다. 잃은 부속의 기록으로 여기서 소생시킨다.',
       on: vaultScreen } : null,
     { label: '🛠 작업반', meta: cs.cut ? `${Math.round(cs.cut * 100)}% 단축` : '배치 없음',
       info: '세워 둔 골렘에게 일을 맡긴다. 해체대·단련로·정비대 시간이 줄어든다.', on: crewScreen },
@@ -1856,64 +1969,95 @@ function dissectPart(p, spec) {
   dissectScreen();
 }
 
+/* ── 표본실 = 창고 (§9.18) ─────────────────────────
+   「표본실이 어떻게 쓰는지 정확하게 모르겠어」 — 이름부터가 그랬다.
+   「표본」이라니 무엇을 하는 곳인지 알 수가 없다. 하는 일은 하나다:
+   **여기 맡겨 둔 부속은 무덤에서 골렘이 무너져도 흘리지 않는다.**
+
+   왼쪽에 맡긴 것, 오른쪽에 가진 것. 맡기면 오른쪽에서 왼쪽으로 옮겨 간다 —
+   어느 쪽에 있는지가 곧 「안전한가」이므로, 그 경계가 눈에 보여야 한다. */
 function vaultScreen() {
   const o = S.ossuary;
-  UI.topbar(S, '납골당 · 표본실');
-  ossPanel();
-  UI.logHead('표본실');
-  UI.logLine('선반마다 유리병이 놓여 있다.', 'narrate');
-  UI.logLine(`무덤에 들고 내려간 여분은 골렘이 무너질 때 하나당 ${SPARE_LOSS}%씩 흘린다. 여기 둔 것은 흘리지 않는다.`, 'necro');
-  UI.logLine(`칸 ${o.vault.parts.length}/${o.vault.capacity} — 제단에서 늘린다.`, 'dim');
-  if (o.vault.lostRecords.length) UI.logLine('잃어버린 기록은 여기서 소생시킨다. 되살린 것은 이 방 칸을 하나 먹는다.', 'dim');
-  if (o.vault.lostRecords.length) {
-    UI.logLine(`잃어버린 기록: ${o.vault.lostRecords.map((id) => DB.partsBy[id]?.name_template.replace('{mod}', '').replace('{owner}', DB.partsBy[id].owner ?? '')).join(', ')}`, 'dim');
-  }
+  UI.topbar(S, '납골당 · 창고');
+  const cap = O.vaultCap(o);
+  const stored = o.vault.parts;
   const equipped = new Set(SLOTS.map((x) => S.golem[x]).filter(Boolean));
   const spare = S.inventory.filter((p) => !equipped.has(p.uid));
-  /* 소생은 단련로에 있었는데, **기록이 사는 집은 여기다** (§9.15-A).
-     잃어버린 기록을 보는 화면과 그 기록으로 되살리는 자리가 따로 있을 이유가 없다. */
+  const full = stored.length >= cap;
+
+  UI.listPanel(`맡긴 것 ${stored.length}/${cap}`,
+    stored.length
+      ? stored.map((p) => UI.rowHTML(KIND_LABEL[DB.partsBy[p.defId].slot],
+          `${p.plus ? `<span class="chip good">+${p.plus}</span> ` : ''}${UI.partHTML(p, { noPlus: true })}`,
+          `${p.integrity}/${p.maxIntegrity}`, wornLow(p)))
+      : [UI.rowHTML('─', '<span class="empty">아직 맡긴 것이 없다</span>', '')],
+    `<p class="note"><b>여기 맡긴 것은 무덤에서 잃지 않는다.</b>
+      골렘이 무너지면 들고 내려간 여분은 하나당 ${SPARE_LOSS}%씩 흘리는데, 창고에 둔 것은 그대로 남는다.<br>
+      칸은 ${cap}개 — 제단에서 단계를 올리면 ${O.VAULT_STEP}칸씩 늘어난다 (최대 ${O.VAULT_BASE + O.VAULT_STEP * (O.VAULT_MAX_LV - 1)}칸).<br>
+      ${full ? '<b>꽉 찼다</b> — 꺼내거나 넓혀야 더 맡긴다.' : '오른쪽에서 부속을 누르면 이리로 옮겨 온다.'}</p>`);
+
+  UI.logHead('창고');
+  UI.logLine('선반마다 유리병이 놓여 있다. 맡긴 것은 여기서 기다린다.', 'narrate');
+  UI.logLine(`맡긴 것 ${stored.length}/${cap} · 가진 여분 ${spare.length}개.`, 'dim');
+  if (o.vault.lostRecords.length) {
+    UI.logLine(`잃어버린 기록 ${o.vault.lostRecords.length}개 — 여기서 소생시킨다.`, 'dim');
+  }
+
   const revCost = REVIVE_COST;
   const revLack = shortText(revCost);
   UI.choices([
+    /* 오른쪽은 **가진 것**이다. 누르면 왼쪽(창고)으로 옮겨 간다 */
+    ...spare.map((p) => ({
+      label: `${p.plus ? `<span class="chip good">+${p.plus}</span> ` : ''}${UI.partHTML(p, { noPlus: true })}`,
+      meta: full ? '창고가 꽉 찼다'
+        : `${UI.RARITY_LABEL[UI.rarityOf(p)]} · ${p.integrity}/${p.maxIntegrity} · 맡긴다`,
+      disabled: full,
+      info: UI.partTip(p),
+      on: () => {
+        S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
+        o.vault.parts.push(p);
+        UI.logLine(`${partName(p)}을(를) 창고에 맡겼다.`, 'good');
+        save();
+        vaultScreen();
+      },
+    })),
+    /* 맡긴 것을 도로 꺼낸다 — 왼쪽 목록과 짝이 되는 단추 */
+    ...stored.map((p) => ({
+      label: `${UI.partHTML(p, { noPlus: true })} 꺼낸다`, cls: 'ghost',
+      meta: `${p.integrity}/${p.maxIntegrity}${p.plus ? ` · +${p.plus}` : ''} · 가방으로`,
+      info: UI.partTip(p),
+      on: () => {
+        o.vault.parts = o.vault.parts.filter((x) => x.uid !== p.uid);
+        S.inventory.push(p);
+        UI.logLine(`${partName(p)}을(를) 꺼냈다.`, 'dim');
+        save();
+        vaultScreen();
+      },
+    })),
+    /* 소생은 기록이 사는 집에서 한다 (§9.15-A). 되살린 것은 **가방으로** 간다 (§9.18) */
     ...o.vault.lostRecords.map((defId, i) => ({
       label: `${UI.esc(DB.partsBy[defId]?.name_template.replace('{mod}', '').replace('{owner}', DB.partsBy[defId]?.owner ?? '').replace(/\s+/g, ' ').trim() ?? '?')} 소생`,
       cls: 'primary',
       meta: revLack ?? `${Object.entries(revCost).map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ')} · 기록이 지워진다`,
-      disabled: Boolean(revLack) || o.vault.parts.length >= o.vault.capacity,
+      disabled: Boolean(revLack),
       info: '<span class="tt">소생</span>'
         + '<div class="trow"><span>무덤에서 흘린 부속을 기록으로 다시 세운다. 이상은 붙지 않는다.</span></div>',
       on: () => {
         for (const [k, v] of Object.entries(revCost)) S[k] -= v;
         const part = makePart(defId, null);
         o.vault.lostRecords.splice(i, 1);
-        o.vault.parts.push(part);
-        UI.logLine(`${partName(part)}이(가) 유리병 속에서 다시 맞물린다.`, 'good');
-        vaultScreen();
-      },
-    })),
-    ...o.vault.parts.map((p) => ({
-      label: `${UI.partHTML(p)} 꺼내기`, meta: `${p.integrity}/${p.maxIntegrity}`, info: UI.partTip(p), on: () => {
-        o.vault.parts = o.vault.parts.filter((x) => x.uid !== p.uid);
-        S.inventory.push(p);
-        UI.logLine(`${partName(p)}을(를) 꺼냈다.`, 'good');
-        vaultScreen();
-      },
-    })),
-    ...spare.map((p) => ({
-      label: `${UI.partHTML(p)} 보관`, cls: 'ghost', info: UI.partTip(p),
-      disabled: o.vault.parts.length >= o.vault.capacity,
-      on: () => {
-        S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
-        o.vault.parts.push(p);
+        S.inventory.push(part);
+        UI.logLine(`${partName(part)}이(가) 유리병 속에서 다시 맞물린다. 가방에 넣었다.`, 'good');
+        save();
         vaultScreen();
       },
     })),
     { label: '돌아간다', cls: 'ghost', pin: true, on: workshopHubScreen },
-  ]);
+  ], { stage: true, stageTitle: '가진 것 — 누르면 맡긴다' });
   save();
 }
 
-/* ── 정비대: 방어도·핵 회복 ─────────────── */
+/* ── 정비대: 방어도·핵 회복 ─────────────── *//* ── 정비대: 방어도·핵 회복 ─────────────── */
 /* 정비대에서 지금 올려다보고 있는 골렘. 화면을 다시 그려도 기억한다 */
 let overhaulPick = null;
 
@@ -2692,8 +2836,10 @@ function forgeJobScreen() {
   UI.listPanel('단련로에서 할 수 있는 일', [
     UI.rowHTML('정착', '날것을 길들여 <b>제 성능</b>이 나오게 한다',
       attuneBlock ?? `${Math.round(r.ms / 60000)}분`, Boolean(attuneBlock)),
-    UI.rowHTML('강화', `같은 자리 부속을 먹여 <b>+1 ~ +${EN.PLUS_MAX}</b>까지 키운다`,
+    UI.rowHTML('부속 강화', `같은 자리 부속을 먹여 <b>+1 ~ +${EN.PLUS_MAX}</b>까지 키운다`,
       canEnhance ? '바로 된다' : '같은 자리 여분이 둘 이상 필요하다', !canEnhance),
+    UI.rowHTML('핵 강화', `핵 가루로 <b>마력 · 체력 · 기술 칸</b>을 늘린다`,
+      S.golem.core ? `${coreLevel(S)}강 · 가루 ${S.coreDust ?? 0}` : '핵이 없다', !S.golem.core),
   ], `<p class="note"><b>정착</b>은 무덤에서 주워 온 것을 쓸 수 있게 만드는 길이다 —
       날것은 능력치가 60%만 나오고, 기술이 넷 중 하나꼴로 불발되며, 내구도가 두 배로 닳는다.<br>
       <b>강화</b>는 쌓이는 여분을 쓰는 자리다. 한 단계마다 능력치 +${Math.round(EN.PLUS_STAT * 100)}%,
@@ -2718,10 +2864,19 @@ function forgeJobScreen() {
       meta: attuneBlock ?? `${Math.round(r.ms / 60000)}분 · ${Object.entries(r.cost).map(([k, v]) => `${O.RES_LABEL[k]} ${v}`).join(' · ')}`,
       disabled: Boolean(attuneBlock),
       now: true, on: () => recipeScreen('attune') },
-    { label: `⚒ 강화 — 부속을 먹여 키운다`,
+    { label: `⚒ 부속 강화 — 부속을 먹여 키운다`,
       meta: canEnhance ? `+1 ~ +${EN.PLUS_MAX}` : '같은 자리 여분이 둘 이상 필요하다',
       disabled: !canEnhance,
       now: true, on: () => enhanceScreen(true) },
+    /* 핵 강화는 **여기**로 왔다 (§3.11-A). 뼈 모루의 「영혼석 강화」였는데,
+       쇠붙이를 두드리는 자리보다 부속을 키우는 자리 옆에 있는 편이 맞다 —
+       둘 다 「그릇을 키우는 일」이다. */
+    { label: '🔆 핵 강화 — 그릇을 키운다',
+      meta: S.golem.core
+        ? `${coreLevel(S)}강 · 가루 ${S.coreDust ?? 0}`
+        : '핵이 없다',
+      disabled: !S.golem.core,
+      now: true, on: coreUpScreen },
     { label: '돌아간다', cls: 'ghost', pin: true, on: workshopHubScreen },
   ], { stage: true, stageTitle: '단련로 — 길들이고, 키운다' });
   save();
@@ -3076,7 +3231,7 @@ function laborScreen() {
     `<p class="note">한 번에 <b>${O.laborSlots(o)}기</b>까지 내보낼 수 있다
       (지금 ${o.laborBay.dispatch.length}/${O.laborSlots(o)}칸). 제단의 <b>안치소 증설</b>로 늘린다.<br>
       깬 단계로 돌려보내 조각·골분·진액·은화를 주워 오게 한다. 운이 좋으면 부속도.<br>
-      주워 온 부속은 <b>표본실</b>로 들어가고, 날것이라 정착을 거쳐야 한다.<br>
+      주워 온 부속은 <b>가방</b>으로 들어오고, 날것이라 정착을 거쳐야 한다.<br>
       나가 있는 동안 그 골렘은 쓸 수 없다. 돌아올 때 부속 하나가 닳을 수 있다.<br>
       무덤으로 내려가는 일이라 <b>핵도 닳는다</b> — 시간마다 ${O.TRIP_HP_PER_HOUR}씩.
       바닥나면 정비대에서 안정화해야 다시 보낸다.</p>`);
@@ -3307,12 +3462,12 @@ function altarScreen(pick = null) {
         UI.logLine(`안치소가 넓어졌다. 받침대 ${O.golemCap(o)}기 · 자율 탐험 ${O.laborSlots(o)}칸 · 작업반 ${O.crewCap(o)}기.`, 'good');
       });
   }
-  if (o.built.vault && o.vault.capacity < 10) {
-    add('vault', `표본실 확장 (${o.vault.capacity} → ${o.vault.capacity + 1}칸)`, 40,
-      `${o.vault.parts.length}/${o.vault.capacity}칸 차 있다`, `${o.vault.capacity + 1}칸`,
-      `표본실은 자율 탐험이 주워 온 것과 맡겨 둔 부속이 들어가는 창고다.
-       꽉 차면 </b>주워 와도 들어갈 자리가 없다.<b>`,
-      () => { o.vault.capacity++; });
+  if (o.built.vault && o.vault.level < O.VAULT_MAX_LV) {
+    add('vault', `창고 확장 (${O.vaultCap(o)} → ${O.vaultCap(o) + O.VAULT_STEP}칸)`, 40 + o.vault.level * 30,
+      `${o.vault.parts.length}/${O.vaultCap(o)}칸 차 있다`, `${O.vaultCap(o) + O.VAULT_STEP}칸`,
+      `창고에 맡겨 둔 부속은 무덤에서 골렘이 무너져도 </b>흘리지 않는다<b>.
+       깊이 내려갈수록 들고 갈 여분을 줄이고 싶어지는데, 그때 맡길 자리가 필요하다.`,
+      () => { o.vault.level++; });
   }
   if (o.capStep < O.CAP_STEPS.length - 1) {
     add('cap', `오프라인 상한 확장 (${Math.round(o.offlineCapMs / O.HOUR)} → ${Math.round(O.CAP_STEPS[o.capStep + 1] / O.HOUR)}시간)`,
@@ -3700,8 +3855,8 @@ function forgeScreen() {
     }
   }
   const cru = DB.attachmentsBy.at_crucible;
-  list.push({ label: '🔆 영혼석 강화 — 마력 늘리기', cls: 'primary',
-    meta: `마력 ${coreMana(S)}`, on: coreManaScreen });
+  /* (구) 영혼석 강화 — 납골당 단련로의 핵 강화로 옮겼다 (§3.11-A).
+     쇠붙이를 두드리는 자리보다 부속을 키우는 자리 옆이 맞다. */
   list.push({ label: '속성 도가니 · 스킬 속성 변경', meta: money(cru.price),
     disabled: !canCraft(S, cru), on: retuneScreen });
   list.push({ label: '돌아간다', cls: 'ghost', pin: true, on: marketScreen });
@@ -3810,7 +3965,7 @@ function golemScreen(back = town, canEdit = true) {
      이미 눈이 가 있는 그림을 누르는 쪽이 짧다. */
   UI.golemPanel(S, canEdit ? (slot) => slotScreen(slot, back, canEdit) : null);
   const g = assembleGolem(S);
-  if (g.over) UI.logLine(`스킬이 ${g.active.length}개다. ${SKILL_CAP}개를 넘으면 일부를 봉인해야 한다.`, 'bad');
+  if (g.over) UI.logLine(`기술이 ${g.active.length}개다. ${g.skillCap}개를 넘으면 일부를 봉인해야 내려간다.`, 'bad');
   const raws = g.worn.filter(({ part }) => part.raw);
   if (raws.length) {
     UI.logLine(`날것 상태로 붙인 부속 ${raws.length}개 — 성능 60%, 기술이 불발될 수 있고 내구도가 배로 닳는다.`, 'bad');
@@ -3827,9 +3982,9 @@ function golemScreen(back = town, canEdit = true) {
       on: () => coreScreen(back, canEdit) }] : []),
     /* 기술 목록은 **언제나** 열려 있어야 한다 (§12.23). 전에는 상한을 넘겼을 때만
        문이 열려서, 위력이 얼마인지 보려면 일부러 기술을 늘려야 했다. */
-    { label: `🗡 기술 ${g.active.length}/${SKILL_CAP}${g.skills.length > g.active.length ? ` · 봉인 ${g.skills.length - g.active.length}` : ''}`,
+    { label: `🗡 기술 ${g.active.length}/${g.skillCap}${g.skills.length > g.active.length ? ` · 봉인 ${g.skills.length - g.active.length}` : ''}`,
       cls: g.over ? 'primary' : '',
-      meta: g.over ? `${g.active.length - SKILL_CAP}개를 봉인해야 내려간다` : '위력·명중·충전을 보고 봉인한다',
+      meta: g.over ? `${g.active.length - g.skillCap}개를 봉인해야 내려간다` : '위력·명중·충전을 보고 봉인한다',
       on: () => banScreen(back, canEdit) },
     canEdit ? { label: '골렘 명부', cls: 'ghost', info: '내 골렘들이 어디에 있는지 보고, 데려갈 몸을 고른다.',
       on: () => rosterScreen(() => golemScreen(back, canEdit)) } : null,
@@ -3962,7 +4117,7 @@ function banScreen(back, canEdit = true) {
   const live = g.skills.filter((sid) => !isBan(sid));
   UI.topbar(S, '골렘 · 스킬 봉인');
 
-  UI.listPanel(`기술 ${live.length}/${SKILL_CAP} · 봉인 ${g.skills.length - live.length}`,
+  UI.listPanel(`기술 ${live.length}/${g.skillCap} · 봉인 ${g.skills.length - live.length}`,
     g.skills.map((sid) => {
       const sk = DB.skillsBy[sid];
       return UI.rowHTML(skillElement(S, sid),
@@ -3970,14 +4125,14 @@ function banScreen(back, canEdit = true) {
         sk.power ? `위력 ${sk.power}${sk.charges === null ? ' · ∞' : ` · ${sk.charges}`}` : '보조',
         isBan(sid));
     }),
-    `<p class="note">전투에 들고 갈 수 있는 기술은 <b>${SKILL_CAP}개</b>까지다.
+    `<p class="note">전투에 들고 갈 수 있는 기술은 <b>${g.skillCap}개</b>까지다 (기본 ${SKILL_CAP_BASE}개 · 핵을 ${SKILL_CAP_STEP}강 올릴 때마다 한 칸).
       넘으면 넘치는 만큼 봉인해야 무덤에 내려갈 수 있다.<br>
       <b>봉인해도 능력치는 그대로다</b> — 부속은 붙어 있고 기술만 잠근다.<br>
       기술을 누르면 위력·명중·충전과 그것이 나오는 부속을 본다.</p>`);
 
   UI.logHead('스킬 봉인');
-  UI.logLine(`쓸 수 있는 것 ${live.length}개 / 상한 ${SKILL_CAP}개.`, live.length > SKILL_CAP ? 'bad' : 'dim');
-  if (live.length > SKILL_CAP) UI.logLine(`${live.length - SKILL_CAP}개를 더 봉인해야 내려갈 수 있다.`, 'bad');
+  UI.logLine(`쓸 수 있는 것 ${live.length}개 / 상한 ${g.skillCap}개.`, g.over ? 'bad' : 'dim');
+  if (g.over) UI.logLine(`${live.length - g.skillCap}개를 더 봉인해야 내려갈 수 있다.`, 'bad');
 
   UI.choices([
     ...g.skills.map((sid) => {
@@ -4098,7 +4253,7 @@ function inventoryScreen(back = town) {
     `${p.integrity}/${p.maxIntegrity}`, wornLow(p), `p:${p.uid}`));
   const rows = [...mats, ...items, ...parts];
   const away = [
-    ['표본실', (S.ossuary?.vault?.parts ?? []).length],
+    ['창고', (S.ossuary?.vault?.parts ?? []).length],
     ['조립대', O.workshopGolems(S).reduce((n, g) => n + g.parts.length, 0)],
     ['파견', (S.ossuary?.laborBay?.dispatch ?? []).reduce((n, d) => {
       const g = O.workshopGolems(S).find((x) => x.id === d.golemId);
@@ -4230,9 +4385,17 @@ function startRun() {
     return;
   }
   const gm = assembleGolem(S);
+  /* 기술이 상한을 넘으면 **내려갈 수 없다** (§3.11). 화면에는 「봉인해야 내려간다」고
+     적어 두고 정작 막지는 않아, 넘긴 채로 그대로 들어가지고 있었다 —
+     적힌 규칙과 실제가 다르면 적힌 쪽을 아무도 믿지 않는다. */
+  if (gm.over) {
+    UI.logLine(`기술이 ${gm.active.length}개다. 들고 갈 수 있는 것은 ${gm.skillCap}개까지다.`, 'bad');
+    UI.logLine(`${gm.active.length - gm.skillCap}개를 봉인해야 내려갈 수 있다 — 골렘 정비의 🗡 기술에서 고른다.`, 'dim');
+    return;
+  }
   if (gm.manaOver) {
     UI.logLine(`핵이 감당하지 못한다. 마력 ${gm.manaUsed}/${gm.manaMax}.`, 'bad');
-    UI.logLine('부속을 덜어내거나, 대장간에서 핵을 강화하거나, 더 좋은 핵을 구해야 한다.', 'dim');
+    UI.logLine('부속을 덜어내거나, 단련로에서 핵을 강화하거나, 더 좋은 핵을 구해야 한다.', 'dim');
     return;
   }
   stageSelect();
@@ -5429,9 +5592,9 @@ function reportDismantle(r) {
     UI.logLine(`쓰러지며 짐도 쏟았다 — ${r.spareLost.map(partName).join(', ')}.`, 'bad');
     if (!S.log.hintVault) {
       S.log.hintVault = true;
-      UI.logLine('— 표본실 —', 'necro');
+      UI.logLine('— 창고 —', 'necro');
       UI.logLine(`무덤에 들고 내려간 여분은 무너질 때 하나당 ${r.rate}%씩 흘린다.`, 'necro');
-      UI.logLine('납골당 표본실에 맡긴 것은 무너져도 그대로 남는다.', 'good');
+      UI.logLine('납골당 창고에 맡긴 것은 무너져도 그대로 남는다.', 'good');
     }
   }
 }

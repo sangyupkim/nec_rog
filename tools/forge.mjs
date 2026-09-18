@@ -33,18 +33,18 @@ const blank = () => ({
     lastSeenAt: 0, offlineCapMs: 99 * HOUR,
     built: { rotVat: true, dissection: true, vault: true, forge: true, laborBay: false },
     rotVat: { level: 1, input: 0, stored: 0 }, dissection: { level: 1, slots: [] },
-    vault: { capacity: 99, parts: [], lostRecords: [] }, forge: { level: 2, slots: [] },
+    vault: { level: 1, parts: [], lostRecords: [] }, forge: { level: 2, slots: [] },
     laborBay: { level: 1, dispatch: [] }, overhaul: [],
     workshop: { golems: [], seq: 0 },
   },
 });
 
-/** 조리법 하나를 걸고 시간을 흘려, 표본실에 떨어진 결과물을 돌려준다 */
+/** 조리법 하나를 걸고 시간을 흘려, **가방에** 떨어진 결과물을 돌려준다 (§9.18) */
 function run(recipe, inputs, extra = {}) {
   const s = blank();
   s.ossuary.forge.slots.push({ recipe, inputs, startedAt: 0, durationMs: 1, ...extra });
   O.settle(s, 10 * HOUR);
-  return s.ossuary.vault.parts.at(-1) ?? null;
+  return { part: s.inventory.at(-1) ?? null, save: s };
 }
 
 const arms = DB.parts.filter((p) => p.slot === 'arm');
@@ -53,11 +53,16 @@ const A = arms[0], B = arms[1];
 console.log('■ 정착 — 날것이 온전해진다');
 {
   const raw = makePart(A.id); raw.raw = true; raw.plus = 3;
-  const out = run('attune', [raw]);
-  console.log(`  ${partName(raw)} (날것) → ${out ? partName(out) : '없음'} · raw=${out?.raw} · 강화 ${out?.plus ?? 0}`);
+  const { part: out, save: s2 } = run('attune', [raw]);
+  console.log(`  ${partName(raw)} (날것) → ${out ? partName(out) : '없음'} · raw=${out?.raw} · 강화 ${out?.plus ?? 0}`
+    + ` · 창고 ${s2.ossuary.vault.parts.length}개 · 가방 ${s2.inventory.length}개`);
   ok(out && out.raw === false, '날것 표가 떨어진다');
   ok(out && out.defId === raw.defId, '같은 부속 그대로다');
   ok(out && out.plus === 3, '강화 기록은 그대로 따라간다');
+  /* 다 된 것은 **가방으로 온다** (§9.18). 전에는 창고로 보내서, 정착을 걸어 놓고
+     돌아오면 부속이 가방에 없어 매번 찾아 헤맸다. */
+  ok(s2.ossuary.vault.parts.length === 0, '창고를 거치지 않는다');
+  ok(s2.inventory.length === 1, '가방으로 들어온다');
 }
 
 console.log('\n■ 없앤 조리법이 걸려 있어도 판이 멈추지 않는다');

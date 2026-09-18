@@ -1326,7 +1326,7 @@ export function golemPanel(save, onPick = null, focus = null) {
     <div class="chips">
       <span class="chip ${g.shieldNowTotal < g.shieldTotal ? 'warn' : ''}">방어도 ${g.shieldNowTotal}/${g.shieldTotal}</span>
       <span class="chip" style="color:var(--el-${g.defElement})">${g.defElement}</span>
-      <span class="chip ${g.over ? 'warn' : ''}">스킬 ${g.active.length}/${SKILL_CAP}</span>
+      <span class="chip ${g.over ? 'warn' : ''}">기술 ${g.active.length}/${g.skillCap}</span>
       <span class="chip ${g.manaOver ? 'warn' : ''}">마력 ${g.manaUsed}/${g.manaMax}</span>
     </div>
     ${risky.length || raw.length ? `<div class="chips">
