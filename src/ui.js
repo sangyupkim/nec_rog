@@ -1044,6 +1044,36 @@ export function golemBody(save) {
   return { html: bodyMapHTML(cells), bind: (onPick) => bindBody(detail, onPick) };
 }
 
+/* ── 사역 골렘의 몸 도식 (§12.24) ─────────────────────
+   「탐험 골렘은 부위를 눌러 바꾸는데, 조립대·자율 탐험 쪽 골렘은 옛 목록 그대로다」 —
+   맞다. `golemPanel`은 **`save.golem`만** 읽도록 박혀 있어서 사역 골렘에는 쓸 수 없었고,
+   그래서 그쪽만 줄글 목록으로 남아 있었다. 같은 일을 하는 화면이 둘로 갈리면
+   하나를 고칠 때마다 다른 하나가 낡는다.
+
+   도식을 **골렘의 출처와 무관하게** 그리도록 떼어 냈다. 부르는 쪽이
+   자리별 부속만 넘기면 된다 — 탐험 골렘이든, 조립대에 세운 몸이든. */
+export function bodyPanel({ title, sub, hp, hpMax, chips = [], at, note = '', rows = [] }, onPick = null) {
+  const cells = SLOTS.map((slot) => {
+    const w = at(slot);
+    if (!w?.part) return { slot, empty: true };
+    return { slot, pct: (w.shield / Math.max(1, w.shieldMax)) * 100,
+             down: w.shield <= 0, rarity: rarityOf(w.part) };
+  });
+  const bm = bodyMapHTML(cells);
+  panel(`
+    <p class="pt">${esc(title)}${sub ? ` <span class="sub">${esc(sub)}</span>` : ''}</p>
+    ${hpMax ? bar(hp, hpMax) : ''}
+    ${chips.length ? `<div class="chips">${chips.join('')}</div>` : ''}
+    ${bm}
+    ${rows.length ? `<div class="rows">${rows.join('')}</div>` : ''}
+    ${note}`);
+  bindBody((slot) => {
+    const w = at(slot);
+    if (!w?.part) return null;
+    return partDetailHTML(w.part, { shield: w.shield, shieldMax: w.shieldMax, down: w.shield <= 0 });
+  }, onPick);
+}
+
 function bindBodyCells(cb) {
   bindBody((slot) => {
     const w = cb.g.worn.find((x) => x.slot === slot);

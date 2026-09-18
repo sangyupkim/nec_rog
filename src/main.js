@@ -2473,107 +2473,134 @@ function newWorkGolem(coreId) {
 }
 
 /** 사역 골렘 한 기 — 자리마다 부속을 붙이고 뗀다 */
-function workGolemScreen(id, back = workshopScreen) {
+/* ── 사역 골렘 손보기 (§12.24) ─────────────────────
+   탐험 골렘과 **같은 도식**을 쓴다. 전에는 이쪽만 줄글 목록이라,
+   부위를 바꾸려면 「좌완 — …」 단추 여섯을 훑어야 했다.
+   한 골렘을 손보는 일이 어디서 들어왔느냐에 따라 달라질 이유가 없다. */
+function workGolemScreen(id, back = workshopScreen, focus = null) {
   const g = O.workshopGolems(S).find((x) => x.id === id);
   if (!g) { back(); return; }
   g.slots ??= {};
   const core = DB.coresBy[g.core];
   UI.topbar(S, `납골당 · ${g.name}`);
 
-  const partAt = (slot) => g.parts.find((p) => p.uid === g.slots[slot]) ?? null;
-  UI.listPanel(g.name, [
-    UI.rowHTML('핵', UI.esc(core?.name ?? '?'), `체력 ${core?.hp ?? 0}`),
-    ...SLOTS.map((slot) => {
-      const p = partAt(slot);
-      return UI.rowHTML(SLOT_LABEL[slot],
-        p ? UI.partHTML(p) : '<span class="empty">비어 있음</span>',
-        p ? `${p.integrity}/${p.maxIntegrity}` : '', !p);
-    }),
-  ], `<p class="note">능률 <b>${O.golemPower(g)}</b> — 핵 체력의 1/10에 부속 능력치를 더한 값이다.<br>
-      작업반에 붙이면 해체대·단련로 작업 시간이 줄어든다 (상한 60%).</p>`);
+  const at = (slot) => {
+    const p = g.parts.find((x) => x.uid === g.slots[slot]) ?? null;
+    if (!p) return null;
+    return { part: p, shield: shieldNow(p, slot), shieldMax: shieldMax(p, slot) };
+  };
+  const st = O.golemStats(g);
+  const busy = g.assigned === 'labor' ? '자율 탐험 중' : g.assigned === 'crew' ? '작업반' : null;
+  const spent = O.coreSpent(g);
+
+  UI.bodyPanel({
+    title: g.name,
+    sub: core?.name ?? '핵 없음',
+    hp: O.coreHpOf(g), hpMax: O.coreMaxOf(g),
+    chips: [
+      `<span class="chip ${spent ? 'warn' : ''}">핵 ${O.coreHpOf(g)}/${O.coreMaxOf(g)}</span>`,
+      `<span class="chip">능률 ${O.golemPower(g)}</span>`,
+      `<span class="chip">부속 ${g.parts.length}/6</span>`,
+      busy ? `<span class="chip warn">${busy}</span>` : '',
+    ].filter(Boolean),
+    at,
+    rows: [
+      UI.rowHTML('능력치', `공격 ${st.atk} · 방어 ${st.def} · 속도 ${st.spd} · 집중 ${st.focus}`, ''),
+      UI.rowHTML('일하는 값', '핵이 닳는다', busy ? '지금 일하는 중' : '쉬는 중'),
+    ],
+    note: `<p class="note">도식에서 <b>부위를 누르면</b> 거기에 끼울 것들이 오른쪽에 뜬다.<br>
+      능률 <b>${O.golemPower(g)}</b> — 핵 체력의 1/10에 부속 능력치를 더한 값이다.
+      작업반에 붙이면 해체대·단련로·정비대 작업 시간이 줄어든다 (상한 60%).<br>
+      ${spent ? '<b>핵이 바닥났다</b> — 정비대에서 안정화해야 다시 일한다.' : ''}</p>`,
+  }, (slot) => workGolemScreen(id, back, slot));
 
   UI.logHead(g.name);
-  UI.logLine('핵을 올려 새 골렘을 세운다.', 'narrate');
+  UI.logLine('받침대 위의 몸을 손본다.', 'narrate');
   if (!g.parts.length) UI.logLine('아직 부속이 하나도 없다. 능률은 핵 몫뿐이다.', 'dim');
+  if (busy) UI.logLine(`${busy}이라 지금은 손볼 수 없다.`, 'dim');
+
+  /* 부위를 누르면 **오른쪽이 곧장 그 자리의 교체 목록**이 된다 — 탐험 골렘과 같다 */
+  if (focus) { workSlotCards(g, focus, back); return; }
 
   UI.choices([
     ...SLOTS.map((slot) => {
-      const p = partAt(slot);
+      const w = at(slot);
       return {
-        label: `${SLOT_LABEL[slot]} — ${p ? UI.partHTML(p) : '비어 있음'}`,
-        meta: p ? '바꾸거나 뗀다' : '붙인다',
-        on: () => workSlotScreen(g.id, slot, back),
+        label: `${SLOT_LABEL[slot]} — ${w ? UI.partHTML(w.part) : '<span class="empty">비어 있음</span>'}`,
+        meta: w ? `${w.part.integrity}/${w.part.maxIntegrity} · 바꾸거나 뗀다` : '붙인다',
+        info: w ? UI.partTip(w.part) : undefined,
+        on: () => workGolemScreen(id, back, slot),
       };
     }),
-    // 자리가 여섯이라 쪽이 넘어간다. 이 둘은 어느 쪽에서든 눌려야 한다
     g.assigned === 'crew'
       ? { label: '작업반에서 물린다', cls: 'ghost', pin: true,
           on: () => { g.assigned = null; save(); workGolemScreen(id, back); } }
       : g.assigned === 'labor'
-        ? { label: '파견 나가 있다', cls: 'ghost', pin: true, disabled: true,
-            meta: '안치소에서 불러들인다' }
-        : { label: '작업반에 붙인다', cls: 'primary', pin: true, meta: `능률 ${O.golemPower(g)}`,
+        ? { label: '자율 탐험을 나가 있다', cls: 'ghost', pin: true, disabled: true,
+            meta: '자율 탐험에서 불러들인다' }
+        : { label: '작업반에 붙인다', cls: 'primary', pin: true,
+            meta: spent ? '핵이 바닥났다 — 정비대로' : `능률 ${O.golemPower(g)}`,
+            disabled: spent || !canWork(g),
             on: () => { g.assigned = 'crew'; save(); workGolemScreen(id, back); } },
     { label: '이 골렘을 해체한다', cls: 'danger', pin: true,
-      meta: g.assigned === 'labor' ? '파견 중에는 해체할 수 없다' : `핵과 부속 ${g.parts.length}개 회수`,
+      meta: g.assigned === 'labor' ? '자율 탐험 중에는 해체할 수 없다' : `핵과 부속 ${g.parts.length}개 회수`,
       disabled: g.assigned === 'labor',
       on: () => { disassembleWorkGolem(id); workshopScreen(); } },
     { label: '돌아간다', cls: 'ghost', pin: true, on: back },
-  ]);
+  ], { stage: true, stageTitle: `${g.name} — 어디를 손볼까` });
   save();
 }
 
-/** 그 자리에 넣을 부속을 고른다 */
-function workSlotScreen(id, slot, back = workshopScreen) {
-  const g = O.workshopGolems(S).find((x) => x.id === id);
-  if (!g) { back(); return; }
+/** 고른 자리에 끼울 것들 — 도식 옆에 바로 펼친다 (§12.24) */
+function workSlotCards(g, slot, back) {
   const kind = SLOT_KIND[slot];
   const cur = g.parts.find((p) => p.uid === g.slots[slot]) ?? null;
+  const busy = Boolean(g.assigned);
   const options = sparePool().filter((p) => DB.partsBy[p.defId].slot === kind);
 
-  UI.topbar(S, `${g.name} · ${SLOT_LABEL[slot]}`);
-  UI.listPanel(`${SLOT_LABEL[slot]}에 넣을 것`,
-    options.map((p) => {
-      const st = partStats(p);
-      return UI.rowHTML(KIND_LABEL[kind], UI.partHTML(p),
-        `능률 ${st.atk + st.def + Math.max(0, st.spd) + st.focus}`);
-    }),
-    `<p class="note">지금: ${cur ? UI.partHTML(cur) : '비어 있음'}<br>
-      여기 넣은 부속은 탐험에 쓸 수 없지만 내구도도 닳지 않는다.</p>`);
-
-  UI.logHead(`${SLOT_LABEL[slot]} 고르기`);
-  if (!options.length) UI.logLine('그 자리에 넣을 여분 부속이 없다.', 'dim');
-
-  const detach = () => {
-    if (!cur) return;
-    g.parts = g.parts.filter((p) => p.uid !== cur.uid);
-    delete g.slots[slot];
-    S.inventory.push(cur);
-  };
+  UI.logLine(`${SLOT_LABEL[slot]} — ${cur ? partName(cur) : '비어 있다'}.`, 'necro');
+  if (busy) UI.logLine('일하는 중에는 부속을 건드릴 수 없다. 먼저 물려야 한다.', 'bad');
+  else if (!options.length && !cur) UI.logLine(`${KIND_LABEL[kind]} 여분이 없다.`, 'dim');
 
   UI.choices([
-    ...options.map((p) => {
-      const st = partStats(p);
-      return {
-        label: UI.partHTML(p),
-        meta: `공${st.atk} 방${st.def} 속${st.spd} 집${st.focus} · ${p.integrity}/${p.maxIntegrity}`,
-        info: UI.partTip(p),
-        on: () => {
-          detach();
-          S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
-          g.parts.push(p);
-          g.slots[slot] = p.uid;
-          UI.logLine(`${partName(p)}을(를) ${g.name}의 ${SLOT_LABEL[slot]}에 붙였다.`, 'good');
-          save();
-          workGolemScreen(id, back);
-        },
-      };
-    }),
-    cur ? { label: '떼어낸다', cls: 'danger',
-      on: () => { detach(); UI.logLine(`${partName(cur)}을(를) 되찾았다.`, 'dim'); save(); workGolemScreen(id, back); } } : null,
-    { label: '돌아간다', cls: 'ghost', pin: true, on: () => workGolemScreen(id, back) },
-  ]);
+    cur ? { label: `${UI.partHTML(cur)} 뗀다`, cls: 'ghost',
+      meta: busy ? '일하는 중에는 못 뗀다' : '가진 것으로 되돌린다',
+      disabled: busy,
+      on: () => {
+        g.parts = g.parts.filter((p) => p.uid !== cur.uid);
+        delete g.slots[slot];
+        S.inventory.push(cur);
+        UI.logLine(`${partName(cur)}을(를) 뗐다.`, 'dim');
+        save();
+        workGolemScreen(g.id, back, slot);
+      } } : null,
+    ...options.map((p) => ({
+      label: UI.partHTML(p),
+      meta: busy ? '일하는 중에는 못 끼운다'
+        : `${p.integrity}/${p.maxIntegrity}${p.plus ? ` · +${p.plus}` : ''}${p.raw ? ' · 날것' : ''}`,
+      disabled: busy,
+      info: UI.partTip(p),
+      on: () => {
+        if (cur) {                              // 끼워져 있던 것은 가진 것으로 돌아간다
+          g.parts = g.parts.filter((x) => x.uid !== cur.uid);
+          S.inventory.push(cur);
+        }
+        S.inventory = S.inventory.filter((x) => x.uid !== p.uid);
+        g.parts.push(p);
+        g.slots[slot] = p.uid;
+        UI.logLine(`${SLOT_LABEL[slot]}에 ${partName(p)}을(를) 끼웠다.`, 'good');
+        save();
+        workGolemScreen(g.id, back, slot);
+      },
+    })),
+    { label: '다른 자리', cls: 'ghost', pin: true, on: () => workGolemScreen(g.id, back) },
+    { label: '돌아간다', cls: 'ghost', pin: true, on: back },
+  ], { stage: true, stageTitle: `${SLOT_LABEL[slot]}에 넣을 것` });
+  save();
 }
+
+/* (구) workSlotScreen — 도식 옆에 바로 펼치는 workSlotCards로 대체했다 (§12.24) */
+
 
 function disassembleWorkGolem(id) {
   const o = S.ossuary;
